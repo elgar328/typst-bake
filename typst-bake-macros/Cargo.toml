@@ -1,0 +1,21 @@
+[package]
+name = "typst-bake-macros"
+version = "0.1.0"
+edition = "2021"
+description = "Procedural macros for typst-bake"
+license = "MIT OR Apache-2.0"
+
+[lib]
+proc-macro = true
+
+[dependencies]
+proc-macro2 = "1"
+quote = "1"
+syn = "2"
+typst-syntax = "0.14"
+ureq = "3.1"
+flate2 = "1"
+binstall-tar = "0.4"
+toml = "0.8"
+walkdir = "2"
+dirs = "5"
