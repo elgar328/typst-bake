@@ -52,7 +52,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     };
 
     let pdf = typst_bake::document!("main.typ")
-        .with_font(include_bytes!("../fonts/SourceSerif4-Regular.ttf"))
         .with_inputs(shopping_list.into_dict())
         .to_pdf()?;
 

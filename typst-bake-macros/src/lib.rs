@@ -11,13 +11,12 @@ use proc_macro::TokenStream;
 use quote::quote;
 use syn::{parse_macro_input, LitStr};
 
-/// Creates a Document with embedded templates and packages.
+/// Creates a Document with embedded templates, fonts, and packages.
 ///
 /// # Usage
 ///
 /// ```rust,ignore
 /// let pdf = typst_bake::document!("main.typ")
-///     .with_font(include_bytes!("fonts/myfont.ttf"))
 ///     .to_pdf()?;
 /// ```
 ///
@@ -27,6 +26,7 @@ use syn::{parse_macro_input, LitStr};
 /// ```toml
 /// [package.metadata.typst-bake]
 /// template-dir = "./templates"
+/// fonts-dir = "./fonts"
 /// ```
 #[proc_macro]
 pub fn document(input: TokenStream) -> TokenStream {
@@ -55,6 +55,18 @@ pub fn document(input: TokenStream) -> TokenStream {
         .to_compile_error()
         .into();
     }
+
+    // Get fonts directory
+    let fonts_dir = match config::get_fonts_dir() {
+        Ok(dir) => dir,
+        Err(e) => {
+            return syn::Error::new_spanned(entry, e)
+                .to_compile_error()
+                .into();
+        }
+    };
+
+    let fonts_dir_str = fonts_dir.to_string_lossy().to_string();
 
     // Scan for packages
     eprintln!("typst-bake: Scanning templates for package imports...");
@@ -90,14 +102,16 @@ pub fn document(input: TokenStream) -> TokenStream {
 
     // Generate code
     // Note: Users need to add `include_dir = "0.7"` to their dependencies
+    // because include_dir! macro references ::include_dir:: internally
     let expanded = quote! {
         {
             use ::typst_bake::__internal::{Dir, Document};
 
             static TEMPLATES: Dir<'static> = ::include_dir::include_dir!(#template_dir_str);
             static PACKAGES: Dir<'static> = ::include_dir::include_dir!(#cache_dir_str);
+            static FONTS: Dir<'static> = ::include_dir::include_dir!(#fonts_dir_str);
 
-            Document::__new(&TEMPLATES, &PACKAGES, #entry_value)
+            Document::__new(&TEMPLATES, &PACKAGES, &FONTS, #entry_value)
         }
     };
 
