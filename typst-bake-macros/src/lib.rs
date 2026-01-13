@@ -4,6 +4,7 @@
 //! and packages at compile time.
 
 mod config;
+mod dir_embed;
 mod downloader;
 mod scanner;
 
@@ -43,8 +44,6 @@ pub fn document(input: TokenStream) -> TokenStream {
         }
     };
 
-    let template_dir_str = template_dir.to_string_lossy().to_string();
-
     // Check if entry file exists
     let entry_path = template_dir.join(&entry_value);
     if !entry_path.exists() {
@@ -66,8 +65,6 @@ pub fn document(input: TokenStream) -> TokenStream {
         }
     };
 
-    let fonts_dir_str = fonts_dir.to_string_lossy().to_string();
-
     // Scan for packages
     eprintln!("typst-bake: Scanning templates for package imports...");
     let packages = scanner::extract_packages(&template_dir);
@@ -81,8 +78,6 @@ pub fn document(input: TokenStream) -> TokenStream {
                 .into();
         }
     };
-
-    let cache_dir_str = cache_dir.to_string_lossy().to_string();
 
     if !packages.is_empty() {
         eprintln!(
@@ -101,15 +96,19 @@ pub fn document(input: TokenStream) -> TokenStream {
     }
 
     // Generate code
-    // Note: Users need to add `include_dir = "0.7"` to their dependencies
-    // because include_dir! macro references ::include_dir:: internally
+    // We directly generate Dir struct code instead of using include_dir! macro
+    // This allows users to not need include_dir in their dependencies
+    let templates_code = dir_embed::embed_dir(&template_dir);
+    let packages_code = dir_embed::embed_dir(&cache_dir);
+    let fonts_code = dir_embed::embed_dir(&fonts_dir);
+
     let expanded = quote! {
         {
             use ::typst_bake::__internal::{Dir, Document};
 
-            static TEMPLATES: Dir<'static> = ::include_dir::include_dir!(#template_dir_str);
-            static PACKAGES: Dir<'static> = ::include_dir::include_dir!(#cache_dir_str);
-            static FONTS: Dir<'static> = ::include_dir::include_dir!(#fonts_dir_str);
+            static TEMPLATES: Dir<'static> = #templates_code;
+            static PACKAGES: Dir<'static> = #packages_code;
+            static FONTS: Dir<'static> = #fonts_code;
 
             Document::__new(&TEMPLATES, &PACKAGES, &FONTS, #entry_value)
         }

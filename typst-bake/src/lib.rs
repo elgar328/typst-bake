@@ -12,7 +12,6 @@
 //!
 //! [dependencies]
 //! typst-bake = "0.1"
-//! include_dir = "0.7"
 //! ```
 //!
 //! Then use the `document!()` macro:
@@ -39,4 +38,6 @@ pub use include_dir;
 pub mod __internal {
     pub use super::document::Document;
     pub use include_dir::Dir;
+    // Re-export include_dir crate for direct struct construction
+    pub use include_dir;
 }
