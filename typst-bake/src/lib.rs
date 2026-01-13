@@ -8,16 +8,16 @@
 //! ```toml
 //! [package.metadata.typst-bake]
 //! template-dir = "./templates"
+//! fonts-dir = "./fonts"
 //!
 //! [dependencies]
 //! typst-bake = "0.1"
-//! include_dir = "0.7"  # Required for the document!() macro
+//! include_dir = "0.7"
 //! ```
 //!
 //! Then use the `document!()` macro:
 //! ```rust,ignore
 //! let pdf = typst_bake::document!("main.typ")
-//!     .with_font(include_bytes!("fonts/myfont.ttf"))
 //!     .to_pdf()?;
 //!
 //! std::fs::write("output.pdf", pdf)?;

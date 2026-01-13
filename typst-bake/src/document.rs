@@ -7,12 +7,12 @@ use typst_as_lib::TypstEngine;
 
 /// A document ready for PDF generation.
 ///
-/// Created by the `document!()` macro with embedded templates and packages.
+/// Created by the `document!()` macro with embedded templates, fonts, and packages.
 pub struct Document {
     templates: &'static Dir<'static>,
     packages: &'static Dir<'static>,
+    fonts: &'static Dir<'static>,
     entry: String,
-    fonts: Vec<&'static [u8]>,
     inputs: Option<Dict>,
 }
 
@@ -23,29 +23,16 @@ impl Document {
     pub fn __new(
         templates: &'static Dir<'static>,
         packages: &'static Dir<'static>,
+        fonts: &'static Dir<'static>,
         entry: &str,
     ) -> Self {
         Self {
             templates,
             packages,
+            fonts,
             entry: entry.to_string(),
-            fonts: Vec::new(),
             inputs: None,
         }
-    }
-
-    /// Add a font to the document.
-    ///
-    /// Fonts should be embedded using `include_bytes!()`.
-    ///
-    /// # Example
-    /// ```rust,ignore
-    /// typst_bake::document!("main.typ")
-    ///     .with_font(include_bytes!("fonts/myfont.ttf"))
-    /// ```
-    pub fn with_font(mut self, font_data: &'static [u8]) -> Self {
-        self.fonts.push(font_data);
-        self
     }
 
     /// Add input data to the document.
@@ -89,11 +76,19 @@ impl Document {
         // Create resolver
         let resolver = EmbeddedResolver::new(self.templates, self.packages);
 
-        // Build engine with main file and resolver
+        // Collect fonts from the embedded fonts directory
+        let font_data: Vec<&[u8]> = self
+            .fonts
+            .files()
+            .filter(|f| is_font_file(f.path()))
+            .map(|f| f.contents())
+            .collect();
+
+        // Build engine with main file, resolver, and fonts
         let builder = TypstEngine::builder()
             .main_file(main_content)
             .add_file_resolver(resolver)
-            .fonts(self.fonts.iter().copied());
+            .fonts(font_data.into_iter());
 
         let engine = builder.build();
 
@@ -115,4 +110,10 @@ impl Document {
 
         Ok(pdf_bytes)
     }
+}
+
+/// Check if a file is a font file based on extension.
+fn is_font_file(path: &std::path::Path) -> bool {
+    let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("");
+    matches!(ext.to_lowercase().as_str(), "ttf" | "otf" | "ttc" | "woff" | "woff2")
 }
