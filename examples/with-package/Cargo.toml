@@ -1,0 +1,11 @@
+[package]
+name = "example-with-package"
+version = "0.1.0"
+edition = "2021"
+
+[package.metadata.typst-bake]
+template-dir = "./templates"
+
+[dependencies]
+typst-bake = { path = "../../typst-bake" }
+include_dir = "0.7"

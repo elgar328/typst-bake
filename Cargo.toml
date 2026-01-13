@@ -1,0 +1,10 @@
+[workspace]
+members = [
+    "typst-bake",
+    "typst-bake-macros",
+    "examples/with-inputs",
+    "examples/with-package",
+    "examples/with-fonts",
+    "examples/with-image",
+]
+resolver = "2"

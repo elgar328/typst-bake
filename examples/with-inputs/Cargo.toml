@@ -1,0 +1,14 @@
+[package]
+name = "example-with-inputs"
+version = "0.1.0"
+edition = "2021"
+
+[package.metadata.typst-bake]
+template-dir = "./templates"
+
+[dependencies]
+typst-bake = { path = "../../typst-bake" }
+include_dir = "0.7"
+derive_typst_intoval = "0.6"
+typst = "0.14"
+chrono = "0.4"
