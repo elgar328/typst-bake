@@ -9,6 +9,4 @@ fonts-dir = "./fonts"
 
 [dependencies]
 typst-bake = { path = "../../typst-bake" }
-derive_typst_intoval = "0.6"
-typst = "0.14"
 chrono = "0.4"

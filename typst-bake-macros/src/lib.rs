@@ -4,6 +4,7 @@
 //! and packages at compile time.
 
 mod config;
+mod derive_intoval;
 mod dir_embed;
 mod downloader;
 mod scanner;
@@ -115,4 +116,54 @@ pub fn document(input: TokenStream) -> TokenStream {
     };
 
     expanded.into()
+}
+
+/// Derive macro for implementing `IntoValue` trait.
+///
+/// This allows structs to be converted to Typst values for use with `with_inputs()`.
+///
+/// # Example
+///
+/// ```rust,ignore
+/// use typst_bake::IntoValue;
+///
+/// #[derive(IntoValue)]
+/// struct Item {
+///     name: String,
+///     quantity: i32,
+/// }
+/// ```
+#[proc_macro_derive(IntoValue)]
+pub fn derive_into_value(item: TokenStream) -> TokenStream {
+    let item = parse_macro_input!(item as syn::DeriveInput);
+    derive_intoval::derive_into_value(item)
+        .unwrap_or_else(|err| err.to_compile_error())
+        .into()
+}
+
+/// Derive macro for adding `into_dict()` method to structs.
+///
+/// This allows structs to be converted to Typst Dict for use with `with_inputs()`.
+///
+/// # Example
+///
+/// ```rust,ignore
+/// use typst_bake::{IntoValue, IntoDict};
+///
+/// #[derive(IntoValue, IntoDict)]
+/// struct Data {
+///     title: String,
+///     count: i32,
+/// }
+///
+/// let pdf = typst_bake::document!("main.typ")
+///     .with_inputs(data.into_dict())
+///     .to_pdf()?;
+/// ```
+#[proc_macro_derive(IntoDict)]
+pub fn derive_into_dict(item: TokenStream) -> TokenStream {
+    let item = parse_macro_input!(item as syn::DeriveInput);
+    derive_intoval::derive_into_dict(item)
+        .unwrap_or_else(|err| err.to_compile_error())
+        .into()
 }
