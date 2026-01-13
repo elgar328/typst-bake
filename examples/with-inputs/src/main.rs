@@ -1,6 +1,5 @@
 use chrono::Local;
-use derive_typst_intoval::{IntoDict, IntoValue};
-use typst::foundations::IntoValue as _;
+use typst_bake::{IntoDict, IntoValue};
 
 #[derive(IntoValue, IntoDict)]
 struct ShoppingList {

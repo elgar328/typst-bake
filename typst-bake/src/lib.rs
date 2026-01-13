@@ -28,6 +28,12 @@ mod resolver;
 pub use document::Document;
 pub use typst_bake_macros::document;
 
+/// Derive macro for implementing `IntoValue` trait.
+pub use typst_bake_macros::IntoValue;
+
+/// Derive macro for adding `into_dict()` method.
+pub use typst_bake_macros::IntoDict;
+
 /// Re-export include_dir for macro-generated code.
 #[doc(hidden)]
 pub use include_dir;
@@ -40,4 +46,6 @@ pub mod __internal {
     pub use include_dir::Dir;
     // Re-export include_dir crate for direct struct construction
     pub use include_dir;
+    // Re-export typst crate for derive macros
+    pub use typst;
 }
