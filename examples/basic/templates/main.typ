@@ -1,5 +1,6 @@
 #set text(font: "Inter 18pt")
-#show heading: set text(font: "Inter 28pt", weight: "bold")
+#show heading: set text(font: "Source Serif 4", weight: "bold")
+#show heading.where(level: 2): set block(above: 2em)
 #show math.equation: set text(font: "STIX Two Math")
 #show raw: set text(font: "JetBrains Mono")
 
@@ -9,19 +10,25 @@ This document was generated using #emph[typst-bake], a compile-time bundling sol
 
 == Math Example
 
-Gaussian integral:
-$ integral_(-infinity)^infinity e^(-x^2) dif x = sqrt(pi) $
-
-Euler's identity:
-$ e^(i pi) + 1 = 0 $
+Navier-Stokes equations:
+$ nabla dot bold(u) = 0 $
+$ rho ((partial bold(u)) / (partial t) + (bold(u) dot nabla) bold(u)) = -nabla p + mu nabla^2 bold(u) + bold(f) $
 
 == Code Example
 
+#v(0.3em)
+
 ```rust
+fn is_prime(n: u32) -> bool {
+    if n < 2 { return false; }
+    for i in 2..=(n as f64).sqrt() as u32 {
+        if n % i == 0 { return false; }
+    }
+    true
+}
+
 fn main() {
-    let message = "Hello, typst-bake!";
-    println!("{}", message);
+    let primes: Vec<_> = (2..30).filter(|&n| is_prime(n)).collect();
+    println!("Primes: {:?}", primes);
 }
 ```
-
-Inline code: `let x = 42;`

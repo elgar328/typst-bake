@@ -1,5 +1,5 @@
 [package]
-name = "example-with-image"
+name = "example-with-files"
 version = "0.1.0"
 edition = "2021"
 

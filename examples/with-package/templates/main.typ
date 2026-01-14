@@ -1,17 +1,19 @@
 #import "@preview/cetz:0.4.2": canvas, draw
+#import "@preview/lilaq:0.5.0" as lq
 
-#set text(font: "Source Serif 4")
+#set text(font: "STIX Two Text")
 #show math.equation: set text(font: "STIX Two Math")
+#show heading: set text(weight: "bold")
 
 = Package Bundling Example
 
 This document demonstrates automatic package bundling with typst-bake.
 
-The `cetz` package was automatically detected from the import statement and downloaded at compile time. No manual package installation is required.
+The `cetz` and `lilaq` packages were automatically detected from the import statements and downloaded at compile time. Their internal dependencies (such as `oxifmt`, `zero`, `tiptoe`, `elembic`) are also automatically resolved and embedded. No manual package installation is required.
 
 == CetZ Drawing
 
-The following 3D geometric shape is rendered using the CetZ package:
+A 3D icosahedron rendered using the CetZ package:
 
 #align(center)[
   #canvas(length: 2cm, {
@@ -53,6 +55,38 @@ The following 3D geometric shape is rendered using the CetZ package:
       line("A", "C", stroke: (dash: "dashed"))
     })
   })
+
+  #text(size: 0.8em)[Example by \@samuelireson]
 ]
 
-If you can see the shape above, the package bundling is working correctly.
+== Lilaq Plotting
+
+The butterfly curve rendered using the Lilaq package:
+
+$ x = sin(t) dot (e^(cos(t)) - 2 cos(4t) - sin^5(t slash 12)) $
+$ y = cos(t) dot (e^(cos(t)) - 2 cos(4t) - sin^5(t slash 12)) $
+
+#let pi = calc.pi
+#let ts = lq.linspace(0, 24 * pi, num: 1000)
+
+#let curve(t) = {
+  let r = calc.exp(calc.cos(t)) - 2 * calc.cos(4 * t) - calc.pow(calc.sin(t / 12), 5)
+  (calc.sin(t) * r, calc.cos(t) * r)
+}
+
+#let points = ts.map(t => curve(t))
+#let xs = points.map(p => p.at(0))
+#let ys = points.map(p => p.at(1))
+
+#align(center)[
+  #lq.diagram(
+    width: 70%,
+    height: 7cm,
+    xaxis: (ticks: none),
+    yaxis: (ticks: none),
+
+    lq.plot(xs, ys, mark: none, smooth: true),
+  )
+
+  #text(size: 0.8em)[Butterfly Curve — Temple H. Fay (1989)]
+]
