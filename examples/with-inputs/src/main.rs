@@ -2,61 +2,64 @@ use chrono::Local;
 use typst_bake::{IntoDict, IntoValue};
 
 #[derive(IntoValue, IntoDict)]
-struct ShoppingList {
-    title: String,
+struct Inputs {
+    number: String,
     date: String,
+    customer: String,
     items: Vec<Item>,
+    total: f64,
 }
 
 #[derive(IntoValue)]
 struct Item {
-    name: String,
+    description: String,
     quantity: i32,
-    category: String,
+    price: f64,
+    amount: f64,
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let items = vec![
         Item {
-            name: "Milk".into(),
-            quantity: 2,
-            category: "Dairy".into(),
+            description: "Web Development".into(),
+            quantity: 40,
+            price: 75.0,
+            amount: 3000.0,
         },
         Item {
-            name: "Eggs".into(),
-            quantity: 12,
-            category: "Dairy".into(),
+            description: "UI/UX Design".into(),
+            quantity: 20,
+            price: 85.0,
+            amount: 1700.0,
         },
         Item {
-            name: "Bread".into(),
-            quantity: 1,
-            category: "Bakery".into(),
-        },
-        Item {
-            name: "Apples".into(),
-            quantity: 6,
-            category: "Fruits".into(),
-        },
-        Item {
-            name: "Chicken".into(),
-            quantity: 1,
-            category: "Meat".into(),
+            description: "Server Setup".into(),
+            quantity: 8,
+            price: 100.0,
+            amount: 800.0,
         },
     ];
 
-    let shopping_list = ShoppingList {
-        title: "Weekly Groceries".into(),
-        date: Local::now().format("%Y-%m-%d").to_string(),
+    let total = items.iter().map(|i| i.amount).sum();
+
+    let now = Local::now();
+    let invoice = Inputs {
+        number: format!("INV-{}-001", now.format("%Y")),
+        date: now.format("%Y-%m-%d").to_string(),
+        customer: "Acme Corporation".into(),
         items,
+        total,
     };
 
     let pdf = typst_bake::document!("main.typ")
-        .with_inputs(shopping_list.into_dict())
+        .with_inputs(invoice.into_dict())
         .to_pdf()?;
+    save_pdf(&pdf, "output.pdf")
+}
 
+fn save_pdf(data: &[u8], filename: &str) -> Result<(), Box<dyn std::error::Error>> {
     let out_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
-    std::fs::write(out_dir.join("output.pdf"), &pdf)?;
-    println!("Generated output.pdf ({} bytes)", pdf.len());
-
+    std::fs::write(out_dir.join(filename), data)?;
+    println!("Generated {} ({} bytes)", filename, data.len());
     Ok(())
 }

@@ -1,0 +1,4 @@
+Hello from an embedded text file!
+
+This content is read at compile time
+and bundled directly into the binary.

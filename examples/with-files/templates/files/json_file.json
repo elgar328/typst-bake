@@ -1,0 +1,14 @@
+[
+  {
+    "title": "The Little Prince",
+    "author": "Antoine de Saint-Exupéry",
+    "year": 1943,
+    "genres": ["Fiction", "Fantasy"]
+  },
+  {
+    "title": "Romeo and Juliet",
+    "author": "William Shakespeare",
+    "year": 1597,
+    "genres": ["Drama", "Tragedy"]
+  }
+]

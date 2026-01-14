@@ -1,0 +1,8 @@
+[document]
+title = "My Report"
+author = "Jane Doe"
+date = "1999-12-31"
+
+[settings]
+font-size = 12
+line-spacing = 1.5
