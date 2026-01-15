@@ -5,7 +5,9 @@
 
 = Dynamic Input Example
 
-This document demonstrates passing data from Rust to Typst at runtime. The invoice below is generated using values from a Rust struct, accessed via `sys.inputs`.
+Data can be passed from Rust to Typst at runtime using `.with_inputs()`. The struct passed directly to `.with_inputs()` needs both `IntoValue` and `IntoDict` derives, while nested structs only need `IntoValue`. In the template, data is accessed via `sys.inputs`.
+
+The invoice below is generated using inputs.
 
 #v(2em)
 

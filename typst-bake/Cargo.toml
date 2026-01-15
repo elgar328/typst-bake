@@ -6,9 +6,9 @@ description = "Bake Typst templates, fonts, and packages into your binary for of
 license = "MIT OR Apache-2.0"
 
 [dependencies]
-typst-bake-macros = { path = "../typst-bake-macros" }
-typst = "0.14"
-typst-pdf = "0.14"
-typst-as-lib = "0.15"
-include_dir = "0.7"
-zstd = "0.13"
+typst-bake-macros.workspace = true
+typst.workspace = true
+typst-pdf.workspace = true
+typst-as-lib.workspace = true
+include_dir.workspace = true
+zstd.workspace = true

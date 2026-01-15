@@ -1,5 +1,5 @@
 [package]
-name = "example-basic"
+name = "example-font-guide"
 version = "0.1.0"
 edition = "2021"
 
@@ -8,4 +8,4 @@ template-dir = "./templates"
 fonts-dir = "./fonts"
 
 [dependencies]
-typst-bake = { path = "../../typst-bake" }
+typst-bake.workspace = true

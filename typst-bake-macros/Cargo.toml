@@ -9,14 +9,14 @@ license = "MIT OR Apache-2.0"
 proc-macro = true
 
 [dependencies]
-proc-macro2 = "1"
-quote = "1"
-syn = "2"
-typst-syntax = "0.14"
-ureq = "3.1"
-flate2 = "1"
-binstall-tar = "0.4"
-toml = "0.8"
-walkdir = "2"
-dirs = "5"
-zstd = "0.13"
+proc-macro2.workspace = true
+quote.workspace = true
+syn.workspace = true
+typst-syntax.workspace = true
+ureq.workspace = true
+flate2.workspace = true
+binstall-tar.workspace = true
+toml.workspace = true
+walkdir.workspace = true
+dirs.workspace = true
+zstd.workspace = true

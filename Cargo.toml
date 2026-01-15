@@ -2,10 +2,39 @@
 members = [
     "typst-bake",
     "typst-bake-macros",
-    "examples/basic",
+    "examples/font-guide",
     "examples/with-inputs",
     "examples/with-package",
     "examples/with-files",
     "examples/quick-start",
 ]
 resolver = "2"
+
+[workspace.dependencies]
+# Internal crates
+typst-bake = { path = "typst-bake" }
+typst-bake-macros = { path = "typst-bake-macros" }
+
+# Typst
+typst = "0.14"
+typst-pdf = "0.14"
+typst-syntax = "0.14"
+typst-as-lib = "0.15"
+
+# Proc macro
+proc-macro2 = "1"
+quote = "1"
+syn = "2"
+
+# Compression
+zstd = "0.13"
+flate2 = "1"
+
+# Utilities
+include_dir = "0.7"
+ureq = "3.1"
+binstall-tar = "0.4"
+toml = "0.8"
+walkdir = "2"
+dirs = "5"
+chrono = "0.4"

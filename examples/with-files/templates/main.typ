@@ -4,7 +4,7 @@
 
 = File Embedding Example
 
-This document demonstrates embedding various file types with typst-bake. All files in the template directory are bundled into the binary at compile time.
+All files in `template-dir` are bundled into the binary at compile time. These files can be accessed from `.typ` templates using Typst's built-in functions like `image()`, `csv()`, `json()`, `toml()`, and `read()`.
 
 == Image File
 

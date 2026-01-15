@@ -8,5 +8,5 @@ template-dir = "./templates"
 fonts-dir = "./fonts"
 
 [dependencies]
-typst-bake = { path = "../../typst-bake" }
-chrono = "0.4"
+typst-bake.workspace = true
+chrono.workspace = true
