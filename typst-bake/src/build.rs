@@ -51,16 +51,12 @@ use std::path::Path;
 ///
 /// Panics if `CARGO_MANIFEST_DIR` is not set or if `Cargo.toml` cannot be read.
 pub fn rebuild_if_changed() {
-    let manifest_dir = env::var("CARGO_MANIFEST_DIR")
-        .expect("CARGO_MANIFEST_DIR not set");
+    let manifest_dir = env::var("CARGO_MANIFEST_DIR").expect("CARGO_MANIFEST_DIR not set");
     let manifest_path = Path::new(&manifest_dir).join("Cargo.toml");
 
-    let content = fs::read_to_string(&manifest_path)
-        .expect("Failed to read Cargo.toml");
+    let content = fs::read_to_string(&manifest_path).expect("Failed to read Cargo.toml");
 
-    let manifest: toml::Table = content
-        .parse()
-        .expect("Failed to parse Cargo.toml");
+    let manifest: toml::Table = content.parse().expect("Failed to parse Cargo.toml");
 
     // Get template-dir
     if let Some(template_dir) = manifest

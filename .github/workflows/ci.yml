@@ -10,11 +10,31 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  build:
+  check:
+    name: Check & Lint
     runs-on: ubuntu-latest
-
     steps:
       - uses: actions/checkout@v4
+
+      - uses: swatinem/rust-cache@v2
+
+      - name: Check formatting
+        run: cargo fmt --all -- --check
+
+      - name: Clippy
+        run: cargo clippy --workspace -- -D warnings
+
+      - name: Run tests
+        run: cargo test --workspace
+
+  examples:
+    name: Test Examples
+    runs-on: ubuntu-latest
+    needs: check
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: swatinem/rust-cache@v2
 
       - name: Build library
         run: cargo build -p typst-bake

@@ -101,7 +101,7 @@ impl Document {
         let builder = TypstEngine::builder()
             .main_file(main_content)
             .add_file_resolver(resolver)
-            .fonts(font_refs.into_iter());
+            .fonts(font_refs);
 
         let engine = builder.build();
 
@@ -115,10 +115,9 @@ impl Document {
         };
 
         // Handle the Warned wrapper and extract result
-        let compiled =
-            warned_result
-                .output
-                .map_err(|e| format!("Compilation failed: {:?}", e))?;
+        let compiled = warned_result
+            .output
+            .map_err(|e| format!("Compilation failed: {:?}", e))?;
 
         // Generate PDF
         let pdf_bytes = typst_pdf::pdf(&compiled, &typst_pdf::PdfOptions::default())
