@@ -1,4 +1,4 @@
-//! .typ 파일 스캔 및 패키지 import 파싱
+//! Scan .typ files and parse package imports
 
 use std::collections::HashSet;
 use std::fs;
@@ -7,20 +7,20 @@ use typst_syntax::ast::{Expr, Markup};
 use typst_syntax::Source;
 use walkdir::WalkDir;
 
-/// 패키지 정보 (namespace, name, version)
+/// Package info (namespace, name, version)
 pub type PackageSpec = (String, String, String);
 
-/// 유효한 식별자인지 확인
+/// Check if valid identifier
 fn is_valid_identifier(s: &str) -> bool {
     !s.is_empty() && s.chars().all(|c| c.is_alphanumeric() || c == '-' || c == '_')
 }
 
-/// 유효한 버전 문자열인지 확인
+/// Check if valid version string
 fn is_valid_version(s: &str) -> bool {
     !s.is_empty() && s.chars().all(|c| c.is_numeric() || c == '.')
 }
 
-/// 패키지 지정자 파싱 (@namespace/name:version)
+/// Parse package specifier (@namespace/name:version)
 pub fn parse_package_specifier(path: &str) -> Option<PackageSpec> {
     // Package imports start with @
     if !path.starts_with('@') {
@@ -58,7 +58,7 @@ pub fn parse_package_specifier(path: &str) -> Option<PackageSpec> {
     Some((namespace, name, version))
 }
 
-/// 소스 코드에서 패키지 import 추출
+/// Extract package imports from source code
 pub fn parse_packages_from_source(content: &str) -> Result<Vec<PackageSpec>, String> {
     // Parse source into AST
     let source = Source::detached(content);
@@ -94,7 +94,7 @@ pub fn parse_packages_from_source(content: &str) -> Result<Vec<PackageSpec>, Str
     Ok(packages)
 }
 
-/// 디렉토리에서 모든 패키지 import 추출
+/// Extract all package imports from directory
 pub fn extract_packages(dir: &Path) -> Vec<PackageSpec> {
     let mut packages = HashSet::new();
 

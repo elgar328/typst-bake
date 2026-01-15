@@ -1,4 +1,4 @@
-//! 패키지 다운로드 및 캐시 관리
+//! Package download and cache management
 
 use crate::scanner::{extract_packages, PackageSpec};
 use std::collections::{HashSet, VecDeque};
@@ -6,7 +6,7 @@ use std::fs;
 use std::io::Read;
 use std::path::{Path, PathBuf};
 
-/// 시스템 캐시 디렉토리 가져오기
+/// Get system cache directory
 pub fn get_cache_dir() -> Result<PathBuf, String> {
     let cache_dir = dirs::cache_dir()
         .ok_or("Could not determine system cache directory")?
@@ -19,7 +19,7 @@ pub fn get_cache_dir() -> Result<PathBuf, String> {
     Ok(cache_dir)
 }
 
-/// 패키지 다운로드 및 의존성 해결
+/// Download packages and resolve dependencies
 pub fn download_packages(
     packages: &[PackageSpec],
     cache_dir: &Path,
@@ -110,7 +110,7 @@ pub fn download_packages(
     Ok(())
 }
 
-/// URL에서 tar.gz 다운로드 및 압축 해제
+/// Download and extract tar.gz from URL
 fn download_and_extract(url: &str, dest: &Path) -> Result<(), Box<dyn std::error::Error>> {
     let response = ureq::get(url).call()?;
     let (_, body) = response.into_parts();
@@ -120,7 +120,7 @@ fn download_and_extract(url: &str, dest: &Path) -> Result<(), Box<dyn std::error
     Ok(())
 }
 
-/// tar.gz 압축 해제
+/// Extract tar.gz archive
 fn extract_tar_gz(bytes: &[u8], dest: &Path) -> Result<(), Box<dyn std::error::Error>> {
     use binstall_tar::Archive;
     use flate2::read::GzDecoder;
