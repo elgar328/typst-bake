@@ -6,10 +6,10 @@ use std::fs;
 use std::io::Cursor;
 use std::path::Path;
 
-/// Result of embedding a directory, containing both generated code and statistics.
+/// Result of embedding a directory, containing entries and statistics.
 pub struct DirEmbedResult {
-    /// Generated code that constructs the Dir struct
-    pub code: TokenStream,
+    /// DirEntry tokens for each item in the directory
+    pub entries: Vec<TokenStream>,
     /// Original uncompressed size in bytes
     pub original_size: usize,
     /// Compressed size in bytes
@@ -18,15 +18,23 @@ pub struct DirEmbedResult {
     pub file_count: usize,
 }
 
+impl DirEmbedResult {
+    /// Wrap entries in a Dir::new(...) expression
+    pub fn to_dir_code(&self, name: &str) -> TokenStream {
+        let entries = &self.entries;
+        quote! {
+            ::typst_bake::__internal::include_dir::Dir::new(#name, &[#(#entries),*])
+        }
+    }
+}
+
 /// Generate code that creates a Dir struct from a directory path.
 /// Files are compressed with zstd at level 19 (maximum compression).
 pub fn embed_dir(dir_path: &Path) -> DirEmbedResult {
     if !dir_path.exists() {
-        // Return empty Dir for non-existent directories (e.g., empty cache)
+        // Return empty result for non-existent directories (e.g., empty cache)
         return DirEmbedResult {
-            code: quote! {
-                ::typst_bake::__internal::include_dir::Dir::new("", &[])
-            },
+            entries: Vec::new(),
             original_size: 0,
             compressed_size: 0,
             file_count: 0,
@@ -45,14 +53,8 @@ pub fn embed_dir(dir_path: &Path) -> DirEmbedResult {
         &mut file_count,
     );
 
-    let code = quote! {
-        ::typst_bake::__internal::include_dir::Dir::new("", &[
-            #(#entries),*
-        ])
-    };
-
     DirEmbedResult {
-        code,
+        entries,
         original_size,
         compressed_size,
         file_count,
@@ -97,6 +99,13 @@ fn scan_dir_entries(
         };
         let rel_path_str = rel_path.to_string_lossy().to_string();
 
+        // Use just the file/dir name (not full relative path) for proper nesting
+        let name = path
+            .file_name()
+            .and_then(|n| n.to_str())
+            .unwrap_or(&rel_path_str)
+            .to_string();
+
         if path.is_file() {
             // Read file and compress
             let file_bytes = match fs::read(&path) {
@@ -118,7 +127,7 @@ fn scan_dir_entries(
             entries.push(quote! {
                 ::typst_bake::__internal::include_dir::DirEntry::File(
                     ::typst_bake::__internal::include_dir::File::new(
-                        #rel_path_str,
+                        #name,
                         #bytes_literal
                     )
                 )
@@ -129,7 +138,7 @@ fn scan_dir_entries(
             entries.push(quote! {
                 ::typst_bake::__internal::include_dir::DirEntry::Dir(
                     ::typst_bake::__internal::include_dir::Dir::new(
-                        #rel_path_str,
+                        #name,
                         &[#(#sub_entries),*]
                     )
                 )
@@ -146,9 +155,7 @@ fn scan_dir_entries(
 pub fn embed_fonts_dir(dir_path: &Path) -> DirEmbedResult {
     if !dir_path.exists() {
         return DirEmbedResult {
-            code: quote! {
-                ::typst_bake::__internal::include_dir::Dir::new("", &[])
-            },
+            entries: Vec::new(),
             original_size: 0,
             compressed_size: 0,
             file_count: 0,
@@ -167,14 +174,8 @@ pub fn embed_fonts_dir(dir_path: &Path) -> DirEmbedResult {
         &mut file_count,
     );
 
-    let code = quote! {
-        ::typst_bake::__internal::include_dir::Dir::new("", &[
-            #(#entries),*
-        ])
-    };
-
     DirEmbedResult {
-        code,
+        entries,
         original_size,
         compressed_size,
         file_count,
@@ -219,6 +220,13 @@ fn scan_font_entries(
         };
         let rel_path_str = rel_path.to_string_lossy().to_string();
 
+        // Use just the file/dir name (not full relative path) for proper nesting
+        let name = path
+            .file_name()
+            .and_then(|n| n.to_str())
+            .unwrap_or(&rel_path_str)
+            .to_string();
+
         if path.is_file() {
             // Only include font files
             if !is_font_file(&path) {
@@ -245,7 +253,7 @@ fn scan_font_entries(
             entries.push(quote! {
                 ::typst_bake::__internal::include_dir::DirEntry::File(
                     ::typst_bake::__internal::include_dir::File::new(
-                        #rel_path_str,
+                        #name,
                         #bytes_literal
                     )
                 )
@@ -258,7 +266,7 @@ fn scan_font_entries(
                 entries.push(quote! {
                     ::typst_bake::__internal::include_dir::DirEntry::Dir(
                         ::typst_bake::__internal::include_dir::Dir::new(
-                            #rel_path_str,
+                            #name,
                             &[#(#sub_entries),*]
                         )
                     )
