@@ -32,9 +32,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         files_size: dir_size(&format!("{}/templates", manifest_dir)),
     };
 
-    let pdf = typst_bake::document!("main.typ")
-        .with_inputs(inputs.into_dict())
-        .to_pdf()?;
+    let doc = typst_bake::document!("main.typ");
+
+    // Display compression statistics
+    println!();
+    doc.stats().display();
+    println!();
+
+    let pdf = doc.with_inputs(inputs.into_dict()).to_pdf()?;
 
     save_pdf(&pdf, "output.pdf")
 }
