@@ -4,6 +4,9 @@ version = "0.1.0"
 edition = "2021"
 description = "Procedural macros for typst-bake"
 license = "MIT OR Apache-2.0"
+repository = "https://github.com/elgar328/typst-bake"
+keywords = ["typst", "pdf", "template", "macro"]
+categories = ["template-engine"]
 
 [lib]
 proc-macro = true
