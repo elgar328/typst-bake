@@ -1,6 +1,6 @@
 [package]
 name = "typst-bake-macros"
-version = "0.1.0"
+version.workspace = true
 edition = "2021"
 description = "Procedural macros for typst-bake"
 license = "MIT OR Apache-2.0"
