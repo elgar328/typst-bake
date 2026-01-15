@@ -11,12 +11,14 @@ Packages require no manual setup. Just use `#import` as you normally would in Ty
 
 The `cetz` and `lilaq` packages were automatically detected from the import statements and downloaded at compile time. Their internal dependencies (such as `oxifmt`, `zero`, `tiptoe`, `elembic`) are also automatically resolved and embedded. No manual package installation is required.
 
+Downloaded packages are cached in the system cache directory to speed up future compilations. To force a fresh download, run with `TYPST_BAKE_REFRESH=1 cargo build`.
+
 == CetZ Drawing
 
 A 3D shape rendered using the CetZ package:
 
 #align(center)[
-  #canvas(length: 2cm, {
+  #canvas(length: 1.8cm, {
     import draw: *
     let phi = (1 + calc.sqrt(5)) / 2
 
@@ -80,8 +82,8 @@ $ y = cos(t) dot (e^(cos(t)) - 2 cos(4t) - sin^5(t slash 12)) $
 
 #align(center)[
   #lq.diagram(
-    width: 70%,
-    height: 7cm,
+    width: 65%,
+    height: 6.5cm,
     xaxis: (ticks: none),
     yaxis: (ticks: none),
 

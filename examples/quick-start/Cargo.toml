@@ -2,10 +2,14 @@
 name = "example-quick-start"
 version = "0.1.0"
 edition = "2021"
+build = "build.rs"
 
 [package.metadata.typst-bake]
 template-dir = "./templates"
 fonts-dir = "./fonts"
 
 [dependencies]
+typst-bake.workspace = true
+
+[build-dependencies]
 typst-bake.workspace = true

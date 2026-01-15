@@ -124,11 +124,23 @@ fn scan_dir_entries(
             // Create byte string literal (single token, not token explosion)
             let bytes_literal = syn::LitByteStr::new(&compressed, proc_macro2::Span::call_site());
 
+            // Get absolute path for Cargo file tracking
+            let abs_path = path
+                .canonicalize()
+                .expect("Failed to get absolute path")
+                .to_string_lossy()
+                .replace('\\', "/");
+
             entries.push(quote! {
                 ::typst_bake::__internal::include_dir::DirEntry::File(
                     ::typst_bake::__internal::include_dir::File::new(
                         #name,
-                        #bytes_literal
+                        {
+                            // Cargo file tracking (not used at runtime)
+                            const _: &[u8] = include_bytes!(#abs_path);
+                            // Actual compressed data
+                            #bytes_literal
+                        }
                     )
                 )
             });
@@ -250,11 +262,23 @@ fn scan_font_entries(
             // Create byte string literal (single token)
             let bytes_literal = syn::LitByteStr::new(&compressed, proc_macro2::Span::call_site());
 
+            // Get absolute path for Cargo file tracking
+            let abs_path = path
+                .canonicalize()
+                .expect("Failed to get absolute path")
+                .to_string_lossy()
+                .replace('\\', "/");
+
             entries.push(quote! {
                 ::typst_bake::__internal::include_dir::DirEntry::File(
                     ::typst_bake::__internal::include_dir::File::new(
                         #name,
-                        #bytes_literal
+                        {
+                            // Cargo file tracking (not used at runtime)
+                            const _: &[u8] = include_bytes!(#abs_path);
+                            // Actual compressed data
+                            #bytes_literal
+                        }
                     )
                 )
             });
