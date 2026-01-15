@@ -28,8 +28,8 @@ impl EmbeddedResolver {
         let mut template_files = HashMap::new();
         let mut package_files = HashMap::new();
 
-        collect_files(templates, &mut template_files);
-        collect_files(packages, &mut package_files);
+        collect_files(templates, "", &mut template_files);
+        collect_files(packages, "", &mut package_files);
 
         Self {
             template_files,
@@ -89,18 +89,30 @@ impl FileResolver for EmbeddedResolver {
     }
 }
 
-/// Recursively collect files from include_dir
-fn collect_files(dir: &'static Dir<'static>, map: &mut HashMap<String, &'static [u8]>) {
-    // file.path() already returns the full path from the include_dir root
+/// Recursively collect files from include_dir with path prefix tracking
+fn collect_files(
+    dir: &'static Dir<'static>,
+    prefix: &str,
+    map: &mut HashMap<String, &'static [u8]>,
+) {
     for file in dir.files() {
-        let path = file.path().display().to_string();
-        // Normalize path separators
-        let path = path.replace('\\', "/");
-        map.insert(path, file.contents());
+        let file_path = file.path().display().to_string().replace('\\', "/");
+        let full_path = if prefix.is_empty() {
+            file_path
+        } else {
+            format!("{}/{}", prefix, file_path)
+        };
+        map.insert(full_path, file.contents());
     }
 
     for subdir in dir.dirs() {
-        collect_files(subdir, map);
+        let subdir_name = subdir.path().display().to_string().replace('\\', "/");
+        let new_prefix = if prefix.is_empty() {
+            subdir_name
+        } else {
+            format!("{}/{}", prefix, subdir_name)
+        };
+        collect_files(subdir, &new_prefix, map);
     }
 }
 

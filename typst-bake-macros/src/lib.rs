@@ -102,67 +102,100 @@ pub fn document(input: TokenStream) -> TokenStream {
     let templates_result = dir_embed::embed_dir(&template_dir);
     let fonts_result = dir_embed::embed_fonts_dir(&fonts_dir);
 
-    // Collect per-package stats
+    // Collect per-package stats and entries in a single pass
     let mut package_infos = Vec::new();
     let mut pkg_total_original = 0usize;
     let mut pkg_total_compressed = 0usize;
+    let mut namespace_entries: Vec<proc_macro2::TokenStream> = Vec::new();
 
-    // Embed packages directory and collect stats per package
-    let packages_result = if cache_dir.exists() {
-        // Iterate through namespace/name/version structure
-        if let Ok(namespaces) = std::fs::read_dir(&cache_dir) {
-            for ns_entry in namespaces.filter_map(|e| e.ok()) {
-                let ns_path = ns_entry.path();
-                if !ns_path.is_dir() {
-                    continue;
+    if cache_dir.exists() {
+        // Collect and sort namespaces
+        let mut ns_dirs: Vec<_> = std::fs::read_dir(&cache_dir)
+            .into_iter()
+            .flatten()
+            .filter_map(|e| e.ok())
+            .filter(|e| e.path().is_dir())
+            .collect();
+        ns_dirs.sort_by_key(|e| e.path());
+
+        for ns_entry in ns_dirs {
+            let ns_path = ns_entry.path();
+            let namespace = ns_path.file_name().unwrap().to_string_lossy().to_string();
+            let mut name_entries: Vec<proc_macro2::TokenStream> = Vec::new();
+
+            // Collect and sort names
+            let mut name_dirs: Vec<_> = std::fs::read_dir(&ns_path)
+                .into_iter()
+                .flatten()
+                .filter_map(|e| e.ok())
+                .filter(|e| e.path().is_dir())
+                .collect();
+            name_dirs.sort_by_key(|e| e.path());
+
+            for name_entry in name_dirs {
+                let name_path = name_entry.path();
+                let name = name_path.file_name().unwrap().to_string_lossy().to_string();
+                let mut version_entries: Vec<proc_macro2::TokenStream> = Vec::new();
+
+                // Collect and sort versions
+                let mut ver_dirs: Vec<_> = std::fs::read_dir(&name_path)
+                    .into_iter()
+                    .flatten()
+                    .filter_map(|e| e.ok())
+                    .filter(|e| e.path().is_dir())
+                    .collect();
+                ver_dirs.sort_by_key(|e| e.path());
+
+                for ver_entry in ver_dirs {
+                    let ver_path = ver_entry.path();
+                    let version = ver_path.file_name().unwrap().to_string_lossy().to_string();
+
+                    // Embed this package (only once!)
+                    let pkg_result = dir_embed::embed_dir(&ver_path);
+                    let pkg_name = format!("@{}/{}:{}", namespace, name, version);
+
+                    // Collect stats
+                    package_infos.push((
+                        pkg_name,
+                        pkg_result.original_size,
+                        pkg_result.compressed_size,
+                        pkg_result.file_count,
+                    ));
+                    pkg_total_original += pkg_result.original_size;
+                    pkg_total_compressed += pkg_result.compressed_size;
+
+                    // Build version directory entry
+                    let pkg_entries = &pkg_result.entries;
+                    version_entries.push(quote! {
+                        ::typst_bake::__internal::include_dir::DirEntry::Dir(
+                            ::typst_bake::__internal::include_dir::Dir::new(#version, &[#(#pkg_entries),*])
+                        )
+                    });
                 }
-                let namespace = ns_path.file_name().unwrap().to_string_lossy().to_string();
 
-                if let Ok(names) = std::fs::read_dir(&ns_path) {
-                    for name_entry in names.filter_map(|e| e.ok()) {
-                        let name_path = name_entry.path();
-                        if !name_path.is_dir() {
-                            continue;
-                        }
-                        let name = name_path.file_name().unwrap().to_string_lossy().to_string();
-
-                        if let Ok(versions) = std::fs::read_dir(&name_path) {
-                            for ver_entry in versions.filter_map(|e| e.ok()) {
-                                let ver_path = ver_entry.path();
-                                if !ver_path.is_dir() {
-                                    continue;
-                                }
-                                let version =
-                                    ver_path.file_name().unwrap().to_string_lossy().to_string();
-
-                                // This package's stats (for info only, actual embedding done below)
-                                let pkg_result = dir_embed::embed_dir(&ver_path);
-                                let pkg_name = format!("@{}/{}:{}", namespace, name, version);
-                                package_infos.push((
-                                    pkg_name,
-                                    pkg_result.original_size,
-                                    pkg_result.compressed_size,
-                                    pkg_result.file_count,
-                                ));
-                                pkg_total_original += pkg_result.original_size;
-                                pkg_total_compressed += pkg_result.compressed_size;
-                            }
-                        }
-                    }
-                }
+                // Build name directory entry
+                name_entries.push(quote! {
+                    ::typst_bake::__internal::include_dir::DirEntry::Dir(
+                        ::typst_bake::__internal::include_dir::Dir::new(#name, &[#(#version_entries),*])
+                    )
+                });
             }
+
+            // Build namespace directory entry
+            namespace_entries.push(quote! {
+                ::typst_bake::__internal::include_dir::DirEntry::Dir(
+                    ::typst_bake::__internal::include_dir::Dir::new(#namespace, &[#(#name_entries),*])
+                )
+            });
         }
+    }
 
-        // Embed the entire cache directory
-        dir_embed::embed_dir(&cache_dir)
-    } else {
-        dir_embed::embed_dir(&cache_dir)
+    // Build final code
+    let templates_code = templates_result.to_dir_code("");
+    let fonts_code = fonts_result.to_dir_code("");
+    let packages_code = quote! {
+        ::typst_bake::__internal::include_dir::Dir::new("", &[#(#namespace_entries),*])
     };
-
-    // Extract code from results
-    let templates_code = templates_result.code;
-    let packages_code = packages_result.code;
-    let fonts_code = fonts_result.code;
 
     // Generate stats
     let template_original = templates_result.original_size;
