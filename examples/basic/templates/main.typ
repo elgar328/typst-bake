@@ -6,7 +6,9 @@
 
 = Hello from typst-bake!
 
-This document was generated using #emph[typst-bake], a compile-time bundling solution for Typst.
+This document was generated using #emph[typst-bake], a compile-time bundling solution for Typst. All resources including templates and fonts are embedded into the binary at compile time.
+
+Note that `typst-bake` requires at least one font in `fonts-dir`. Without fonts, Typst produces invisible text, so a compile-time error is triggered if no fonts are found.
 
 == Math Example
 
@@ -19,16 +21,9 @@ $ rho ((partial bold(u)) / (partial t) + (bold(u) dot nabla) bold(u)) = -nabla p
 #v(0.3em)
 
 ```rust
-fn is_prime(n: u32) -> bool {
-    if n < 2 { return false; }
-    for i in 2..=(n as f64).sqrt() as u32 {
-        if n % i == 0 { return false; }
-    }
-    true
-}
-
-fn main() {
-    let primes: Vec<_> = (2..30).filter(|&n| is_prime(n)).collect();
-    println!("Primes: {:?}", primes);
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let pdf = typst_bake::document!("main.typ").to_pdf()?;
+    std::fs::write("output.pdf", &pdf)?;
+    Ok(())
 }
 ```
