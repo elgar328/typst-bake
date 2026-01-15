@@ -24,8 +24,10 @@
 
 mod document;
 mod resolver;
+mod stats;
 
 pub use document::Document;
+pub use stats::{CategoryStats, EmbedStats, PackageInfo, PackageStats};
 pub use typst_bake_macros::document;
 
 /// Derive macro for implementing `IntoValue` trait.

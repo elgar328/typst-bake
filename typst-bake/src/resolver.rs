@@ -1,8 +1,11 @@
 //! Embedded file resolver for templates and packages
+//!
+//! Uses lazy decompression - files are decompressed only when accessed.
 
 use include_dir::Dir;
 use std::borrow::Cow;
 use std::collections::HashMap;
+use std::io::Cursor;
 use typst::diag::{FileError, FileResult};
 use typst::foundations::Bytes;
 use typst::syntax::{FileId, Source};
@@ -10,7 +13,10 @@ use typst::syntax::{FileId, Source};
 // Re-export FileResolver trait from typst-as-lib
 pub use typst_as_lib::file_resolver::FileResolver;
 
-/// Resolver for embedded templates and packages
+/// Resolver for embedded templates and packages.
+///
+/// Files are stored in compressed form and decompressed lazily on access.
+/// Typst's internal caching prevents redundant decompression.
 pub struct EmbeddedResolver {
     template_files: HashMap<String, &'static [u8]>,
     package_files: HashMap<String, &'static [u8]>,
@@ -48,7 +54,7 @@ impl EmbeddedResolver {
         }
     }
 
-    /// Look up file bytes
+    /// Look up compressed file bytes
     fn lookup(&self, id: FileId) -> Option<&'static [u8]> {
         let path = self.get_path(id);
 
@@ -62,14 +68,23 @@ impl EmbeddedResolver {
 
 impl FileResolver for EmbeddedResolver {
     fn resolve_binary(&self, id: FileId) -> FileResult<Cow<'_, Bytes>> {
-        self.lookup(id)
-            .map(|bytes| Cow::Owned(Bytes::new(bytes)))
-            .ok_or_else(|| not_found(id))
+        let compressed = self.lookup(id).ok_or_else(|| not_found(id))?;
+
+        // Decompress on access (lazy decompression)
+        let data = decompress(compressed)
+            .map_err(|_| FileError::Other(Some("Decompression failed".into())))?;
+
+        Ok(Cow::Owned(Bytes::new(data)))
     }
 
     fn resolve_source(&self, id: FileId) -> FileResult<Cow<'_, Source>> {
-        let bytes = self.lookup(id).ok_or_else(|| not_found(id))?;
-        let source = bytes_to_source(id, bytes)?;
+        let compressed = self.lookup(id).ok_or_else(|| not_found(id))?;
+
+        // Decompress on access
+        let bytes = decompress(compressed)
+            .map_err(|_| FileError::Other(Some("Decompression failed".into())))?;
+
+        let source = bytes_to_source(id, &bytes)?;
         Ok(Cow::Owned(source))
     }
 }
@@ -105,4 +120,9 @@ fn bytes_to_source(id: FileId, bytes: &[u8]) -> FileResult<Source> {
 
     let text = text.map_err(|_| FileError::InvalidUtf8)?;
     Ok(Source::new(id, text.to_string()))
+}
+
+/// Decompress zstd compressed data
+fn decompress(data: &[u8]) -> Result<Vec<u8>, std::io::Error> {
+    zstd::decode_all(Cursor::new(data))
 }
