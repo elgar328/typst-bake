@@ -10,8 +10,7 @@ use std::path::{Path, PathBuf};
 /// 1. Environment variable TYPST_TEMPLATE_DIR
 /// 2. Cargo.toml [package.metadata.typst-bake] template-dir
 pub fn get_template_dir() -> Result<PathBuf, String> {
-    let manifest_dir = env::var("CARGO_MANIFEST_DIR")
-        .map_err(|_| "CARGO_MANIFEST_DIR not set")?;
+    let manifest_dir = env::var("CARGO_MANIFEST_DIR").map_err(|_| "CARGO_MANIFEST_DIR not set")?;
     let manifest_dir = Path::new(&manifest_dir);
 
     // Priority 1: Environment variable
@@ -40,14 +39,13 @@ pub fn get_template_dir() -> Result<PathBuf, String> {
         .and_then(|t| t.get("template-dir"))
         .and_then(|d| d.as_str())
         .ok_or_else(|| {
-            format!(
-                "Template directory not configured.\n\n\
+            "Template directory not configured.\n\n\
                 Add to your Cargo.toml:\n\n\
                 [package.metadata.typst-bake]\n\
                 template-dir = \"./templates\"\n\n\
                 Or set environment variable:\n\
                 export TYPST_TEMPLATE_DIR=./templates"
-            )
+                .to_string()
         })?;
 
     let path = if Path::new(template_dir).is_absolute() {
@@ -79,8 +77,7 @@ pub fn should_refresh_cache() -> bool {
 ///
 /// At least one font file (.ttf, .otf, .ttc) must exist.
 pub fn get_fonts_dir() -> Result<PathBuf, String> {
-    let manifest_dir = env::var("CARGO_MANIFEST_DIR")
-        .map_err(|_| "CARGO_MANIFEST_DIR not set")?;
+    let manifest_dir = env::var("CARGO_MANIFEST_DIR").map_err(|_| "CARGO_MANIFEST_DIR not set")?;
     let manifest_dir = Path::new(&manifest_dir);
 
     // Priority 1: Environment variable
@@ -107,15 +104,14 @@ pub fn get_fonts_dir() -> Result<PathBuf, String> {
             .and_then(|t| t.get("fonts-dir"))
             .and_then(|d| d.as_str())
             .ok_or_else(|| {
-                format!(
-                    "Fonts directory not configured.\n\n\
+                "Fonts directory not configured.\n\n\
                     Add to your Cargo.toml:\n\n\
                     [package.metadata.typst-bake]\n\
                     template-dir = \"./templates\"\n\
                     fonts-dir = \"./fonts\"\n\n\
                     Or set environment variable:\n\
                     export TYPST_FONTS_DIR=./fonts"
-                )
+                    .to_string()
             })?;
 
         if Path::new(fonts_dir).is_absolute() {

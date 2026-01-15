@@ -12,7 +12,9 @@ pub type PackageSpec = (String, String, String);
 
 /// Check if valid identifier
 fn is_valid_identifier(s: &str) -> bool {
-    !s.is_empty() && s.chars().all(|c| c.is_alphanumeric() || c == '-' || c == '_')
+    !s.is_empty()
+        && s.chars()
+            .all(|c| c.is_alphanumeric() || c == '-' || c == '_')
 }
 
 /// Check if valid version string
@@ -110,11 +112,7 @@ pub fn extract_packages(dir: &Path) -> Vec<PackageSpec> {
                 }
                 Err(e) => {
                     // Log but don't fail - graceful degradation
-                    eprintln!(
-                        "Warning: Failed to parse {}: {}",
-                        entry.path().display(),
-                        e
-                    );
+                    eprintln!("Warning: Failed to parse {}: {}", entry.path().display(), e);
                 }
             }
         }

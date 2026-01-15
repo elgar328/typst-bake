@@ -39,9 +39,7 @@ pub fn document(input: TokenStream) -> TokenStream {
     let template_dir = match config::get_template_dir() {
         Ok(dir) => dir,
         Err(e) => {
-            return syn::Error::new_spanned(entry, e)
-                .to_compile_error()
-                .into();
+            return syn::Error::new_spanned(entry, e).to_compile_error().into();
         }
     };
 
@@ -60,9 +58,7 @@ pub fn document(input: TokenStream) -> TokenStream {
     let fonts_dir = match config::get_fonts_dir() {
         Ok(dir) => dir,
         Err(e) => {
-            return syn::Error::new_spanned(entry, e)
-                .to_compile_error()
-                .into();
+            return syn::Error::new_spanned(entry, e).to_compile_error().into();
         }
     };
 
@@ -74,23 +70,16 @@ pub fn document(input: TokenStream) -> TokenStream {
     let cache_dir = match downloader::get_cache_dir() {
         Ok(dir) => dir,
         Err(e) => {
-            return syn::Error::new_spanned(entry, e)
-                .to_compile_error()
-                .into();
+            return syn::Error::new_spanned(entry, e).to_compile_error().into();
         }
     };
 
     if !packages.is_empty() {
-        eprintln!(
-            "typst-bake: Found {} package(s) to bundle",
-            packages.len()
-        );
+        eprintln!("typst-bake: Found {} package(s) to bundle", packages.len());
 
         let refresh = config::should_refresh_cache();
         if let Err(e) = downloader::download_packages(&packages, &cache_dir, refresh) {
-            return syn::Error::new_spanned(entry, e)
-                .to_compile_error()
-                .into();
+            return syn::Error::new_spanned(entry, e).to_compile_error().into();
         }
     } else {
         eprintln!("typst-bake: No packages found in templates");
