@@ -22,10 +22,12 @@
 //! std::fs::write("output.pdf", pdf)?;
 //! ```
 
+mod build;
 mod document;
 mod resolver;
 mod stats;
 
+pub use build::rebuild_if_changed;
 pub use document::Document;
 pub use stats::{CategoryStats, EmbedStats, PackageInfo, PackageStats};
 pub use typst_bake_macros::document;

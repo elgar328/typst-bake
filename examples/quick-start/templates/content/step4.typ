@@ -20,7 +20,7 @@ Access inputs via `sys.inputs` and use embedded files:
   ],
   [
     #info[
-      Packages imported with `#import` in `.typ` files are automatically detected, downloaded, and embedded at compile time.
+      Using packages requires no manual setup. Just use `#import "@preview/..."` as you normally would in Typst, and `typst-bake` handles the rest automatically.
     ]
   ]
 )

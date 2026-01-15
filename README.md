@@ -19,11 +19,33 @@ Add to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-typst-bake = "0.1.0"
+typst-bake = "0.1"
 
 [package.metadata.typst-bake]
 template-dir = "./templates"  # Path to your .typ files and assets
 fonts-dir = "./fonts"         # Path to your font files
+```
+
+### Optional: Complete File Change Detection
+
+By default, `typst-bake` detects template or font file **modifications** and triggers recompilation when you run `cargo build`. File **additions and deletions** are not detected directly, but this is rarely an issue—adding a new file usually requires modifying an existing file (like `main.typ`) to use it, which triggers recompilation anyway.
+
+If you want to fully detect even the rare case where you only add or remove files without modifying existing ones, add a build script:
+
+```toml
+# Cargo.toml
+[package]
+build = "build.rs"
+
+[build-dependencies]
+typst-bake = "0.1"
+```
+
+```rust
+// build.rs
+fn main() {
+    typst_bake::rebuild_if_changed();
+}
 ```
 
 ## Quick Start
@@ -36,7 +58,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 ```
 
-For detailed setup guide, see the [Quick Start Guide (PDF)](examples/quick-start/output.pdf).
+For a complete walkthrough, see the [Quick Start Guide (PDF)](examples/quick-start/output.pdf).
 
 ## Examples
 
