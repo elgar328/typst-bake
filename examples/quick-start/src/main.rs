@@ -2,19 +2,17 @@ use typst_bake::{IntoDict, IntoValue};
 
 #[derive(IntoValue, IntoDict)]
 struct Inputs {
-    fonts_size: u64,
-    files_size: u64,
-}
-
-fn dir_size(dir: &str) -> u64 {
-    std::fs::read_dir(dir)
-        .into_iter()
-        .flatten()
-        .filter_map(|e| e.ok())
-        .filter_map(|e| e.metadata().ok())
-        .filter(|m| m.is_file())
-        .map(|m| m.len())
-        .sum()
+    templates_original: usize,
+    templates_compressed: usize,
+    templates_count: usize,
+    fonts_original: usize,
+    fonts_compressed: usize,
+    fonts_count: usize,
+    packages_original: usize,
+    packages_compressed: usize,
+    packages_count: usize,
+    total_original: usize,
+    total_compressed: usize,
 }
 
 fn save_pdf(data: &[u8], filename: &str) -> Result<(), Box<dyn std::error::Error>> {
@@ -25,19 +23,27 @@ fn save_pdf(data: &[u8], filename: &str) -> Result<(), Box<dyn std::error::Error
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let manifest_dir = env!("CARGO_MANIFEST_DIR");
-
-    let inputs = Inputs {
-        fonts_size: dir_size(&format!("{}/fonts", manifest_dir)),
-        files_size: dir_size(&format!("{}/templates", manifest_dir)),
-    };
-
     let doc = typst_bake::document!("main.typ");
 
     // Display compression statistics
     println!();
     doc.stats().display();
     println!();
+
+    let stats = doc.stats();
+    let inputs = Inputs {
+        templates_original: stats.templates.original_size,
+        templates_compressed: stats.templates.compressed_size,
+        templates_count: stats.templates.file_count,
+        fonts_original: stats.fonts.original_size,
+        fonts_compressed: stats.fonts.compressed_size,
+        fonts_count: stats.fonts.file_count,
+        packages_original: stats.packages.total_original,
+        packages_compressed: stats.packages.total_compressed,
+        packages_count: stats.packages.packages.len(),
+        total_original: stats.total_original(),
+        total_compressed: stats.total_compressed(),
+    };
 
     let pdf = doc.with_inputs(inputs.into_dict()).to_pdf()?;
 

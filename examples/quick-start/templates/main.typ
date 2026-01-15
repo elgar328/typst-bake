@@ -25,7 +25,8 @@
 == Step 5: Generate PDF
 #include("content/step5.typ")
 
+== Embedded Resources
+#include("content/stats.typ")
+
 #line(length: 100%, stroke: 0.5pt + gray)
 For more examples, see the `examples/` directory in the repository.
-
-_This document was generated with *#calc.round(inputs.fonts_size / 1024, digits: 1) KB* of fonts and *#inputs.files_size B* of templates._
