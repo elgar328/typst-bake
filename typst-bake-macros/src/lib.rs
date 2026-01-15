@@ -101,7 +101,7 @@ pub fn document(input: TokenStream) -> TokenStream {
     // This allows users to not need include_dir in their dependencies
     let templates_code = dir_embed::embed_dir(&template_dir);
     let packages_code = dir_embed::embed_dir(&cache_dir);
-    let fonts_code = dir_embed::embed_dir(&fonts_dir);
+    let fonts_code = dir_embed::embed_fonts_dir(&fonts_dir);
 
     let expanded = quote! {
         {
