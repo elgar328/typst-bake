@@ -2,6 +2,7 @@
 
 [![Crates.io](https://img.shields.io/crates/v/typst-bake.svg)](https://crates.io/crates/typst-bake)
 [![Documentation](https://docs.rs/typst-bake/badge.svg)](https://docs.rs/typst-bake)
+[![CI](https://github.com/elgar328/typst-bake/actions/workflows/ci.yml/badge.svg)](https://github.com/elgar328/typst-bake/actions/workflows/ci.yml)
 [![License](https://img.shields.io/crates/l/typst-bake.svg)](https://github.com/elgar328/typst-bake#license)
 
 Bake Typst templates, fonts, and packages into your Rust binary to create a fully self-contained PDF generation engine with zero runtime dependencies on the filesystem or network.
