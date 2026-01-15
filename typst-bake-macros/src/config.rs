@@ -77,7 +77,7 @@ pub fn should_refresh_cache() -> bool {
 /// 1. 환경변수 TYPST_FONTS_DIR
 /// 2. Cargo.toml의 [package.metadata.typst-bake] fonts-dir
 ///
-/// 폰트 파일(.ttf, .otf, .ttc, .woff, .woff2)이 최소 1개 이상 있어야 합니다.
+/// 폰트 파일(.ttf, .otf, .ttc)이 최소 1개 이상 있어야 합니다.
 pub fn get_fonts_dir() -> Result<PathBuf, String> {
     let manifest_dir = env::var("CARGO_MANIFEST_DIR")
         .map_err(|_| "CARGO_MANIFEST_DIR not set")?;
@@ -141,7 +141,7 @@ pub fn get_fonts_dir() -> Result<PathBuf, String> {
     if !has_fonts {
         return Err(format!(
             "No font files found in fonts directory: {}\n\n\
-            Supported formats: .ttf, .otf, .ttc, .woff, .woff2",
+            Supported formats: .ttf, .otf, .ttc",
             path.display()
         ));
     }
@@ -152,5 +152,5 @@ pub fn get_fonts_dir() -> Result<PathBuf, String> {
 /// 파일이 폰트 파일인지 확인합니다.
 pub fn is_font_file(path: &Path) -> bool {
     let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("");
-    matches!(ext.to_lowercase().as_str(), "ttf" | "otf" | "ttc" | "woff" | "woff2")
+    matches!(ext.to_lowercase().as_str(), "ttf" | "otf" | "ttc")
 }

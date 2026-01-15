@@ -77,12 +77,7 @@ impl Document {
         let resolver = EmbeddedResolver::new(self.templates, self.packages);
 
         // Collect fonts from the embedded fonts directory
-        let font_data: Vec<&[u8]> = self
-            .fonts
-            .files()
-            .filter(|f| is_font_file(f.path()))
-            .map(|f| f.contents())
-            .collect();
+        let font_data: Vec<&[u8]> = self.fonts.files().map(|f| f.contents()).collect();
 
         // Build engine with main file, resolver, and fonts
         let builder = TypstEngine::builder()
@@ -110,10 +105,4 @@ impl Document {
 
         Ok(pdf_bytes)
     }
-}
-
-/// Check if a file is a font file based on extension.
-fn is_font_file(path: &std::path::Path) -> bool {
-    let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("");
-    matches!(ext.to_lowercase().as_str(), "ttf" | "otf" | "ttc" | "woff" | "woff2")
 }
