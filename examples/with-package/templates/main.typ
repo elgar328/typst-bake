@@ -13,7 +13,7 @@ The `cetz` and `lilaq` packages were automatically detected from the import stat
 
 == CetZ Drawing
 
-A 3D icosahedron rendered using the CetZ package:
+A 3D shape rendered using the CetZ package:
 
 #align(center)[
   #canvas(length: 2cm, {
