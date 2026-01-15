@@ -4,6 +4,10 @@ version = "0.1.0"
 edition = "2021"
 description = "Bake Typst templates, fonts, and packages into your binary for offline PDF generation"
 license = "MIT OR Apache-2.0"
+repository = "https://github.com/elgar328/typst-bake"
+readme = "../README.md"
+keywords = ["typst", "pdf", "template", "embedded"]
+categories = ["template-engine", "text-processing"]
 
 [dependencies]
 typst-bake-macros.workspace = true
