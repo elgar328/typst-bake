@@ -7,7 +7,7 @@
 
 = Package Bundling Example
 
-This document demonstrates automatic package bundling with typst-bake.
+Packages require no manual setup. Just use `#import` as you normally would in Typst, and `typst-bake` handles the rest automatically.
 
 The `cetz` and `lilaq` packages were automatically detected from the import statements and downloaded at compile time. Their internal dependencies (such as `oxifmt`, `zero`, `tiptoe`, `elembic`) are also automatically resolved and embedded. No manual package installation is required.
 
