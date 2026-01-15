@@ -59,17 +59,17 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 ```
 
-For a complete walkthrough, see the [Quick Start Guide (PDF)](examples/quick-start/output.pdf).
+For a complete walkthrough, see the [Quick Start Guide (PDF)](https://github.com/elgar328/typst-bake/blob/main/examples/quick-start/output.pdf).
 
 ## Examples
 
 | Example | Description | Command | Output |
 |---------|-------------|---------|--------|
-| quick-start | Generates the Quick Start PDF using all features | `cargo run -p example-quick-start` | [PDF](examples/quick-start/output.pdf) |
-| font-guide | Guide to font setup and usage | `cargo run -p example-font-guide` | [PDF](examples/font-guide/output.pdf) |
-| with-inputs | Pass dynamic data from Rust to Typst | `cargo run -p example-with-inputs` | [PDF](examples/with-inputs/output.pdf) |
-| with-files | Embed images and various data files | `cargo run -p example-with-files` | [PDF](examples/with-files/output.pdf) |
-| with-package | Automatic package bundling | `cargo run -p example-with-package` | [PDF](examples/with-package/output.pdf) |
+| quick-start | Generates the Quick Start PDF using all features | `cargo run -p example-quick-start` | [PDF](https://github.com/elgar328/typst-bake/blob/main/examples/quick-start/output.pdf) |
+| font-guide | Guide to font setup and usage | `cargo run -p example-font-guide` | [PDF](https://github.com/elgar328/typst-bake/blob/main/examples/font-guide/output.pdf) |
+| with-inputs | Pass dynamic data from Rust to Typst | `cargo run -p example-with-inputs` | [PDF](https://github.com/elgar328/typst-bake/blob/main/examples/with-inputs/output.pdf) |
+| with-files | Embed images and various data files | `cargo run -p example-with-files` | [PDF](https://github.com/elgar328/typst-bake/blob/main/examples/with-files/output.pdf) |
+| with-package | Automatic package bundling | `cargo run -p example-with-package` | [PDF](https://github.com/elgar328/typst-bake/blob/main/examples/with-package/output.pdf) |
 
 ## License
 
