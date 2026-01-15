@@ -20,7 +20,7 @@ Access inputs via `sys.inputs` and use embedded files:
   ],
   [
     #info[
-      Packages imported with `#import` in `.typ` files are automatically detected, downloaded, and embedded at build time.
+      Packages imported with `#import` in `.typ` files are automatically detected, downloaded, and embedded at compile time.
     ]
   ]
 )

@@ -6,7 +6,7 @@ use proc_macro2::TokenStream;
 use quote::quote;
 use syn::{Data, DeriveInput, Fields, Result};
 
-/// IntoValue derive 매크로 구현
+/// IntoValue derive macro implementation
 pub fn derive_into_value(item: DeriveInput) -> Result<TokenStream> {
     let (ty, dictentries) = gather_input(&item)?;
 
@@ -22,7 +22,7 @@ pub fn derive_into_value(item: DeriveInput) -> Result<TokenStream> {
     })
 }
 
-/// IntoDict derive 매크로 구현
+/// IntoDict derive macro implementation
 pub fn derive_into_dict(item: DeriveInput) -> Result<TokenStream> {
     let (ty, dictentries) = gather_input(&item)?;
 

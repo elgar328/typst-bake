@@ -1,14 +1,14 @@
-//! Cargo.toml 메타데이터 파싱
+//! Parse Cargo.toml metadata
 
 use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-/// 템플릿 디렉토리 경로를 가져옵니다.
+/// Get template directory path.
 ///
-/// 우선순위:
-/// 1. 환경변수 TYPST_TEMPLATE_DIR
-/// 2. Cargo.toml의 [package.metadata.typst-bake] template-dir
+/// Priority:
+/// 1. Environment variable TYPST_TEMPLATE_DIR
+/// 2. Cargo.toml [package.metadata.typst-bake] template-dir
 pub fn get_template_dir() -> Result<PathBuf, String> {
     let manifest_dir = env::var("CARGO_MANIFEST_DIR")
         .map_err(|_| "CARGO_MANIFEST_DIR not set")?;
@@ -66,18 +66,18 @@ pub fn get_template_dir() -> Result<PathBuf, String> {
     Ok(path)
 }
 
-/// 캐시 새로고침 여부 확인
+/// Check if cache refresh is needed
 pub fn should_refresh_cache() -> bool {
     env::var("TYPST_BAKE_REFRESH").is_ok()
 }
 
-/// 폰트 디렉토리 경로를 가져옵니다.
+/// Get fonts directory path.
 ///
-/// 우선순위:
-/// 1. 환경변수 TYPST_FONTS_DIR
-/// 2. Cargo.toml의 [package.metadata.typst-bake] fonts-dir
+/// Priority:
+/// 1. Environment variable TYPST_FONTS_DIR
+/// 2. Cargo.toml [package.metadata.typst-bake] fonts-dir
 ///
-/// 폰트 파일(.ttf, .otf, .ttc)이 최소 1개 이상 있어야 합니다.
+/// At least one font file (.ttf, .otf, .ttc) must exist.
 pub fn get_fonts_dir() -> Result<PathBuf, String> {
     let manifest_dir = env::var("CARGO_MANIFEST_DIR")
         .map_err(|_| "CARGO_MANIFEST_DIR not set")?;
@@ -149,7 +149,7 @@ pub fn get_fonts_dir() -> Result<PathBuf, String> {
     Ok(path)
 }
 
-/// 파일이 폰트 파일인지 확인합니다.
+/// Check if file is a font file.
 pub fn is_font_file(path: &Path) -> bool {
     let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("");
     matches!(ext.to_lowercase().as_str(), "ttf" | "otf" | "ttc")
