@@ -1,7 +1,8 @@
 //! Procedural macros for typst-bake
 //!
-//! This crate provides the `document!()` macro that embeds templates
-//! and packages at compile time.
+//! This crate provides the [`document!`] macro that embeds templates, fonts,
+//! and packages at compile time. All resources are compressed with zstd for
+//! optimized binary size.
 
 mod config;
 mod derive_intoval;
@@ -13,23 +14,6 @@ use proc_macro::TokenStream;
 use quote::quote;
 use syn::{parse_macro_input, LitStr};
 
-/// Creates a Document with embedded templates, fonts, and packages.
-///
-/// # Usage
-///
-/// ```rust,ignore
-/// let pdf = typst_bake::document!("main.typ")
-///     .to_pdf()?;
-/// ```
-///
-/// # Configuration
-///
-/// Add to your Cargo.toml:
-/// ```toml
-/// [package.metadata.typst-bake]
-/// template-dir = "./templates"
-/// fonts-dir = "./fonts"
-/// ```
 #[proc_macro]
 pub fn document(input: TokenStream) -> TokenStream {
     let entry = parse_macro_input!(input as LitStr);
@@ -243,21 +227,6 @@ pub fn document(input: TokenStream) -> TokenStream {
     expanded.into()
 }
 
-/// Derive macro for implementing `IntoValue` trait.
-///
-/// This allows structs to be converted to Typst values for use with `with_inputs()`.
-///
-/// # Example
-///
-/// ```rust,ignore
-/// use typst_bake::IntoValue;
-///
-/// #[derive(IntoValue)]
-/// struct Item {
-///     name: String,
-///     quantity: i32,
-/// }
-/// ```
 #[proc_macro_derive(IntoValue)]
 pub fn derive_into_value(item: TokenStream) -> TokenStream {
     let item = parse_macro_input!(item as syn::DeriveInput);
@@ -266,25 +235,6 @@ pub fn derive_into_value(item: TokenStream) -> TokenStream {
         .into()
 }
 
-/// Derive macro for adding `into_dict()` method to structs.
-///
-/// This allows structs to be converted to Typst Dict for use with `with_inputs()`.
-///
-/// # Example
-///
-/// ```rust,ignore
-/// use typst_bake::{IntoValue, IntoDict};
-///
-/// #[derive(IntoValue, IntoDict)]
-/// struct Data {
-///     title: String,
-///     count: i32,
-/// }
-///
-/// let pdf = typst_bake::document!("main.typ")
-///     .with_inputs(data)
-///     .to_pdf()?;
-/// ```
 #[proc_macro_derive(IntoDict)]
 pub fn derive_into_dict(item: TokenStream) -> TokenStream {
     let item = parse_macro_input!(item as syn::DeriveInput);

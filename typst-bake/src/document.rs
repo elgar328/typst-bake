@@ -7,9 +7,10 @@ use std::io::Cursor;
 use typst::foundations::Dict;
 use typst_as_lib::TypstEngine;
 
-/// A document ready for PDF generation.
+/// A fully self-contained document ready for PDF generation.
 ///
-/// Created by the `document!()` macro with embedded templates, fonts, and packages.
+/// Created by the [`document!`](crate::document!) macro with embedded templates, fonts,
+/// and packages. All resources are compressed with zstd and decompressed lazily at runtime.
 pub struct Document {
     templates: &'static Dir<'static>,
     packages: &'static Dir<'static>,
@@ -42,19 +43,43 @@ impl Document {
 
     /// Add input data to the document.
     ///
-    /// The data must implement `IntoDict` from `derive_typst_intoval`.
+    /// Define your data structs using the derive macros:
+    /// - **Top-level struct**: Use both [`IntoValue`](crate::IntoValue) and [`IntoDict`](crate::IntoDict)
+    /// - **Nested structs**: Use [`IntoValue`](crate::IntoValue) only
+    ///
+    /// In Typst templates, access the data via `sys.inputs`:
+    /// ```typ
+    /// #import sys: inputs
+    /// = #inputs.title
+    /// ```
     ///
     /// # Example
-    /// ```rust,ignore
-    /// use derive_typst_intoval::{IntoValue, IntoDict};
     ///
-    /// #[derive(IntoValue, IntoDict)]
+    /// ```rust,ignore
+    /// use typst_bake::{IntoValue, IntoDict};
+    ///
+    /// #[derive(IntoValue, IntoDict)]  // Top-level: both macros
     /// struct Inputs {
     ///     title: String,
+    ///     products: Vec<Product>,
     /// }
     ///
-    /// typst_bake::document!("main.typ")
-    ///     .with_inputs(Inputs { title: "Hello".into() })
+    /// #[derive(IntoValue)]  // Nested: IntoValue only
+    /// struct Product {
+    ///     name: String,
+    ///     price: f64,
+    /// }
+    ///
+    /// let inputs = Inputs {
+    ///     title: "Catalog".to_string(),
+    ///     products: vec![
+    ///         Product { name: "Apple".to_string(), price: 1.50 },
+    ///     ],
+    /// };
+    ///
+    /// let pdf = typst_bake::document!("main.typ")
+    ///     .with_inputs(inputs)
+    ///     .to_pdf()?;
     /// ```
     pub fn with_inputs<T: Into<Dict>>(mut self, inputs: T) -> Self {
         self.inputs = Some(inputs.into());

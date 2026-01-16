@@ -1,6 +1,11 @@
-//! Compression statistics for embedded files
+//! Compression statistics for embedded files.
+//!
+//! All embedded resources (templates, fonts, packages) are compressed with zstd
+//! and decompressed lazily at runtime.
 
-/// Compression statistics for all embedded content
+/// Compression statistics for all embedded content.
+///
+/// Resources are compressed with zstd at compile time and decompressed lazily at runtime.
 #[derive(Debug, Clone)]
 pub struct EmbedStats {
     /// Template files statistics
