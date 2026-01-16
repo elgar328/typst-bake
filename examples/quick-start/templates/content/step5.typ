@@ -8,7 +8,7 @@ Generate PDF with `document!` macro:
   [
     ```rust
     let pdf = typst_bake::document!("main.typ")
-        .with_inputs(inputs.into_dict())
+        .with_inputs(inputs)
         .to_pdf()?;
 
     std::fs::write("output.pdf", &pdf)?;

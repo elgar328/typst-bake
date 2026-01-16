@@ -282,7 +282,7 @@ pub fn derive_into_value(item: TokenStream) -> TokenStream {
 /// }
 ///
 /// let pdf = typst_bake::document!("main.typ")
-///     .with_inputs(data.into_dict())
+///     .with_inputs(data)
 ///     .to_pdf()?;
 /// ```
 #[proc_macro_derive(IntoDict)]
