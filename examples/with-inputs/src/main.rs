@@ -52,7 +52,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     };
 
     let pdf = typst_bake::document!("main.typ")
-        .with_inputs(invoice.into_dict())
+        .with_inputs(invoice)
         .to_pdf()?;
     save_pdf(&pdf, "output.pdf")
 }

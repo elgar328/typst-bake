@@ -36,6 +36,12 @@ pub fn derive_into_dict(item: DeriveInput) -> Result<TokenStream> {
                 )
             }
         }
+
+        impl ::core::convert::From<#ty> for ::typst_bake::__internal::typst::foundations::Dict {
+            fn from(value: #ty) -> Self {
+                value.into_dict()
+            }
+        }
     })
 }
 

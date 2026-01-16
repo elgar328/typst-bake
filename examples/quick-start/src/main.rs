@@ -45,7 +45,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         total_compressed: stats.total_compressed(),
     };
 
-    let pdf = doc.with_inputs(inputs.into_dict()).to_pdf()?;
+    let pdf = doc.with_inputs(inputs).to_pdf()?;
 
     save_pdf(&pdf, "output.pdf")
 }
