@@ -47,7 +47,7 @@ pub fn document(input: TokenStream) -> TokenStream {
     };
 
     // Scan for packages
-    eprintln!("typst-bake: Scanning templates for package imports...");
+    eprintln!("typst-bake: Scanning for package imports...");
     let packages = scanner::extract_packages(&template_dir);
 
     // Download packages if any
@@ -66,7 +66,7 @@ pub fn document(input: TokenStream) -> TokenStream {
             return syn::Error::new_spanned(entry, e).to_compile_error().into();
         }
     } else {
-        eprintln!("typst-bake: No packages found in templates");
+        eprintln!("typst-bake: No packages found");
     }
 
     // Generate code

@@ -8,7 +8,7 @@
 //!
 //! - **File Embedding** - All files in `template-dir` are embedded and accessible from templates
 //! - **Font Embedding** - Fonts (TTF, OTF, TTC) in `fonts-dir` are automatically bundled
-//! - **Package Bundling** - Scans templates for package imports and recursively resolves all dependencies
+//! - **Package Bundling** - Scans for package imports and recursively resolves all dependencies
 //! - **Optimized Binary Size** - Resources are compressed with zstd and decompressed lazily at runtime
 //! - **Runtime Inputs** - Pass dynamic data from Rust structs to Typst via [`IntoValue`] / [`IntoDict`] derive macros
 //!
@@ -64,7 +64,7 @@ pub use stats::{CategoryStats, EmbedStats, PackageInfo, PackageStats};
 /// - **Fonts**: Only supported font formats (TTF, OTF, TTC) are embedded. At least one font
 ///   is required; without fonts, Typst produces invisible text
 /// - **Packages**: Using packages requires no manual setup. Just use `#import "@preview/..."`
-///   as you normally would in Typst. The macro scans templates for package imports and
+///   as you normally would in Typst. The macro scans for package imports and
 ///   recursively resolves all dependencies at compile time
 pub use typst_bake_macros::document;
 
