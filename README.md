@@ -5,11 +5,12 @@
 [![CI](https://github.com/elgar328/typst-bake/actions/workflows/ci.yml/badge.svg)](https://github.com/elgar328/typst-bake/actions/workflows/ci.yml)
 [![License](https://img.shields.io/crates/l/typst-bake.svg)](https://github.com/elgar328/typst-bake#license)
 
-Bake Typst templates, fonts, and packages into your Rust binary to create a fully self-contained PDF generation engine with zero runtime dependencies on the filesystem or network.
+Bake Typst templates, fonts, and packages into your binary to create a **fully self-contained document compiler**.
 
 ## Features
 
-- **Simple API** - Generate PDFs with just `document!("main.typ").to_pdf()`
+- **Multi-Format Output** - Generate PDF, SVG, or PNG from the same template
+- **Simple API** - Generate documents with just `document!("main.typ").to_pdf()`
 - **Minimal Setup** - Just specify `template-dir` and `fonts-dir` in `Cargo.toml` metadata
 - **File Embedding** - All files in `template-dir` are embedded and accessible from templates
 - **Font Embedding** - Fonts (TTF, OTF, TTC) in `fonts-dir` are automatically bundled into the binary
@@ -31,6 +32,17 @@ typst-bake = "0.1"
 template-dir = "./templates"  # Path to your .typ files and assets
 fonts-dir = "./fonts"         # Path to your font files
 ```
+
+### Cargo Features
+
+| Feature | Description |
+|---------|-------------|
+| `pdf` (default) | Enable `to_pdf()` |
+| `svg` | Enable `to_svg()` |
+| `png` | Enable `to_png()` |
+| `full` | Enable all output formats |
+
+PDF works out of the box. To disable PDF and use only SVG: `default-features = false, features = ["svg"]`.
 
 ### Optional: Complete File Change Detection
 
@@ -58,8 +70,20 @@ fn main() {
 
 ```rust
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let pdf = typst_bake::document!("main.typ").to_pdf()?;
+    let doc = typst_bake::document!("main.typ");
+
+    // Generate PDF
+    let pdf = doc.to_pdf()?;
     std::fs::write("output.pdf", &pdf)?;
+
+    // Generate SVG
+    let svgs = doc.to_svg()?;
+    std::fs::write("page1.svg", &svgs[0])?;
+
+    // Generate PNG at 144 DPI
+    let pngs = doc.to_png(144.0)?;
+    std::fs::write("page1.png", &pngs[0])?;
+
     Ok(())
 }
 ```
