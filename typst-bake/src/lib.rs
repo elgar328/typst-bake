@@ -1,8 +1,7 @@
 //! # typst-bake
 //!
-//! Bake Typst templates, fonts, and packages into your Rust binary to create a **fully
-//! self-contained** document rendering engine with **zero runtime dependencies** on the
-//! filesystem or network.
+//! Bake Typst templates, fonts, and packages into your binary to create a fully
+//! self-contained document compiler.
 //!
 //! ## Cargo Features
 //!
