@@ -1,11 +1,19 @@
 //! # typst-bake
 //!
 //! Bake Typst templates, fonts, and packages into your Rust binary to create a **fully
-//! self-contained** PDF generation engine with **zero runtime dependencies** on the
+//! self-contained** document rendering engine with **zero runtime dependencies** on the
 //! filesystem or network.
+//!
+//! ## Cargo Features
+//!
+//! - **`pdf`** (default) - Enable PDF generation via [`Document::to_pdf`]
+//! - **`svg`** - Enable SVG generation via [`Document::to_svg`]
+//! - **`png`** - Enable PNG rasterization via [`Document::to_png`]
+//! - **`full`** - Enable all output formats
 //!
 //! ## Features
 //!
+//! - **Multiple Output Formats** - Generate PDF, SVG, or PNG from the same template
 //! - **File Embedding** - All files in `template-dir` are embedded and accessible from templates
 //! - **Font Embedding** - Fonts (TTF, OTF, TTC) in `fonts-dir` are automatically bundled
 //! - **Package Bundling** - Scans for package imports and recursively resolves all dependencies
@@ -26,10 +34,14 @@
 //!
 //! Then use the [`document!`] macro:
 //! ```rust,ignore
-//! let pdf = typst_bake::document!("main.typ")
-//!     .to_pdf()?;
+//! // Generate PDF
+//! let pdf = typst_bake::document!("main.typ").to_pdf()?;
 //!
-//! std::fs::write("output.pdf", pdf)?;
+//! // Generate SVG (one per page)
+//! let svgs = typst_bake::document!("main.typ").to_svg()?;
+//!
+//! // Generate PNG at 144 DPI (Retina)
+//! let pngs = typst_bake::document!("main.typ").to_png(144.0)?;
 //! ```
 
 mod build;
@@ -45,8 +57,14 @@ pub use stats::{CategoryStats, EmbedStats, PackageInfo, PackageStats};
 /// # Usage
 ///
 /// ```rust,ignore
-/// let pdf = typst_bake::document!("main.typ")
-///     .to_pdf()?;
+/// // Generate PDF
+/// let pdf = typst_bake::document!("main.typ").to_pdf()?;
+///
+/// // Generate SVG (one per page)
+/// let svgs = typst_bake::document!("main.typ").to_svg()?;
+///
+/// // Generate PNG at 144 DPI (Retina)
+/// let pngs = typst_bake::document!("main.typ").to_png(144.0)?;
 /// ```
 ///
 /// # Configuration

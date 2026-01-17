@@ -9,10 +9,23 @@ readme = "../README.md"
 keywords = ["typst", "pdf", "template", "embedded"]
 categories = ["template-engine", "text-processing"]
 
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]
+
+[features]
+default = ["pdf"]
+pdf = ["dep:typst-pdf"]
+svg = ["dep:typst-svg"]
+png = ["dep:typst-render"]
+full = ["pdf", "svg", "png"]
+
 [dependencies]
 typst-bake-macros.workspace = true
 typst.workspace = true
-typst-pdf.workspace = true
+typst-pdf = { workspace = true, optional = true }
+typst-svg = { workspace = true, optional = true }
+typst-render = { workspace = true, optional = true }
 typst-as-lib.workspace = true
 include_dir.workspace = true
 zstd.workspace = true
