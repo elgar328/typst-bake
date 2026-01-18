@@ -1,7 +1,7 @@
 //! # typst-bake
 //!
-//! Bake Typst templates, fonts, and packages into your binary to create a fully
-//! self-contained document compiler.
+//! Bake Typst templates, fonts, and packages into your Rust binary — use Typst
+//! as a self-contained, embedded library.
 //!
 //! ## Cargo Features
 //!

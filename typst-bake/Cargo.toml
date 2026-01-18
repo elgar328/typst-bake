@@ -2,7 +2,7 @@
 name = "typst-bake"
 version.workspace = true
 edition = "2021"
-description = "Bake Typst templates, fonts, and packages into your binary to create a fully self-contained document compiler"
+description = "Bake Typst templates, fonts, and packages into your Rust binary — use Typst as a self-contained, embedded library"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/elgar328/typst-bake"
 readme = "../README.md"

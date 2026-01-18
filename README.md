@@ -5,7 +5,7 @@
 [![CI](https://github.com/elgar328/typst-bake/actions/workflows/ci.yml/badge.svg)](https://github.com/elgar328/typst-bake/actions/workflows/ci.yml)
 [![License](https://img.shields.io/crates/l/typst-bake.svg)](https://github.com/elgar328/typst-bake#license)
 
-Bake Typst templates, fonts, and packages into your binary to create a **fully self-contained document compiler**.
+Bake Typst templates, fonts, and packages into your Rust binary — use Typst as a self-contained, embedded library.
 
 ## Features
 
