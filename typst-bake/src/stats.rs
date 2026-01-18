@@ -193,3 +193,76 @@ fn format_size(bytes: usize) -> String {
         format!("{} B", bytes)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_format_size_bytes() {
+        assert_eq!(format_size(0), "0 B");
+        assert_eq!(format_size(512), "512 B");
+        assert_eq!(format_size(1023), "1023 B");
+    }
+
+    #[test]
+    fn test_format_size_kilobytes() {
+        assert_eq!(format_size(1024), "1.0 KB");
+        assert_eq!(format_size(1536), "1.5 KB");
+        assert_eq!(format_size(10240), "10.0 KB");
+    }
+
+    #[test]
+    fn test_format_size_megabytes() {
+        assert_eq!(format_size(1048576), "1.00 MB");
+        assert_eq!(format_size(1572864), "1.50 MB");
+    }
+
+    #[test]
+    fn test_compression_ratio_zero_original() {
+        let stats = CategoryStats {
+            original_size: 0,
+            compressed_size: 0,
+            file_count: 0,
+        };
+        assert_eq!(stats.compression_ratio(), 0.0);
+    }
+
+    #[test]
+    fn test_compression_ratio_75_percent() {
+        // Asymmetric values to distinguish from incorrect calculation (original/compressed)
+        // Correct: 1 - (250/1000) = 0.75
+        // Wrong:   1 - (1000/250) = -3.0
+        let stats = CategoryStats {
+            original_size: 1000,
+            compressed_size: 250,
+            file_count: 1,
+        };
+        assert!((stats.compression_ratio() - 0.75).abs() < 0.001);
+    }
+
+    #[test]
+    fn test_embed_stats_totals() {
+        let stats = EmbedStats {
+            templates: CategoryStats {
+                original_size: 1000,
+                compressed_size: 200, // 80% compression
+                file_count: 1,
+            },
+            fonts: CategoryStats {
+                original_size: 2000,
+                compressed_size: 600, // 70% compression
+                file_count: 2,
+            },
+            packages: PackageStats {
+                packages: vec![],
+                total_original: 1000,
+                total_compressed: 200, // 80% compression
+            },
+        };
+        // Total: 4000 -> 1000 (75% compression)
+        assert_eq!(stats.total_original(), 4000);
+        assert_eq!(stats.total_compressed(), 1000);
+        assert!((stats.compression_ratio() - 0.75).abs() < 0.001);
+    }
+}
