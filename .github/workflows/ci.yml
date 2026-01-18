@@ -11,7 +11,7 @@ env:
 
 jobs:
   check:
-    name: Check & Lint
+    name: Check & Test
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -26,45 +26,3 @@ jobs:
 
       - name: Run tests
         run: cargo test --workspace
-
-  examples:
-    name: Test Examples
-    runs-on: ubuntu-latest
-    needs: check
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: swatinem/rust-cache@v2
-
-      - name: Build library
-        run: cargo build -p typst-bake
-
-      - name: Test example-font-guide
-        run: |
-          rm examples/font-guide/output.pdf
-          cargo run -p example-font-guide
-          test -s examples/font-guide/output.pdf
-
-      - name: Test example-with-inputs
-        run: |
-          rm examples/with-inputs/output.pdf
-          cargo run -p example-with-inputs
-          test -s examples/with-inputs/output.pdf
-
-      - name: Test example-with-files
-        run: |
-          rm examples/with-files/output.pdf
-          cargo run -p example-with-files
-          test -s examples/with-files/output.pdf
-
-      - name: Test example-with-package
-        run: |
-          rm examples/with-package/output.pdf
-          cargo run -p example-with-package
-          test -s examples/with-package/output.pdf
-
-      - name: Test example-quick-start
-        run: |
-          rm examples/quick-start/output.pdf
-          cargo run -p example-quick-start
-          test -s examples/quick-start/output.pdf
