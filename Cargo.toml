@@ -36,6 +36,9 @@ syn = "2"
 zstd = "0.13"
 flate2 = "1"
 
+# Error handling
+thiserror = "2"
+
 # Utilities
 include_dir = "0.7"
 ureq = "3.1"
