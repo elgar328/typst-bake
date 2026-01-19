@@ -1,0 +1,11 @@
+[package]
+name = "example-output-formats"
+version = "0.1.0"
+edition = "2021"
+
+[package.metadata.typst-bake]
+template-dir = "./templates"
+fonts-dir = "./fonts"
+
+[dependencies]
+typst-bake = { workspace = true, features = ["full"] }
