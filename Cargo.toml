@@ -12,12 +12,12 @@ members = [
 resolver = "2"
 
 [workspace.package]
-version = "0.1.3-dev"
+version = "0.1.3"
 
 [workspace.dependencies]
 # Internal crates
-typst-bake = { version = "=0.1.3-dev", path = "typst-bake" }
-typst-bake-macros = { version = "=0.1.3-dev", path = "typst-bake-macros" }
+typst-bake = { version = "=0.1.3", path = "typst-bake" }
+typst-bake-macros = { version = "=0.1.3", path = "typst-bake-macros" }
 
 # Typst
 typst = "0.14"
