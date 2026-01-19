@@ -30,4 +30,4 @@ typst-as-lib.workspace = true
 include_dir.workspace = true
 zstd.workspace = true
 toml.workspace = true
-thiserror = "2"
+thiserror.workspace = true
