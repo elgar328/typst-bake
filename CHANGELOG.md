@@ -5,6 +5,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.2] - 2025-01-19
+
+### Added
+
+- **Multiple output formats** with feature flags:
+  - `pdf` (default) - PDF generation via `to_pdf()`
+  - `svg` - SVG generation via `to_svg()`
+  - `png` - PNG rasterization via `to_png(dpi)`
+  - `full` - Enable all formats
+- Custom error types (`Error`, `Result`) for better error handling
+- `output-formats` example demonstrating all rendering options
+- Unit tests for stats module and integration tests for examples
+
+### Changed
+
+- Improved compilation error messages to show clean diagnostic text
+- Improved API documentation with feature flag annotations
+- Added comparison with typst-as-lib to README
+- Internal code cleanup (shared util module, unified scan functions)
+
 ## [0.1.1] - 2025-01-16
 
 ### Added
@@ -43,6 +63,7 @@ Initial release of typst-bake - a library to bake Typst templates, fonts, and pa
 - [Quick Start Guide (PDF)](https://github.com/elgar328/typst-bake/blob/main/examples/quick-start/output.pdf)
 
 
+[0.1.2]: https://github.com/elgar328/typst-bake/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/elgar328/typst-bake/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/elgar328/typst-bake/releases/tag/v0.1.0
 
