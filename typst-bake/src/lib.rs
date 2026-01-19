@@ -15,7 +15,7 @@
 //! ## Features
 //!
 //! - **Multiple Output Formats** - Generate PDF, SVG, or PNG from the same template
-//! - **File Embedding** - All files in `template-dir` are embedded and accessible from templates
+//! - **File Embedding** - All files in `template-dir` are embedded and accessible from `.typ` files
 //! - **Font Embedding** - Fonts (TTF, OTF, TTC) in `fonts-dir` are automatically bundled
 //! - **Package Bundling** - Scans for package imports and recursively resolves all dependencies
 //! - **Optimized Binary Size** - Resources are compressed with zstd and decompressed lazily at runtime
@@ -115,7 +115,7 @@ pub use typst_bake_macros::document;
 /// }
 /// ```
 ///
-/// In Typst templates, nested structs are accessed as dictionaries:
+/// In `.typ` files, nested structs are accessed as dictionaries:
 /// ```typ
 /// #for product in inputs.products [
 ///   - #product.name: $#product.price

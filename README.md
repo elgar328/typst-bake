@@ -5,14 +5,14 @@
 [![CI](https://github.com/elgar328/typst-bake/actions/workflows/ci.yml/badge.svg)](https://github.com/elgar328/typst-bake/actions/workflows/ci.yml)
 [![License](https://img.shields.io/crates/l/typst-bake.svg)](https://github.com/elgar328/typst-bake#license)
 
-Bake Typst templates, fonts, and packages into your Rust binary — use Typst as a self-contained, embedded library.
+Bake Typst templates, fonts, and packages into your Rust binary — use [Typst](https://typst.app) as a self-contained, embedded library.
 
 ## Features
 
 - **Multi-Format Output** - Generate PDF, SVG, or PNG from the same template
 - **Simple API** - Generate documents with just `document!("main.typ").to_pdf()`
 - **Minimal Setup** - Just specify `template-dir` and `fonts-dir` in `Cargo.toml` metadata
-- **File Embedding** - All files in `template-dir` are embedded and accessible from templates
+- **File Embedding** - All files in `template-dir` are embedded and accessible from `.typ` files
 - **Font Embedding** - Fonts (TTF, OTF, TTC) in `fonts-dir` are automatically bundled into the binary
 - **Automatic Package Bundling** - Scans for package imports, downloads them at compile time, and recursively resolves all dependencies
 - **Package Caching** - Downloaded packages are cached in system cache directory for faster compilation. Use `TYPST_BAKE_REFRESH=1` to force re-download

@@ -52,7 +52,7 @@ impl Document {
     /// - **Top-level struct**: Use both [`IntoValue`](crate::IntoValue) and [`IntoDict`](crate::IntoDict)
     /// - **Nested structs**: Use [`IntoValue`](crate::IntoValue) only
     ///
-    /// In Typst templates, access the data via `sys.inputs`:
+    /// In `.typ` files, access the data via `sys.inputs`:
     /// ```typ
     /// #import sys: inputs
     /// = #inputs.title
