@@ -70,8 +70,14 @@ fn test_output_formats_generates_all() {
 
     // Files to verify
     let pdf_path = example_dir.join("output.pdf");
-    let svg_paths = [example_dir.join("output_1.svg"), example_dir.join("output_2.svg")];
-    let png_paths = [example_dir.join("output_1.png"), example_dir.join("output_2.png")];
+    let svg_paths = [
+        example_dir.join("output_1.svg"),
+        example_dir.join("output_2.svg"),
+    ];
+    let png_paths = [
+        example_dir.join("output_1.png"),
+        example_dir.join("output_2.png"),
+    ];
 
     // 1. Delete existing files
     let _ = std::fs::remove_file(&pdf_path);
@@ -114,6 +120,9 @@ fn test_output_formats_generates_all() {
         assert!(path.exists(), "PNG was not generated: {:?}", path);
         let png = std::fs::read(path).expect("Failed to read PNG");
         assert!(!png.is_empty(), "PNG is empty");
-        assert!(png.starts_with(&[0x89, 0x50, 0x4E, 0x47]), "Invalid PNG header");
+        assert!(
+            png.starts_with(&[0x89, 0x50, 0x4E, 0x47]),
+            "Invalid PNG header"
+        );
     }
 }

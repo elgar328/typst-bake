@@ -1,5 +1,6 @@
 //! Document structure for document rendering
 
+use crate::error::{Error, Result};
 use crate::resolver::EmbeddedResolver;
 use crate::stats::EmbedStats;
 use include_dir::Dir;
@@ -97,7 +98,7 @@ impl Document {
     }
 
     /// Internal method to compile the document (with caching).
-    fn compile_cached(&self) -> Result<(), Box<dyn std::error::Error>> {
+    fn compile_cached(&self) -> Result<()> {
         // Return early if already cached
         if self.compiled_cache.lock().unwrap().is_some() {
             return Ok(());
@@ -107,12 +108,11 @@ impl Document {
         let main_file = self
             .templates
             .get_file(&self.entry)
-            .ok_or_else(|| format!("Entry file not found: {}", self.entry))?;
+            .ok_or_else(|| Error::EntryNotFound(self.entry.clone()))?;
 
         // Decompress main file
         let main_bytes = decompress(main_file.contents())?;
-        let main_content =
-            std::str::from_utf8(&main_bytes).map_err(|_| "Entry file is not valid UTF-8")?;
+        let main_content = std::str::from_utf8(&main_bytes).map_err(|_| Error::InvalidUtf8)?;
 
         // Create resolver
         let resolver = EmbeddedResolver::new(self.templates, self.packages);
@@ -147,7 +147,7 @@ impl Document {
         // Handle the Warned wrapper and extract result
         let compiled = warned_result
             .output
-            .map_err(|e| format!("Compilation failed: {:?}", e))?;
+            .map_err(|e| Error::Compilation(format!("{e}")))?;
 
         // Store in cache
         *self.compiled_cache.lock().unwrap() = Some(compiled);
@@ -164,12 +164,12 @@ impl Document {
     /// Returns an error if compilation or PDF generation fails.
     #[cfg(feature = "pdf")]
     #[cfg_attr(docsrs, doc(cfg(feature = "pdf")))]
-    pub fn to_pdf(&self) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
+    pub fn to_pdf(&self) -> Result<Vec<u8>> {
         self.compile_cached()?;
         let cache = self.compiled_cache.lock().unwrap();
         let compiled = cache.as_ref().unwrap();
         let pdf_bytes = typst_pdf::pdf(compiled, &typst_pdf::PdfOptions::default())
-            .map_err(|e| format!("PDF generation failed: {:?}", e))?;
+            .map_err(|e| Error::PdfGeneration(format!("{e:?}")))?;
         Ok(pdf_bytes)
     }
 
@@ -182,15 +182,11 @@ impl Document {
     /// Returns an error if compilation fails.
     #[cfg(feature = "svg")]
     #[cfg_attr(docsrs, doc(cfg(feature = "svg")))]
-    pub fn to_svg(&self) -> Result<Vec<String>, Box<dyn std::error::Error>> {
+    pub fn to_svg(&self) -> Result<Vec<String>> {
         self.compile_cached()?;
         let cache = self.compiled_cache.lock().unwrap();
         let compiled = cache.as_ref().unwrap();
-        let svgs: Vec<String> = compiled
-            .pages
-            .iter()
-            .map(|page| typst_svg::svg(page))
-            .collect();
+        let svgs: Vec<String> = compiled.pages.iter().map(typst_svg::svg).collect();
         Ok(svgs)
     }
 
@@ -206,25 +202,25 @@ impl Document {
     /// Returns an error if compilation or PNG encoding fails.
     #[cfg(feature = "png")]
     #[cfg_attr(docsrs, doc(cfg(feature = "png")))]
-    pub fn to_png(&self, dpi: f32) -> Result<Vec<Vec<u8>>, Box<dyn std::error::Error>> {
+    pub fn to_png(&self, dpi: f32) -> Result<Vec<Vec<u8>>> {
         self.compile_cached()?;
         let cache = self.compiled_cache.lock().unwrap();
         let compiled = cache.as_ref().unwrap();
         let pixel_per_pt = dpi / 72.0;
-        let pngs: Result<Vec<Vec<u8>>, _> = compiled
-            .pages
-            .iter()
-            .map(|page| {
-                let pixmap = typst_render::render(page, pixel_per_pt);
-                pixmap.encode_png()
-            })
-            .collect();
-        pngs.map_err(|e| format!("PNG encoding failed: {:?}", e).into())
+        let mut pngs = Vec::with_capacity(compiled.pages.len());
+        for page in &compiled.pages {
+            let pixmap = typst_render::render(page, pixel_per_pt);
+            let png = pixmap
+                .encode_png()
+                .map_err(|e| Error::PngEncoding(format!("{e}")))?;
+            pngs.push(png);
+        }
+        Ok(pngs)
     }
 }
 
 /// Decompress zstd compressed data
-fn decompress(data: &[u8]) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
+fn decompress(data: &[u8]) -> Result<Vec<u8>> {
     let decompressed = zstd::decode_all(Cursor::new(data))?;
     Ok(decompressed)
 }
