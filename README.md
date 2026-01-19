@@ -111,7 +111,7 @@ For a complete walkthrough, see the [Quick Start Guide (PDF)](https://github.com
 
 ## Comparison with typst-as-lib
 
-**typst-as-lib** is a lightweight and flexible wrapper that makes it easy to use the Typst compiler as a Rust library. It supports various combinations of runtime filesystem access, package downloads from the internet, caching, and more.
+**[typst-as-lib](https://github.com/Relacibo/typst-as-lib)** is a lightweight and flexible wrapper that makes it easy to use the Typst compiler as a Rust library. It supports various combinations of runtime filesystem access, package downloads from the internet, caching, and more.
 
 **typst-bake** uses typst-as-lib internally, adding a user-friendly layer specialized for creating self-contained binaries. This focused scope enables a simple, easy-to-use API. It embeds all resources (templates, fonts, packages) into the binary at compile time, so the resulting executable works anywhere without external files or network access. For packages, the entire process—scanning, downloading, compressing, and embedding—is fully automatic.
 
