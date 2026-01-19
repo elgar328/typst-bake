@@ -62,6 +62,20 @@ Page 2 includes test patterns to verify multi-page behavior and evaluate PDF/SVG
 
 = Rendering Test Patterns
 
+// === Constants ===
+#let bar-height = 16pt
+#let stroke-thin = 0.25pt
+#let n-star = 72
+#let n-plate = 64
+
+// === Color bar function ===
+#let color-bar(colors, height: 16pt) = box(height: height, width: 100%)[
+  #grid(
+    columns: (1fr,) * colors.len(),
+    ..colors.map(c => box(fill: c, width: 100%, height: height))
+  )
+]
+
 #v(8pt)
 
 // === Color bars (SMPTE order by luminance, 100% saturation) ===
@@ -69,21 +83,11 @@ Page 2 includes test patterns to verify multi-page behavior and evaluate PDF/SVG
   rgb("#ffff00"), rgb("#00ffff"), rgb("#00ff00"),
   rgb("#ff00ff"), rgb("#ff0000"), rgb("#0000ff"),
 )
-#box(height: 16pt, width: 100%)[
-  #grid(
-    columns: (1fr,) * 6,
-    ..colors.map(c => box(fill: c, width: 100%, height: 16pt))
-  )
-]
+#color-bar(colors, height: bar-height)
 #let grays = range(0, 11).map(i => luma(i * 25))
-#box(height: 16pt, width: 100%)[
-  #grid(
-    columns: (1fr,) * 11,
-    ..grays.map(g => box(fill: g, width: 100%, height: 16pt))
-  )
-]
-#box(height: 16pt, width: 100%)[
-  #rect(width: 100%, height: 16pt, fill: gradient.linear(black, white))
+#color-bar(grays, height: bar-height)
+#box(height: bar-height, width: 100%)[
+  #rect(width: 100%, height: bar-height, fill: gradient.linear(black, white))
 ]
 
 #v(12pt)
@@ -115,32 +119,30 @@ Page 2 includes test patterns to verify multi-page behavior and evaluate PDF/SVG
 }
 
 // === Siemens Star (parametric) ===
-#let siemens-star(size: 80pt) = {
+#let siemens-star(size: 80pt, n: n-star) = {
   let center = size / 2
   let radius = size / 2 - 2pt
   box(width: size, height: size)[
-    #let n = 72
     #for i in range(n) {
       let angle = i * 360deg / n
       let x = center + radius * calc.cos(angle)
       let y = center + radius * calc.sin(angle)
-      place(line(start: (center, center), end: (x, y), stroke: 0.25pt))
+      place(line(start: (center, center), end: (x, y), stroke: stroke-thin))
     }
   ]
 }
 
 // === Zone Plate (parametric) ===
-#let zone-plate(size: 80pt) = {
+#let zone-plate(size: 80pt, n: n-plate) = {
   let center = size / 2
   let radius = size / 2 - 2pt
   box(width: size, height: size)[
-    #let n = 64
     #for i in range(1, n + 1) {
       let r = radius * calc.sqrt(i / n)
       place(
         dx: center - r,
         dy: center - r,
-        circle(radius: r, fill: none, stroke: 0.25pt)
+        circle(radius: r, fill: none, stroke: stroke-thin)
       )
     }
   ]
@@ -173,8 +175,8 @@ Page 2 includes test patterns to verify multi-page behavior and evaluate PDF/SVG
 
 // === Typography samples ===
 #let sizes = (2pt, 3pt, 4pt, 5pt, 6pt, 7pt, 8pt, 9pt, 10pt, 12pt, 14pt, 18pt, 24pt, 36pt)
-#for s in sizes {
-  v(-10pt)
+#for (i, s) in sizes.enumerate() {
+  if i > 0 { v(-10pt) }
   box(width: 100%, height: s * 1.2, clip: true)[
     #place(dy: s * 0.15)[#text(size: s)[#str(s.pt())pt: The quick brown fox jumps over the lazy dog]]
   ]
