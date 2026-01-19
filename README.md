@@ -113,7 +113,7 @@ For a complete walkthrough, see the [Quick Start Guide (PDF)](https://github.com
 
 **[typst-as-lib](https://github.com/Relacibo/typst-as-lib)** is a lightweight and flexible wrapper that makes it easy to use the Typst compiler as a Rust library. It supports various combinations of runtime filesystem access, package downloads from the internet, caching, and more.
 
-**typst-bake** uses typst-as-lib internally, adding a user-friendly layer specialized for creating self-contained binaries. This focused scope enables a simple, easy-to-use API. It embeds all resources (templates, fonts, packages) into the binary at compile time, so the resulting executable works anywhere without external files or network access. For packages, the entire process—scanning, downloading, compressing, and embedding—is fully automatic.
+**typst-bake** uses typst-as-lib internally, adding a layer focused on creating self-contained binaries. This focused scope enables a simple, easy-to-use API. It embeds all resources (templates, fonts, packages) into the binary at compile time, so the resulting executable works anywhere without external files or network access. For packages, the entire process—scanning, downloading, compressing, and embedding—is fully automatic.
 
 ### Key Differences
 
@@ -122,7 +122,7 @@ For a complete walkthrough, see the [Quick Start Guide (PDF)](https://github.com
 | **Resources** | Runtime filesystem access or compile-time individual file embedding | Embeds entire folders at compile time |
 | **Packages** | Runtime download (with caching) or local filesystem | Automatic scan, download, compress, and embed at compile time |
 | **Fonts** | Typst default fonts, embedded fonts, system fonts, etc. | Embedded fonts only |
-| **Configuration** | Flexible setup via builder pattern in code | Just Cargo.toml metadata |
+| **Configuration** | Flexible setup via builder pattern in code | Cargo.toml metadata only |
 | **API** | Flexible with fine-grained control | Simple (`document!("main.typ").to_pdf()`) |
 
 ### Which should you use?
