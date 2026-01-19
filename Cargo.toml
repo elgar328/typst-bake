@@ -7,6 +7,7 @@ members = [
     "examples/with-package",
     "examples/with-files",
     "examples/quick-start",
+    "examples/output-formats",
 ]
 resolver = "2"
 
