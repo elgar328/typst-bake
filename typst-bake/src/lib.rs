@@ -45,11 +45,13 @@
 
 mod build;
 mod document;
+mod error;
 mod resolver;
 mod stats;
 
 pub use build::rebuild_if_changed;
 pub use document::Document;
+pub use error::{Error, Result};
 pub use stats::{CategoryStats, EmbedStats, PackageInfo, PackageStats};
 /// Creates a [`Document`] with embedded templates, fonts, and packages.
 ///
