@@ -48,6 +48,7 @@ mod document;
 mod error;
 mod resolver;
 mod stats;
+mod util;
 
 pub use build::rebuild_if_changed;
 pub use document::Document;

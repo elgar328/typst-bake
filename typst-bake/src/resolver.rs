@@ -2,10 +2,10 @@
 //!
 //! Uses lazy decompression - files are decompressed only when accessed.
 
+use crate::util::decompress;
 use include_dir::Dir;
 use std::borrow::Cow;
 use std::collections::HashMap;
-use std::io::Cursor;
 use typst::diag::{FileError, FileResult};
 use typst::foundations::Bytes;
 use typst::syntax::{FileId, Source};
@@ -132,9 +132,4 @@ fn bytes_to_source(id: FileId, bytes: &[u8]) -> FileResult<Source> {
 
     let text = text.map_err(|_| FileError::InvalidUtf8)?;
     Ok(Source::new(id, text.to_string()))
-}
-
-/// Decompress zstd compressed data
-fn decompress(data: &[u8]) -> Result<Vec<u8>, std::io::Error> {
-    zstd::decode_all(Cursor::new(data))
 }

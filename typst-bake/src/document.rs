@@ -3,8 +3,8 @@
 use crate::error::{Error, Result};
 use crate::resolver::EmbeddedResolver;
 use crate::stats::EmbedStats;
+use crate::util::decompress;
 use include_dir::Dir;
-use std::io::Cursor;
 use std::sync::Mutex;
 use typst::foundations::Dict;
 use typst::layout::PagedDocument;
@@ -217,10 +217,4 @@ impl Document {
         }
         Ok(pngs)
     }
-}
-
-/// Decompress zstd compressed data
-fn decompress(data: &[u8]) -> Result<Vec<u8>> {
-    let decompressed = zstd::decode_all(Cursor::new(data))?;
-    Ok(decompressed)
 }
