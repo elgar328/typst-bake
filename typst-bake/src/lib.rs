@@ -1,3 +1,5 @@
+#![cfg_attr(docsrs, feature(doc_cfg))]
+
 //! # typst-bake
 //!
 //! Bake Typst templates, fonts, and packages into your Rust binary — use Typst
