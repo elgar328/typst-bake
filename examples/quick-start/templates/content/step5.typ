@@ -16,7 +16,7 @@ Generate PDF with `document!` macro:
   ],
   [
     #tip[
-      When no inputs are needed, call `.to_pdf()` directly without `.with_inputs()`.
+      When no inputs are needed, call `.to_pdf()` directly without `.with_inputs()`. \ For SVG/PNG output, see the `output-formats` example.
     ]
   ]
 )
