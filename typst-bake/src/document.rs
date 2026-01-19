@@ -8,7 +8,7 @@ use include_dir::Dir;
 use std::sync::Mutex;
 use typst::foundations::Dict;
 use typst::layout::PagedDocument;
-use typst_as_lib::TypstEngine;
+use typst_as_lib::{TypstAsLibError, TypstEngine};
 
 /// A fully self-contained document ready for rendering.
 ///
@@ -145,9 +145,17 @@ impl Document {
         };
 
         // Handle the Warned wrapper and extract result
-        let compiled = warned_result
-            .output
-            .map_err(|e| Error::Compilation(format!("{e}")))?;
+        let compiled = warned_result.output.map_err(|e| {
+            let msg = match e {
+                TypstAsLibError::TypstSource(diagnostics) => diagnostics
+                    .iter()
+                    .map(|d| d.message.as_str())
+                    .collect::<Vec<_>>()
+                    .join("\n"),
+                other => format!("{other}"),
+            };
+            Error::Compilation(msg)
+        })?;
 
         // Store in cache
         *self.compiled_cache.lock().unwrap() = Some(compiled);
