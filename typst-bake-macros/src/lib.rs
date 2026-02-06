@@ -59,16 +59,20 @@ pub fn document(input: TokenStream) -> TokenStream {
         }
     };
 
-    if !packages.is_empty() {
+    let resolved_packages = if !packages.is_empty() {
         eprintln!("typst-bake: Found {} package(s) to bundle", packages.len());
 
         let refresh = config::should_refresh_cache();
-        if let Err(e) = downloader::download_packages(&packages, &cache_dir, refresh) {
-            return syn::Error::new_spanned(entry, e).to_compile_error().into();
+        match downloader::download_packages(&packages, &cache_dir, refresh) {
+            Ok(pkgs) => pkgs,
+            Err(e) => {
+                return syn::Error::new_spanned(entry, e).to_compile_error().into();
+            }
         }
     } else {
         eprintln!("typst-bake: No packages found");
-    }
+        Vec::new()
+    };
 
     // Set up compression cache
     let compression_level = config::get_compression_level();
@@ -94,49 +98,30 @@ pub fn document(input: TokenStream) -> TokenStream {
     let mut pkg_total_compressed = 0usize;
     let mut namespace_entries: Vec<proc_macro2::TokenStream> = Vec::new();
 
-    if cache_dir.exists() {
-        // Collect and sort namespaces
-        let mut ns_dirs: Vec<_> = std::fs::read_dir(&cache_dir)
-            .into_iter()
-            .flatten()
-            .filter_map(|e| e.ok())
-            .filter(|e| e.path().is_dir())
-            .collect();
-        ns_dirs.sort_by_key(|e| e.path());
+    {
+        use std::collections::{BTreeMap, BTreeSet};
 
-        for ns_entry in ns_dirs {
-            let ns_path = ns_entry.path();
-            let namespace = ns_path.file_name().unwrap().to_string_lossy().to_string();
+        // Group resolved packages into a sorted tree: namespace -> name -> versions
+        let mut pkg_tree: BTreeMap<&str, BTreeMap<&str, BTreeSet<&str>>> = BTreeMap::new();
+        for (ns, name, ver) in &resolved_packages {
+            pkg_tree
+                .entry(ns.as_str())
+                .or_default()
+                .entry(name.as_str())
+                .or_default()
+                .insert(ver.as_str());
+        }
+
+        for (namespace, names) in &pkg_tree {
             let mut name_entries: Vec<proc_macro2::TokenStream> = Vec::new();
 
-            // Collect and sort names
-            let mut name_dirs: Vec<_> = std::fs::read_dir(&ns_path)
-                .into_iter()
-                .flatten()
-                .filter_map(|e| e.ok())
-                .filter(|e| e.path().is_dir())
-                .collect();
-            name_dirs.sort_by_key(|e| e.path());
-
-            for name_entry in name_dirs {
-                let name_path = name_entry.path();
-                let name = name_path.file_name().unwrap().to_string_lossy().to_string();
+            for (name, versions) in names {
                 let mut version_entries: Vec<proc_macro2::TokenStream> = Vec::new();
 
-                // Collect and sort versions
-                let mut ver_dirs: Vec<_> = std::fs::read_dir(&name_path)
-                    .into_iter()
-                    .flatten()
-                    .filter_map(|e| e.ok())
-                    .filter(|e| e.path().is_dir())
-                    .collect();
-                ver_dirs.sort_by_key(|e| e.path());
+                for version in versions {
+                    let ver_path = cache_dir.join(namespace).join(name).join(version);
 
-                for ver_entry in ver_dirs {
-                    let ver_path = ver_entry.path();
-                    let version = ver_path.file_name().unwrap().to_string_lossy().to_string();
-
-                    // Embed this package (only once!)
+                    // Embed this package
                     let pkg_result = dir_embed::embed_dir(&ver_path, &mut cache);
                     let pkg_name = format!("@{}/{}:{}", namespace, name, version);
 
@@ -151,26 +136,29 @@ pub fn document(input: TokenStream) -> TokenStream {
                     pkg_total_compressed += pkg_result.compressed_size;
 
                     // Build version directory entry
+                    let version_str = *version;
                     let pkg_entries = &pkg_result.entries;
                     version_entries.push(quote! {
                         ::typst_bake::__internal::include_dir::DirEntry::Dir(
-                            ::typst_bake::__internal::include_dir::Dir::new(#version, &[#(#pkg_entries),*])
+                            ::typst_bake::__internal::include_dir::Dir::new(#version_str, &[#(#pkg_entries),*])
                         )
                     });
                 }
 
                 // Build name directory entry
+                let name_str = *name;
                 name_entries.push(quote! {
                     ::typst_bake::__internal::include_dir::DirEntry::Dir(
-                        ::typst_bake::__internal::include_dir::Dir::new(#name, &[#(#version_entries),*])
+                        ::typst_bake::__internal::include_dir::Dir::new(#name_str, &[#(#version_entries),*])
                     )
                 });
             }
 
             // Build namespace directory entry
+            let ns_str = *namespace;
             namespace_entries.push(quote! {
                 ::typst_bake::__internal::include_dir::DirEntry::Dir(
-                    ::typst_bake::__internal::include_dir::Dir::new(#namespace, &[#(#name_entries),*])
+                    ::typst_bake::__internal::include_dir::Dir::new(#ns_str, &[#(#name_entries),*])
                 )
             });
         }
