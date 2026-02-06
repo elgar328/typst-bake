@@ -17,12 +17,11 @@
   }
 }
 
-`typst-bake` embeds all resources (templates, fonts, and packages) directly into the binary at compile time. To minimize binary size, resources are compressed using zstd. Decompression is performed lazily at runtime---only when each resource is actually accessed.
+`typst-bake` embeds all resources (templates, fonts, and packages) directly into the binary at compile time. To minimize binary size, resources are compressed using zstd and identical contents are deduplicated. Decompression is performed lazily at runtime---only when each resource is actually accessed.
 
 The table below shows the resources embedded to generate this document.
 
 #block(fill: luma(245), radius: 4pt, inset: 12pt)[
-  *Embedded Resources*
   #table(
     columns: (1.5fr, 1fr, 1fr, 1fr),
     align: (left, right, right, right),
@@ -42,10 +41,16 @@ The table below shows the resources embedded to generate this document.
     [#format-size(inputs.packages_original)],
     [#format-size(inputs.packages_compressed)],
     [#ratio(inputs.packages_original, inputs.packages_compressed)],
-    table.hline(stroke: 0.5pt + gray),
-    [*Total*],
-    [*#format-size(inputs.total_original)*],
-    [*#format-size(inputs.total_compressed)*],
-    [*#ratio(inputs.total_original, inputs.total_compressed)*],
+  )
+
+  #grid(
+    columns: (auto, 1fr),
+    column-gutter: 6pt,
+    row-gutter: 0.65em,
+    [*Compressed:*], [#format-size(inputs.total_original) #sym.arrow.r #format-size(inputs.total_compressed) (#ratio(inputs.total_original, inputs.total_compressed) reduced)],
+    ..if inputs.dedup_duplicate_count > 0 {
+      ([*Deduplicated:*], [#inputs.dedup_unique_blobs unique, #inputs.dedup_duplicate_count removed (#sym.minus#format-size(inputs.dedup_saved_bytes))])
+    } else { () },
+    [*Total:*], [#format-size(inputs.total_original) #sym.arrow.r #format-size(inputs.total_deduplicated) (#ratio(inputs.total_original, inputs.total_deduplicated) reduced)],
   )
 ]

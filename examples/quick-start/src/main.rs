@@ -13,6 +13,10 @@ struct Inputs {
     packages_count: usize,
     total_original: usize,
     total_compressed: usize,
+    dedup_duplicate_count: usize,
+    dedup_saved_bytes: usize,
+    dedup_unique_blobs: usize,
+    total_deduplicated: usize,
 }
 
 fn save_pdf(data: &[u8], filename: &str) -> Result<(), Box<dyn std::error::Error>> {
@@ -43,6 +47,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         packages_count: stats.packages.packages.len(),
         total_original: stats.total_original(),
         total_compressed: stats.total_compressed(),
+        dedup_duplicate_count: stats.dedup.duplicate_count,
+        dedup_saved_bytes: stats.dedup.saved_bytes,
+        dedup_unique_blobs: stats.dedup.unique_blobs,
+        total_deduplicated: stats.total_deduplicated(),
     };
 
     let pdf = doc.with_inputs(inputs).to_pdf()?;
