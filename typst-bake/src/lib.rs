@@ -55,7 +55,7 @@ mod util;
 pub use build::rebuild_if_changed;
 pub use document::Document;
 pub use error::{Error, Result};
-pub use stats::{CategoryStats, EmbedStats, PackageInfo, PackageStats};
+pub use stats::{CategoryStats, DedupStats, EmbedStats, PackageInfo, PackageStats};
 /// Creates a [`Document`] with embedded templates, fonts, and packages.
 ///
 /// # Usage

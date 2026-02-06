@@ -14,6 +14,21 @@ pub struct EmbedStats {
     pub packages: PackageStats,
     /// Font files statistics
     pub fonts: CategoryStats,
+    /// Deduplication statistics
+    pub dedup: DedupStats,
+}
+
+/// Statistics for content deduplication across all categories.
+#[derive(Debug, Clone)]
+pub struct DedupStats {
+    /// Total number of files (before dedup)
+    pub total_files: usize,
+    /// Number of unique blobs after dedup
+    pub unique_blobs: usize,
+    /// Number of duplicate files removed
+    pub duplicate_count: usize,
+    /// Bytes saved by deduplication
+    pub saved_bytes: usize,
 }
 
 /// Statistics for a category of files (templates, fonts)
@@ -71,9 +86,26 @@ impl EmbedStats {
         1.0 - (self.total_compressed() as f64 / original as f64)
     }
 
+    /// Total size after deduplication (actual binary footprint)
+    pub fn total_deduplicated(&self) -> usize {
+        self.total_compressed() - self.dedup.saved_bytes
+    }
+
+    /// Total number of files across all categories
+    fn total_file_count(&self) -> usize {
+        self.templates.file_count
+            + self.fonts.file_count
+            + self
+                .packages
+                .packages
+                .iter()
+                .map(|p| p.file_count)
+                .sum::<usize>()
+    }
+
     /// Display compression statistics in a human-readable format
     pub fn display(&self) {
-        println!("Compression Statistics:");
+        println!("Embed Summary");
         println!("========================");
 
         // Templates
@@ -139,14 +171,28 @@ impl EmbedStats {
             }
         }
 
-        // Total
+        // Compressed total
         println!("------------------------");
         println!(
-            "Total: {} -> {} ({:.1}% reduced)",
+            "Compressed: {} -> {} ({:.1}% reduced, {} files)",
             format_size(self.total_original()),
             format_size(self.total_compressed()),
-            self.compression_ratio() * 100.0
+            self.compression_ratio() * 100.0,
+            self.total_file_count()
         );
+
+        // Deduplicated (only shown when there are duplicates)
+        if self.dedup.duplicate_count > 0 {
+            println!(
+                "Deduplicated: {} unique blobs, {} duplicates removed (-{})",
+                self.dedup.unique_blobs,
+                self.dedup.duplicate_count,
+                format_size(self.dedup.saved_bytes)
+            );
+        }
+
+        // Total (actual binary footprint)
+        println!("Total: {}", format_size(self.total_deduplicated()));
     }
 }
 
@@ -259,10 +305,18 @@ mod tests {
                 total_original: 1000,
                 total_compressed: 200, // 80% compression
             },
+            dedup: DedupStats {
+                total_files: 4,
+                unique_blobs: 3,
+                duplicate_count: 1,
+                saved_bytes: 100,
+            },
         };
         // Total: 4000 -> 1000 (75% compression)
         assert_eq!(stats.total_original(), 4000);
         assert_eq!(stats.total_compressed(), 1000);
         assert!((stats.compression_ratio() - 0.75).abs() < 0.001);
+        // Deduplicated: 1000 - 100 = 900
+        assert_eq!(stats.total_deduplicated(), 900);
     }
 }
