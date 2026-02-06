@@ -150,3 +150,82 @@ pub fn is_font_file(path: &Path) -> bool {
     let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("");
     matches!(ext.to_lowercase().as_str(), "ttf" | "otf" | "ttc")
 }
+
+/// Get compression level.
+///
+/// Priority:
+/// 1. Environment variable TYPST_BAKE_COMPRESSION_LEVEL
+/// 2. Cargo.toml [package.metadata.typst-bake] compression-level
+/// 3. Default: 19
+pub fn get_compression_level() -> i32 {
+    // Priority 1: Environment variable
+    if let Ok(val) = env::var("TYPST_BAKE_COMPRESSION_LEVEL") {
+        if let Ok(level) = val.parse::<i32>() {
+            return level.clamp(1, 22);
+        }
+    }
+
+    // Priority 2: Cargo.toml metadata
+    if let Ok(manifest_dir) = env::var("CARGO_MANIFEST_DIR") {
+        let cargo_toml_path = Path::new(&manifest_dir).join("Cargo.toml");
+        if let Ok(content) = fs::read_to_string(&cargo_toml_path) {
+            if let Ok(manifest) = content.parse::<toml::Table>() {
+                if let Some(level) = manifest
+                    .get("package")
+                    .and_then(|p| p.get("metadata"))
+                    .and_then(|m| m.get("typst-bake"))
+                    .and_then(|t| t.get("compression-level"))
+                    .and_then(|v| v.as_integer())
+                {
+                    return (level as i32).clamp(1, 22);
+                }
+            }
+        }
+    }
+
+    19
+}
+
+/// Get the compression cache directory.
+///
+/// Returns `target/typst-bake-cache/{CARGO_PKG_NAME}/`.
+/// Falls back to `dirs::cache_dir()/typst-bake/compression-cache/{CARGO_PKG_NAME}/`
+/// if the target directory cannot be determined.
+pub fn get_compression_cache_dir() -> Result<PathBuf, String> {
+    let pkg_name = env::var("CARGO_PKG_NAME").map_err(|_| "CARGO_PKG_NAME not set".to_string())?;
+
+    // 1. CARGO_TARGET_DIR environment variable
+    if let Ok(target_dir) = env::var("CARGO_TARGET_DIR") {
+        return Ok(PathBuf::from(target_dir)
+            .join("typst-bake-cache")
+            .join(&pkg_name));
+    }
+
+    let manifest_dir =
+        env::var("CARGO_MANIFEST_DIR").map_err(|_| "CARGO_MANIFEST_DIR not set".to_string())?;
+    let manifest_dir = Path::new(&manifest_dir);
+
+    // 2. CARGO_MANIFEST_DIR/target/ (standalone project)
+    let local_target = manifest_dir.join("target");
+    if local_target.is_dir() {
+        return Ok(local_target.join("typst-bake-cache").join(&pkg_name));
+    }
+
+    // 3. Walk up from CARGO_MANIFEST_DIR to find target/ (workspace)
+    let mut dir = manifest_dir.parent();
+    while let Some(d) = dir {
+        let candidate = d.join("target");
+        if candidate.is_dir() {
+            return Ok(candidate.join("typst-bake-cache").join(&pkg_name));
+        }
+        dir = d.parent();
+    }
+
+    // 4. Fallback: dirs::cache_dir()
+    let cache_base =
+        dirs::cache_dir().ok_or_else(|| "Could not determine cache directory".to_string())?;
+    Ok(cache_base
+        .join("typst-bake")
+        .join("compression-cache")
+        .join(&pkg_name))
+}

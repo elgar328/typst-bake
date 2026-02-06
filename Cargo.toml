@@ -35,6 +35,7 @@ syn = "2"
 # Compression
 zstd = "0.13"
 flate2 = "1"
+blake3 = "1"
 
 # Error handling
 thiserror = "2"

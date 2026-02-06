@@ -1,9 +1,9 @@
 //! Directory embedding with zstd compression
 
+use crate::compression_cache::CompressionCache;
 use proc_macro2::TokenStream;
 use quote::quote;
 use std::fs;
-use std::io::Cursor;
 use std::path::Path;
 
 /// Result of embedding a directory, containing entries and statistics.
@@ -29,10 +29,9 @@ impl DirEmbedResult {
 }
 
 /// Generate code that creates a Dir struct from a directory path.
-/// Files are compressed with zstd at level 19 (maximum compression).
-pub fn embed_dir(dir_path: &Path) -> DirEmbedResult {
+/// Files are compressed with zstd using the configured compression level and cache.
+pub fn embed_dir(dir_path: &Path, cache: &mut CompressionCache) -> DirEmbedResult {
     if !dir_path.exists() {
-        // Return empty result for non-existent directories (e.g., empty cache)
         return DirEmbedResult {
             entries: Vec::new(),
             original_size: 0,
@@ -52,6 +51,7 @@ pub fn embed_dir(dir_path: &Path) -> DirEmbedResult {
         &mut original_size,
         &mut compressed_size,
         &mut file_count,
+        cache,
     );
 
     DirEmbedResult {
@@ -71,6 +71,7 @@ fn scan_entries<F>(
     original_size: &mut usize,
     compressed_size: &mut usize,
     file_count: &mut usize,
+    cache: &mut CompressionCache,
 ) -> Vec<TokenStream>
 where
     F: Fn(&Path) -> bool + Copy,
@@ -125,7 +126,7 @@ where
             };
 
             let original_len = file_bytes.len();
-            let compressed = compress_bytes(&file_bytes);
+            let compressed = cache.compress(&file_bytes);
             let compressed_len = compressed.len();
 
             *original_size += original_len;
@@ -163,6 +164,7 @@ where
                 original_size,
                 compressed_size,
                 file_count,
+                cache,
             );
             entries.push(quote! {
                 ::typst_bake::__internal::include_dir::DirEntry::Dir(
@@ -181,7 +183,7 @@ where
 
 /// Generate code that embeds only font files from a directory.
 /// Supported formats: .ttf, .otf, .ttc
-pub fn embed_fonts_dir(dir_path: &Path) -> DirEmbedResult {
+pub fn embed_fonts_dir(dir_path: &Path, cache: &mut CompressionCache) -> DirEmbedResult {
     if !dir_path.exists() {
         return DirEmbedResult {
             entries: Vec::new(),
@@ -202,6 +204,7 @@ pub fn embed_fonts_dir(dir_path: &Path) -> DirEmbedResult {
         &mut original_size,
         &mut compressed_size,
         &mut file_count,
+        cache,
     );
 
     DirEmbedResult {
@@ -216,9 +219,4 @@ pub fn embed_fonts_dir(dir_path: &Path) -> DirEmbedResult {
 fn is_font_file(path: &Path) -> bool {
     let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("");
     matches!(ext.to_lowercase().as_str(), "ttf" | "otf" | "ttc")
-}
-
-/// Compress bytes using zstd at maximum compression level (19).
-fn compress_bytes(data: &[u8]) -> Vec<u8> {
-    zstd::encode_all(Cursor::new(data), 19).expect("zstd compression failed")
 }
