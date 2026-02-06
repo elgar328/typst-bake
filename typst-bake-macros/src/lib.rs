@@ -168,6 +168,9 @@ pub fn document(input: TokenStream) -> TokenStream {
     cache.log_summary();
     cache.cleanup();
 
+    // Generate deduplicated static declarations for all unique blobs
+    let dedup_statics = cache.dedup_statics();
+
     // Build final code
     let templates_code = templates_result.to_dir_code("");
     let fonts_code = fonts_result.to_dir_code("");
@@ -202,6 +205,8 @@ pub fn document(input: TokenStream) -> TokenStream {
     let expanded = quote! {
         {
             use ::typst_bake::__internal::{Dir, Document};
+
+            #(#dedup_statics)*
 
             static TEMPLATES: Dir<'static> = #templates_code;
             static PACKAGES: Dir<'static> = #packages_code;
