@@ -19,14 +19,15 @@ pub fn get_cache_dir() -> Result<PathBuf, String> {
     Ok(cache_dir)
 }
 
-/// Download packages and resolve dependencies
+/// Download packages and resolve dependencies.
+/// Returns the list of all resolved packages (direct + transitive).
 pub fn download_packages(
     packages: &[PackageSpec],
     cache_dir: &Path,
     refresh: bool,
-) -> Result<(), String> {
+) -> Result<Vec<PackageSpec>, String> {
     if packages.is_empty() {
-        return Ok(());
+        return Ok(Vec::new());
     }
 
     let mut to_download = VecDeque::from(packages.to_vec());
@@ -107,7 +108,21 @@ pub fn download_packages(
         ));
     }
 
-    Ok(())
+    // Convert downloaded keys ("namespace/name/version") back to PackageSpec tuples
+    let resolved: Vec<PackageSpec> = downloaded
+        .into_iter()
+        .filter_map(|key| {
+            let mut parts = key.splitn(3, '/');
+            match (parts.next(), parts.next(), parts.next()) {
+                (Some(ns), Some(name), Some(ver)) => {
+                    Some((ns.to_string(), name.to_string(), ver.to_string()))
+                }
+                _ => None,
+            }
+        })
+        .collect();
+
+    Ok(resolved)
 }
 
 /// Download and extract tar.gz from URL
