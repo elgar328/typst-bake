@@ -126,15 +126,14 @@ where
             };
 
             let original_len = file_bytes.len();
-            let compressed = cache.compress(&file_bytes);
-            let compressed_len = compressed.len();
+            let blob_info = cache.compress(&file_bytes);
+            let compressed_len = blob_info.compressed_len;
 
             *original_size += original_len;
             *compressed_size += compressed_len;
             *file_count += 1;
 
-            // Create byte string literal (single token, not token explosion)
-            let bytes_literal = syn::LitByteStr::new(&compressed, proc_macro2::Span::call_site());
+            let blob_ident = quote::format_ident!("BLOB_{}", blob_info.hash);
 
             // Get absolute path for Cargo file tracking
             let abs_path = path
@@ -150,8 +149,7 @@ where
                         {
                             // Cargo file tracking (not used at runtime)
                             const _: &[u8] = include_bytes!(#abs_path);
-                            // Actual compressed data
-                            #bytes_literal
+                            &#blob_ident
                         }
                     )
                 )
