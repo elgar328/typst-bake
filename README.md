@@ -17,7 +17,9 @@ Bake Typst templates, fonts, and packages into your Rust binary — use [Typst](
 - **Automatic Package Bundling** - Scans for package imports, downloads them at compile time, and recursively resolves all dependencies
 - **Package Caching** - Downloaded packages are cached in system cache directory for faster compilation. Use `TYPST_BAKE_REFRESH=1` to force re-download
 - **Runtime Inputs** - Pass dynamic data from Rust structs to Typst via `IntoValue` / `IntoDict` derive macros
-- **Optimized Binary Size** - Resources are compressed with zstd and decompressed lazily at runtime
+- **Optimized Binary Size** - Resources are deduplicated and compressed with zstd, then decompressed lazily at runtime
+- **Compression Caching** - Compressed data is cached on disk to speed up incremental builds
+- **Custom Compression Level** - Zstd compression level (1–22, default 19) is configurable via `compression-level` in Cargo.toml metadata
 - **Smart Recompilation** - File changes trigger recompilation automatically, with optional build script for complete coverage
 
 ## Installation
