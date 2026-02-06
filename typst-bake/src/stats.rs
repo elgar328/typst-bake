@@ -91,6 +91,15 @@ impl EmbedStats {
         self.total_compressed() - self.dedup.saved_bytes
     }
 
+    /// Overall reduction ratio from original to deduplicated
+    pub fn overall_ratio(&self) -> f64 {
+        let original = self.total_original();
+        if original == 0 {
+            return 0.0;
+        }
+        1.0 - (self.total_deduplicated() as f64 / original as f64)
+    }
+
     /// Total number of files across all categories
     fn total_file_count(&self) -> usize {
         self.templates.file_count
@@ -192,7 +201,12 @@ impl EmbedStats {
         }
 
         // Total (actual binary footprint)
-        println!("Total: {}", format_size(self.total_deduplicated()));
+        println!(
+            "Total: {} -> {} ({:.1}% reduced)",
+            format_size(self.total_original()),
+            format_size(self.total_deduplicated()),
+            self.overall_ratio() * 100.0
+        );
     }
 }
 
