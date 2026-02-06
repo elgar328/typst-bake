@@ -4,6 +4,7 @@
 //! and packages at compile time. All resources are compressed with zstd for
 //! optimized binary size.
 
+mod compression_cache;
 mod config;
 mod derive_intoval;
 mod dir_embed;
@@ -69,11 +70,23 @@ pub fn document(input: TokenStream) -> TokenStream {
         eprintln!("typst-bake: No packages found");
     }
 
+    // Set up compression cache
+    let compression_level = config::get_compression_level();
+    let compression_cache_dir = match config::get_compression_cache_dir() {
+        Ok(dir) => Some(dir),
+        Err(e) => {
+            eprintln!("typst-bake: Compression cache disabled: {}", e);
+            None
+        }
+    };
+    let mut cache =
+        compression_cache::CompressionCache::new(compression_cache_dir, compression_level);
+
     // Generate code
     // We directly generate Dir struct code instead of using include_dir! macro
     // This allows users to not need include_dir in their dependencies
-    let templates_result = dir_embed::embed_dir(&template_dir);
-    let fonts_result = dir_embed::embed_fonts_dir(&fonts_dir);
+    let templates_result = dir_embed::embed_dir(&template_dir, &mut cache);
+    let fonts_result = dir_embed::embed_fonts_dir(&fonts_dir, &mut cache);
 
     // Collect per-package stats and entries in a single pass
     let mut package_infos = Vec::new();
@@ -124,7 +137,7 @@ pub fn document(input: TokenStream) -> TokenStream {
                     let version = ver_path.file_name().unwrap().to_string_lossy().to_string();
 
                     // Embed this package (only once!)
-                    let pkg_result = dir_embed::embed_dir(&ver_path);
+                    let pkg_result = dir_embed::embed_dir(&ver_path, &mut cache);
                     let pkg_name = format!("@{}/{}:{}", namespace, name, version);
 
                     // Collect stats
@@ -162,6 +175,10 @@ pub fn document(input: TokenStream) -> TokenStream {
             });
         }
     }
+
+    // Log compression stats and clean up unused cache files
+    cache.log_summary();
+    cache.cleanup();
 
     // Build final code
     let templates_code = templates_result.to_dir_code("");
