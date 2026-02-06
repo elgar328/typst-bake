@@ -170,6 +170,22 @@ impl CompressionCache {
         }
     }
 
+    pub fn dedup_total_files(&self) -> usize {
+        self.cache_hits + self.misses + self.dedup_hits
+    }
+
+    pub fn dedup_unique_blobs(&self) -> usize {
+        self.blobs.len()
+    }
+
+    pub fn dedup_duplicate_count(&self) -> usize {
+        self.dedup_hits
+    }
+
+    pub fn dedup_saved_bytes(&self) -> usize {
+        self.dedup_saved_bytes
+    }
+
     fn compress_raw(&self, data: &[u8]) -> Vec<u8> {
         zstd::encode_all(Cursor::new(data), self.level).expect("zstd compression failed")
     }

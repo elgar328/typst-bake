@@ -168,6 +168,12 @@ pub fn document(input: TokenStream) -> TokenStream {
     cache.log_summary();
     cache.cleanup();
 
+    // Collect dedup stats before generating statics
+    let dedup_total_files = cache.dedup_total_files();
+    let dedup_unique_blobs = cache.dedup_unique_blobs();
+    let dedup_duplicate_count = cache.dedup_duplicate_count();
+    let dedup_saved_bytes = cache.dedup_saved_bytes();
+
     // Generate deduplicated static declarations for all unique blobs
     let dedup_statics = cache.dedup_statics();
 
@@ -227,6 +233,12 @@ pub fn document(input: TokenStream) -> TokenStream {
                     original_size: #font_original,
                     compressed_size: #font_compressed,
                     file_count: #font_count,
+                },
+                dedup: ::typst_bake::DedupStats {
+                    total_files: #dedup_total_files,
+                    unique_blobs: #dedup_unique_blobs,
+                    duplicate_count: #dedup_duplicate_count,
+                    saved_bytes: #dedup_saved_bytes,
                 },
             };
 
