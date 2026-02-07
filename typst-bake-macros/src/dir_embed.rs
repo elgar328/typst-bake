@@ -1,7 +1,7 @@
 //! Directory embedding with zstd compression
 
 use crate::compression_cache::CompressionCache;
-use crate::config::is_font_file;
+use crate::config::{is_font_file, is_hidden};
 use proc_macro2::TokenStream;
 use quote::quote;
 use std::fs;
@@ -83,12 +83,7 @@ where
             let path = entry.path();
 
             // Skip hidden files and directories
-            if path
-                .file_name()
-                .and_then(|n| n.to_str())
-                .map(|n| n.starts_with('.'))
-                .unwrap_or(false)
-            {
+            if is_hidden(&path) {
                 continue;
             }
 
@@ -96,14 +91,12 @@ where
                 Ok(p) => p,
                 Err(_) => continue,
             };
-            let rel_path_str = rel_path.to_string_lossy().to_string();
 
             // Use just the file/dir name (not full relative path) for proper nesting
-            let name = path
-                .file_name()
-                .and_then(|n| n.to_str())
-                .unwrap_or(&rel_path_str)
-                .to_string();
+            let name = match path.file_name().and_then(|n| n.to_str()) {
+                Some(n) => n.to_string(),
+                None => rel_path.to_string_lossy().into_owned(),
+            };
 
             if path.is_file() {
                 // Apply file filter

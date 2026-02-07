@@ -202,24 +202,40 @@ impl EmbedStats {
     }
 }
 
-impl CategoryStats {
-    /// Calculate compression ratio for this category
-    pub fn compression_ratio(&self) -> f64 {
-        compression_ratio(self.original_size, self.compressed_size)
+/// Trait for types that have original/compressed sizes and can compute a compression ratio.
+pub trait HasCompressionRatio {
+    fn original_size(&self) -> usize;
+    fn compressed_size(&self) -> usize;
+
+    fn compression_ratio(&self) -> f64 {
+        compression_ratio(self.original_size(), self.compressed_size())
     }
 }
 
-impl PackageInfo {
-    /// Calculate compression ratio for this package
-    pub fn compression_ratio(&self) -> f64 {
-        compression_ratio(self.original_size, self.compressed_size)
+impl HasCompressionRatio for CategoryStats {
+    fn original_size(&self) -> usize {
+        self.original_size
+    }
+    fn compressed_size(&self) -> usize {
+        self.compressed_size
     }
 }
 
-impl PackageStats {
-    /// Calculate compression ratio for all packages
-    pub fn compression_ratio(&self) -> f64 {
-        compression_ratio(self.total_original, self.total_compressed)
+impl HasCompressionRatio for PackageInfo {
+    fn original_size(&self) -> usize {
+        self.original_size
+    }
+    fn compressed_size(&self) -> usize {
+        self.compressed_size
+    }
+}
+
+impl HasCompressionRatio for PackageStats {
+    fn original_size(&self) -> usize {
+        self.total_original
+    }
+    fn compressed_size(&self) -> usize {
+        self.total_compressed
     }
 }
 

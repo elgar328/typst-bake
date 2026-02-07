@@ -23,12 +23,18 @@ use dir_embed::DirEmbedResult;
 
 use scanner::PackageSpec;
 
-type PackageInfoTuple = (String, usize, usize, usize);
+struct MacroPackageInfo {
+    name: String,
+    original_size: usize,
+    compressed_size: usize,
+    file_count: usize,
+}
+
 type ResolvedPackages = (Vec<PackageSpec>, PathBuf);
 
 /// Collected results from embedding all packages.
 struct EmbeddedPackages {
-    infos: Vec<PackageInfoTuple>,
+    infos: Vec<MacroPackageInfo>,
     total_original: usize,
     total_compressed: usize,
     namespace_entries: Vec<proc_macro2::TokenStream>,
@@ -97,7 +103,7 @@ fn embed_packages(
     cache_dir: &Path,
     cache: &mut CompressionCache,
 ) -> EmbeddedPackages {
-    let mut package_infos: Vec<PackageInfoTuple> = Vec::new();
+    let mut package_infos: Vec<MacroPackageInfo> = Vec::new();
     let mut pkg_total_original = 0usize;
     let mut pkg_total_compressed = 0usize;
     let mut namespace_entries: Vec<proc_macro2::TokenStream> = Vec::new();
@@ -125,12 +131,12 @@ fn embed_packages(
                 let pkg_result = dir_embed::embed_dir(&ver_path, cache);
                 let pkg_name = format!("@{}/{}:{}", namespace, name, version);
 
-                package_infos.push((
-                    pkg_name,
-                    pkg_result.original_size,
-                    pkg_result.compressed_size,
-                    pkg_result.file_count,
-                ));
+                package_infos.push(MacroPackageInfo {
+                    name: pkg_name,
+                    original_size: pkg_result.original_size,
+                    compressed_size: pkg_result.compressed_size,
+                    file_count: pkg_result.file_count,
+                });
                 pkg_total_original += pkg_result.original_size;
                 pkg_total_compressed += pkg_result.compressed_size;
 
@@ -162,10 +168,11 @@ fn generate_output(
     cache.log_summary();
     cache.cleanup();
 
-    let dedup_total_files = cache.dedup_total_files();
-    let dedup_unique_blobs = cache.dedup_unique_blobs();
-    let dedup_duplicate_count = cache.dedup_duplicate_count();
-    let dedup_saved_bytes = cache.dedup_saved_bytes();
+    let dedup = cache.dedup_summary();
+    let dedup_total_files = dedup.total_files;
+    let dedup_unique_blobs = dedup.unique_blobs;
+    let dedup_duplicate_count = dedup.duplicate_count;
+    let dedup_saved_bytes = dedup.saved_bytes;
     let dedup_statics = cache.dedup_statics();
 
     let templates_code = templates_result.to_dir_code("");
@@ -189,7 +196,11 @@ fn generate_output(
     let pkg_info_tokens: Vec<proc_macro2::TokenStream> = packages
         .infos
         .iter()
-        .map(|(name, orig, comp, count)| {
+        .map(|info| {
+            let name = &info.name;
+            let orig = info.original_size;
+            let comp = info.compressed_size;
+            let count = info.file_count;
             quote! {
                 ::typst_bake::PackageInfo {
                     name: #name.to_string(),

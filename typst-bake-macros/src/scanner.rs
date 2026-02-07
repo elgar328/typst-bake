@@ -2,7 +2,7 @@
 
 use std::collections::HashSet;
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use typst_syntax::ast::{Expr, Markup};
 use typst_syntax::Source;
 use walkdir::WalkDir;
@@ -13,6 +13,15 @@ pub struct PackageSpec {
     pub namespace: String,
     pub name: String,
     pub version: String,
+}
+
+impl PackageSpec {
+    pub fn cache_path(&self, cache_dir: &Path) -> PathBuf {
+        cache_dir
+            .join(&self.namespace)
+            .join(&self.name)
+            .join(&self.version)
+    }
 }
 
 impl std::fmt::Display for PackageSpec {

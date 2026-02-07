@@ -75,10 +75,7 @@ pub fn download_packages(
         if !downloaded.insert(pkg.clone()) {
             continue;
         }
-        let pkg_dir = cache_dir
-            .join(&pkg.namespace)
-            .join(&pkg.name)
-            .join(&pkg.version);
+        let pkg_dir = pkg.cache_path(cache_dir);
 
         // Check cache (unless refresh requested)
         if pkg_dir.exists() && !refresh {

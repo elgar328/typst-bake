@@ -116,7 +116,7 @@ impl Document {
         let main_file = self
             .templates
             .get_file(self.entry)
-            .ok_or_else(|| Error::EntryNotFound(self.entry.to_string()))?;
+            .ok_or(Error::EntryNotFound(self.entry))?;
 
         // Decompress main file
         let main_bytes = decompress(main_file.contents())?;
