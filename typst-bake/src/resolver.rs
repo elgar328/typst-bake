@@ -10,7 +10,6 @@ use typst::diag::{FileError, FileResult};
 use typst::foundations::Bytes;
 use typst::syntax::{FileId, Source};
 
-// Re-export FileResolver trait from typst-as-lib
 pub use typst_as_lib::file_resolver::FileResolver;
 
 /// Resolver for embedded templates and packages.

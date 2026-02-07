@@ -105,7 +105,7 @@ impl Document {
         &self.stats
     }
 
-    /// Internal method to compile the document (with caching).
+    /// Compile the document, reusing the cached result if available.
     fn compile_cached(&self) -> Result<()> {
         if self.lock_cache().is_some() {
             return Ok(());
@@ -117,7 +117,6 @@ impl Document {
             .get_file(self.entry)
             .ok_or(Error::EntryNotFound(self.entry))?;
 
-        // Decompress main file
         let main_bytes = decompress(main_file.contents())?;
         let main_content = std::str::from_utf8(&main_bytes).map_err(|_| Error::InvalidUtf8)?;
 

@@ -91,7 +91,7 @@ fn resolve_and_download_packages(
     Ok((resolved_packages, cache_dir))
 }
 
-/// Generate a DirEntry::Dir token wrapping children under a given name.
+/// Generate a `DirEntry::Dir` token wrapping children under a given name.
 fn dir_entry_token(name: &str, children: &[proc_macro2::TokenStream]) -> proc_macro2::TokenStream {
     quote! {
         ::typst_bake::__internal::include_dir::DirEntry::Dir(
@@ -160,7 +160,7 @@ fn embed_packages(
     }
 }
 
-/// Generate the final output TokenStream from embedded results and stats.
+/// Generate the final output `TokenStream` from embedded results and stats.
 fn generate_output(
     entry_value: &str,
     templates_result: &DirEmbedResult,
