@@ -8,7 +8,18 @@ use typst_syntax::Source;
 use walkdir::WalkDir;
 
 /// Package info (namespace, name, version)
-pub type PackageSpec = (String, String, String);
+#[derive(Clone, Hash, Eq, PartialEq, Debug)]
+pub struct PackageSpec {
+    pub namespace: String,
+    pub name: String,
+    pub version: String,
+}
+
+impl std::fmt::Display for PackageSpec {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "@{}/{}:{}", self.namespace, self.name, self.version)
+    }
+}
 
 /// Check if valid identifier
 fn is_valid_identifier(s: &str) -> bool {
@@ -57,7 +68,11 @@ pub fn parse_package_specifier(path: &str) -> Option<PackageSpec> {
         return None;
     }
 
-    Some((namespace, name, version))
+    Some(PackageSpec {
+        namespace,
+        name,
+        version,
+    })
 }
 
 /// Extract package imports from source code
@@ -129,11 +144,11 @@ mod tests {
     fn test_parse_package_specifier_valid() {
         assert_eq!(
             parse_package_specifier("@preview/cetz:0.3.2"),
-            Some((
-                "preview".to_string(),
-                "cetz".to_string(),
-                "0.3.2".to_string()
-            ))
+            Some(PackageSpec {
+                namespace: "preview".to_string(),
+                name: "cetz".to_string(),
+                version: "0.3.2".to_string(),
+            })
         );
     }
 
@@ -149,6 +164,6 @@ mod tests {
         let content = r#"#import "@preview/cetz:0.3.2""#;
         let packages = parse_packages_from_source(content).unwrap();
         assert_eq!(packages.len(), 1);
-        assert_eq!(packages[0].1, "cetz");
+        assert_eq!(packages[0].name, "cetz");
     }
 }

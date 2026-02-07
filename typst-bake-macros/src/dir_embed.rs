@@ -19,6 +19,18 @@ pub struct DirEmbedResult {
     pub file_count: usize,
 }
 
+#[allow(clippy::derivable_impls)]
+impl Default for DirEmbedResult {
+    fn default() -> Self {
+        Self {
+            entries: Vec::new(),
+            original_size: 0,
+            compressed_size: 0,
+            file_count: 0,
+        }
+    }
+}
+
 impl DirEmbedResult {
     /// Wrap entries in a Dir::new(...) expression
     pub fn to_dir_code(&self, name: &str) -> TokenStream {
@@ -165,12 +177,7 @@ where
 /// Files are compressed with zstd using the configured compression level and cache.
 pub fn embed_dir(dir_path: &Path, cache: &mut CompressionCache) -> DirEmbedResult {
     if !dir_path.exists() {
-        return DirEmbedResult {
-            entries: Vec::new(),
-            original_size: 0,
-            compressed_size: 0,
-            file_count: 0,
-        };
+        return DirEmbedResult::default();
     }
 
     let mut ctx = ScanContext::new(dir_path, |_: &Path| true, cache);
@@ -182,12 +189,7 @@ pub fn embed_dir(dir_path: &Path, cache: &mut CompressionCache) -> DirEmbedResul
 /// Supported formats: .ttf, .otf, .ttc
 pub fn embed_fonts_dir(dir_path: &Path, cache: &mut CompressionCache) -> DirEmbedResult {
     if !dir_path.exists() {
-        return DirEmbedResult {
-            entries: Vec::new(),
-            original_size: 0,
-            compressed_size: 0,
-            file_count: 0,
-        };
+        return DirEmbedResult::default();
     }
 
     let mut ctx = ScanContext::new(dir_path, is_font_file, cache);

@@ -18,7 +18,7 @@ pub struct Document {
     templates: &'static Dir<'static>,
     packages: &'static Dir<'static>,
     fonts: &'static Dir<'static>,
-    entry: String,
+    entry: &'static str,
     inputs: Mutex<Option<Dict>>,
     stats: EmbedStats,
     compiled_cache: Mutex<Option<PagedDocument>>,
@@ -32,14 +32,14 @@ impl Document {
         templates: &'static Dir<'static>,
         packages: &'static Dir<'static>,
         fonts: &'static Dir<'static>,
-        entry: &str,
+        entry: &'static str,
         stats: EmbedStats,
     ) -> Self {
         Self {
             templates,
             packages,
             fonts,
-            entry: entry.to_string(),
+            entry,
             inputs: Mutex::new(None),
             stats,
             compiled_cache: Mutex::new(None),
@@ -107,8 +107,8 @@ impl Document {
         // Read main template content (compressed)
         let main_file = self
             .templates
-            .get_file(&self.entry)
-            .ok_or_else(|| Error::EntryNotFound(self.entry.clone()))?;
+            .get_file(self.entry)
+            .ok_or_else(|| Error::EntryNotFound(self.entry.to_string()))?;
 
         // Decompress main file
         let main_bytes = decompress(main_file.contents())?;

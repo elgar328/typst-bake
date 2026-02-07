@@ -61,7 +61,18 @@ impl CompressionCache {
             };
         }
 
-        // 2. Disk cache hit
+        // 2. Load from disk cache or compress fresh
+        let compressed = self.load_or_compress(data, &hash);
+        let compressed_len = compressed.len();
+        self.blobs.insert(hash.clone(), compressed);
+        BlobInfo {
+            compressed_len,
+            hash,
+        }
+    }
+
+    /// Try to load compressed data from disk cache, or compress fresh.
+    fn load_or_compress(&mut self, data: &[u8], hash: &str) -> Vec<u8> {
         if let Some(cache_dir) = &self.cache_dir {
             let cache_filename = format!("{}_{}.zst", hash, self.level);
             let cache_path = cache_dir.join(&cache_filename);
@@ -69,18 +80,11 @@ impl CompressionCache {
 
             if let Ok(cached) = fs::read(&cache_path) {
                 self.cache_hits += 1;
-                let compressed_len = cached.len();
-                self.blobs.insert(hash.clone(), cached);
-                return BlobInfo {
-                    compressed_len,
-                    hash,
-                };
+                return cached;
             }
 
-            // 3. Full miss: compress, store to disk + in-memory
             self.misses += 1;
             let compressed = self.compress_raw(data);
-            let compressed_len = compressed.len();
 
             // Atomic write: write to tmp file then rename
             let tmp_path = cache_dir.join(format!(".tmp_{}", std::process::id()));
@@ -88,21 +92,10 @@ impl CompressionCache {
                 let _ = fs::rename(&tmp_path, &cache_path);
             }
 
-            self.blobs.insert(hash.clone(), compressed);
-            return BlobInfo {
-                compressed_len,
-                hash,
-            };
-        }
-
-        // No disk cache: compress and store in-memory only
-        self.misses += 1;
-        let compressed = self.compress_raw(data);
-        let compressed_len = compressed.len();
-        self.blobs.insert(hash.clone(), compressed);
-        BlobInfo {
-            compressed_len,
-            hash,
+            compressed
+        } else {
+            self.misses += 1;
+            self.compress_raw(data)
         }
     }
 
