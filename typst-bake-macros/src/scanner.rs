@@ -1,4 +1,4 @@
-//! Scan .typ files and parse package imports
+//! Scan .typ files and parse package imports.
 
 use std::collections::HashSet;
 use std::fs;
@@ -18,6 +18,7 @@ pub struct PackageSpec {
 }
 
 impl PackageSpec {
+    /// Build the local cache directory path for this package.
     pub fn cache_path(&self, cache_dir: &Path) -> PathBuf {
         cache_dir
             .join(&self.namespace)
@@ -25,6 +26,7 @@ impl PackageSpec {
             .join(&self.version)
     }
 
+    /// Build the download URL for this package archive.
     pub fn download_url(&self) -> String {
         format!(
             "{PACKAGES_BASE_URL}/{}/{}-{}.tar.gz",
@@ -73,18 +75,15 @@ pub fn parse_package_specifier(path: &str) -> Option<PackageSpec> {
 
 /// Extract package imports from Typst source code.
 pub fn parse_packages_from_source(content: &str) -> Result<Vec<PackageSpec>, String> {
-    // Parse source into AST
     let source = Source::detached(content);
     let root_node = source.root();
 
-    // Cast SyntaxNode to Markup AST node
     let Some(root): Option<Markup> = root_node.cast() else {
         return Ok(Vec::new()); // Not a valid markup, skip
     };
 
     let mut packages = Vec::new();
 
-    // Iterate through all expressions
     for expr in root.exprs() {
         let Expr::ModuleImport(import) = expr else {
             continue;
