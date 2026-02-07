@@ -118,7 +118,7 @@ where
                 // Get absolute path for Cargo file tracking
                 let abs_path = path
                     .canonicalize()
-                    .expect("Failed to get absolute path")
+                    .unwrap_or_else(|_| path.to_path_buf())
                     .to_string_lossy()
                     .replace('\\', "/");
 

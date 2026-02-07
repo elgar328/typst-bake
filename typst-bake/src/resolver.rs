@@ -64,26 +64,26 @@ impl EmbeddedResolver {
             self.template_files.get(&path).copied()
         }
     }
+
+    /// Look up and decompress a file by its FileId.
+    fn decompress_file(&self, id: FileId) -> FileResult<Vec<u8>> {
+        let compressed = self.lookup(id).ok_or_else(|| not_found(id))?;
+        decompress(compressed).map_err(|e| {
+            FileError::Other(Some(
+                format!("Decompression failed for {}: {e}", self.get_path(id)).into(),
+            ))
+        })
+    }
 }
 
 impl FileResolver for EmbeddedResolver {
     fn resolve_binary(&self, id: FileId) -> FileResult<Cow<'_, Bytes>> {
-        let compressed = self.lookup(id).ok_or_else(|| not_found(id))?;
-
-        // Decompress on access (lazy decompression)
-        let data = decompress(compressed)
-            .map_err(|_| FileError::Other(Some("Decompression failed".into())))?;
-
+        let data = self.decompress_file(id)?;
         Ok(Cow::Owned(Bytes::new(data)))
     }
 
     fn resolve_source(&self, id: FileId) -> FileResult<Cow<'_, Source>> {
-        let compressed = self.lookup(id).ok_or_else(|| not_found(id))?;
-
-        // Decompress on access
-        let bytes = decompress(compressed)
-            .map_err(|_| FileError::Other(Some("Decompression failed".into())))?;
-
+        let bytes = self.decompress_file(id)?;
         let source = bytes_to_source(id, &bytes)?;
         Ok(Cow::Owned(source))
     }

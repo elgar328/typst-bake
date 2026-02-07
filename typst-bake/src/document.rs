@@ -163,6 +163,19 @@ impl Document {
         Ok(())
     }
 
+    /// Compile if needed, then call `f` with a reference to the compiled document.
+    fn with_compiled<F, T>(&self, f: F) -> Result<T>
+    where
+        F: FnOnce(&PagedDocument) -> Result<T>,
+    {
+        self.compile_cached()?;
+        let cache = self.compiled_cache.lock().expect("lock poisoned");
+        let compiled = cache
+            .as_ref()
+            .expect("compiled_cache must be Some after successful compile_cached()");
+        f(compiled)
+    }
+
     /// Compile the document and generate PDF.
     ///
     /// # Returns
@@ -173,12 +186,10 @@ impl Document {
     #[cfg(feature = "pdf")]
     #[cfg_attr(docsrs, doc(cfg(feature = "pdf")))]
     pub fn to_pdf(&self) -> Result<Vec<u8>> {
-        self.compile_cached()?;
-        let cache = self.compiled_cache.lock().expect("lock poisoned");
-        let compiled = cache.as_ref().unwrap();
-        let pdf_bytes = typst_pdf::pdf(compiled, &typst_pdf::PdfOptions::default())
-            .map_err(|e| Error::PdfGeneration(format!("{e:?}")))?;
-        Ok(pdf_bytes)
+        self.with_compiled(|compiled| {
+            typst_pdf::pdf(compiled, &typst_pdf::PdfOptions::default())
+                .map_err(|e| Error::PdfGeneration(format!("{e:?}")))
+        })
     }
 
     /// Compile the document and generate SVG for each page.
@@ -191,11 +202,7 @@ impl Document {
     #[cfg(feature = "svg")]
     #[cfg_attr(docsrs, doc(cfg(feature = "svg")))]
     pub fn to_svg(&self) -> Result<Vec<String>> {
-        self.compile_cached()?;
-        let cache = self.compiled_cache.lock().expect("lock poisoned");
-        let compiled = cache.as_ref().unwrap();
-        let svgs: Vec<String> = compiled.pages.iter().map(typst_svg::svg).collect();
-        Ok(svgs)
+        self.with_compiled(|compiled| Ok(compiled.pages.iter().map(typst_svg::svg).collect()))
     }
 
     /// Compile the document and generate PNG for each page.
@@ -211,18 +218,17 @@ impl Document {
     #[cfg(feature = "png")]
     #[cfg_attr(docsrs, doc(cfg(feature = "png")))]
     pub fn to_png(&self, dpi: f32) -> Result<Vec<Vec<u8>>> {
-        self.compile_cached()?;
-        let cache = self.compiled_cache.lock().expect("lock poisoned");
-        let compiled = cache.as_ref().unwrap();
-        let pixel_per_pt = dpi / 72.0;
-        let mut pngs = Vec::with_capacity(compiled.pages.len());
-        for page in &compiled.pages {
-            let pixmap = typst_render::render(page, pixel_per_pt);
-            let png = pixmap
-                .encode_png()
-                .map_err(|e| Error::PngEncoding(format!("{e}")))?;
-            pngs.push(png);
-        }
-        Ok(pngs)
+        self.with_compiled(|compiled| {
+            let pixel_per_pt = dpi / 72.0;
+            let mut pngs = Vec::with_capacity(compiled.pages.len());
+            for page in &compiled.pages {
+                let pixmap = typst_render::render(page, pixel_per_pt);
+                let png = pixmap
+                    .encode_png()
+                    .map_err(|e| Error::PngEncoding(format!("{e}")))?;
+                pngs.push(png);
+            }
+            Ok(pngs)
+        })
     }
 }
