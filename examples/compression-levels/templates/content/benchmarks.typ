@@ -10,7 +10,7 @@
 #let decomp_scatter_y = decomp_speed_all.flatten()
 
 // Auto-calculate label y-positions from data range
-#let ratio-label-y = calc.min(..ratio) + (calc.max(..ratio) - calc.min(..ratio)) * 0.15
+#let ratio-label-y = calc.min(..ratio) + (calc.max(..ratio) - calc.min(..ratio)) * 0.5
 
 === Compression Ratio vs Level
 
@@ -51,6 +51,7 @@
     height: 5cm,
     xlabel: [Compression Level],
     ylabel: [Decomp. Speed (MB/s)],
+    yaxis: (exponent: none),
 
     lq.plot(decomp_scatter_x, decomp_scatter_y, mark: "o", mark-size: 2pt, stroke: none, color: blue.lighten(60%)),
     lq.plot(levels, decomp_speed, mark: "o", mark-size: 3pt),
