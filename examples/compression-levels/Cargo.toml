@@ -1,0 +1,17 @@
+[package]
+name = "example-compression-levels"
+version = "0.1.0"
+edition = "2021"
+
+[package.metadata.typst-bake]
+template-dir = "./templates"
+fonts-dir = "./fonts"
+compression-level = 22
+
+[dependencies]
+typst-bake.workspace = true
+
+[dev-dependencies]
+zstd.workspace = true
+ureq.workspace = true
+zip = { version = "2", default-features = false, features = ["deflate"] }
