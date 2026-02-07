@@ -105,8 +105,8 @@ fn embed_packages(
     cache: &mut CompressionCache,
 ) -> EmbeddedPackages {
     let mut package_infos = Vec::new();
-    let mut pkg_total_original = 0usize;
-    let mut pkg_total_compressed = 0usize;
+    let mut pkg_total_original = 0;
+    let mut pkg_total_compressed = 0;
     let mut namespace_entries = Vec::new();
 
     // Group resolved packages into a sorted tree: namespace -> name -> versions
@@ -231,8 +231,8 @@ fn generate_output(
                 },
                 packages: ::typst_bake::PackageStats {
                     packages: vec![#(#pkg_info_tokens),*],
-                    total_original: #pkg_total_original,
-                    total_compressed: #pkg_total_compressed,
+                    original_size: #pkg_total_original,
+                    compressed_size: #pkg_total_compressed,
                 },
                 fonts: ::typst_bake::CategoryStats {
                     original_size: #font_original,
@@ -270,13 +270,9 @@ pub fn document(input: TokenStream) -> TokenStream {
 
     // Set up compression cache
     let compression_level = config::get_compression_level();
-    let compression_cache_dir = match config::get_compression_cache_dir() {
-        Ok(dir) => Some(dir),
-        Err(e) => {
-            eprintln!("typst-bake: Compression cache disabled: {}", e);
-            None
-        }
-    };
+    let compression_cache_dir = config::get_compression_cache_dir()
+        .map_err(|e| eprintln!("typst-bake: Compression cache disabled: {}", e))
+        .ok();
     let mut cache = CompressionCache::new(compression_cache_dir, compression_level);
 
     // Embed templates and fonts

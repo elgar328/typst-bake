@@ -47,10 +47,10 @@ pub struct CategoryStats {
 pub struct PackageStats {
     /// Per-package statistics
     pub packages: Vec<PackageInfo>,
-    /// Total original size of all packages
-    pub total_original: usize,
-    /// Total compressed size of all packages
-    pub total_compressed: usize,
+    /// Original uncompressed size in bytes
+    pub original_size: usize,
+    /// Compressed size in bytes
+    pub compressed_size: usize,
 }
 
 /// Statistics for a single package
@@ -69,12 +69,12 @@ pub struct PackageInfo {
 impl EmbedStats {
     /// Calculate total original size across all categories
     pub fn total_original(&self) -> usize {
-        self.templates.original_size + self.packages.total_original + self.fonts.original_size
+        self.templates.original_size + self.packages.original_size + self.fonts.original_size
     }
 
     /// Calculate total compressed size across all categories
     pub fn total_compressed(&self) -> usize {
-        self.templates.compressed_size + self.packages.total_compressed + self.fonts.compressed_size
+        self.templates.compressed_size + self.packages.compressed_size + self.fonts.compressed_size
     }
 
     /// Calculate compression ratio (0.0 to 1.0, where 0.0 means no compression)
@@ -224,32 +224,16 @@ pub trait HasCompressionRatio {
     }
 }
 
-impl HasCompressionRatio for CategoryStats {
-    fn original_size(&self) -> usize {
-        self.original_size
-    }
-    fn compressed_size(&self) -> usize {
-        self.compressed_size
-    }
+macro_rules! impl_has_compression_ratio {
+    ($($ty:ty),*) => {
+        $(impl HasCompressionRatio for $ty {
+            fn original_size(&self) -> usize { self.original_size }
+            fn compressed_size(&self) -> usize { self.compressed_size }
+        })*
+    };
 }
 
-impl HasCompressionRatio for PackageInfo {
-    fn original_size(&self) -> usize {
-        self.original_size
-    }
-    fn compressed_size(&self) -> usize {
-        self.compressed_size
-    }
-}
-
-impl HasCompressionRatio for PackageStats {
-    fn original_size(&self) -> usize {
-        self.total_original
-    }
-    fn compressed_size(&self) -> usize {
-        self.total_compressed
-    }
-}
+impl_has_compression_ratio!(CategoryStats, PackageInfo, PackageStats);
 
 /// Calculate compression ratio from original and compressed sizes.
 /// Returns 0.0 when original is 0, otherwise 1.0 - (compressed / original).
@@ -336,8 +320,8 @@ mod tests {
             },
             packages: PackageStats {
                 packages: vec![],
-                total_original: 1000,
-                total_compressed: 200, // 80% compression
+                original_size: 1000,
+                compressed_size: 200, // 80% compression
             },
             dedup: DedupStats {
                 total_files: 4,
