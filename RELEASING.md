@@ -44,8 +44,8 @@ Publish `typst-bake-macros` first (dependency of `typst-bake`):
 
 ```sh
 cargo publish -p typst-bake-macros --dry-run
-cargo publish -p typst-bake --dry-run
 cargo publish -p typst-bake-macros
+cargo publish -p typst-bake --dry-run
 cargo publish -p typst-bake
 ```
 
