@@ -71,7 +71,6 @@ where
         for entry in dir_entries {
             let path = entry.path();
 
-            // Skip hidden files and directories
             if is_hidden(&path) {
                 continue;
             }
