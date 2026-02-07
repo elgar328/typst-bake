@@ -25,7 +25,7 @@ fn get_metadata_value<'a>(manifest: &'a toml::Table, key: &str) -> Option<&'a to
 
 /// Get a string value from [package.metadata.typst-bake] section.
 fn get_metadata_str<'a>(manifest: &'a toml::Table, key: &str) -> Option<&'a str> {
-    get_metadata_value(manifest, key).and_then(|v| v.as_str())
+    get_metadata_value(manifest, key).and_then(toml::Value::as_str)
 }
 
 /// Resolve a path relative to the manifest directory (absolute paths pass through).
@@ -175,7 +175,7 @@ pub fn get_compression_level() -> i32 {
         .ok()
         .and_then(|dir| read_manifest(Path::new(&dir)).ok())
         .and_then(|manifest| {
-            get_metadata_value(&manifest, "compression-level").and_then(|v| v.as_integer())
+            get_metadata_value(&manifest, "compression-level").and_then(toml::Value::as_integer)
         })
     {
         return (level as i32).clamp(ZSTD_LEVEL_MIN, ZSTD_LEVEL_MAX);

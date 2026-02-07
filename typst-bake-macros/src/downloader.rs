@@ -35,15 +35,14 @@ fn resolve_dependencies(pkg_dir: &Path) -> Vec<PackageSpec> {
         .and_then(|p| p.get("dependencies"))
         .and_then(|d| d.as_table())
     {
-        for (dep_name, dep_value) in table {
-            if let Some((dep_ns, dep_ver)) = dep_value.as_str().and_then(|s| s.split_once(':')) {
-                deps.push(PackageSpec {
-                    namespace: dep_ns.to_owned(),
-                    name: dep_name.to_owned(),
-                    version: dep_ver.to_owned(),
-                });
-            }
-        }
+        deps.extend(table.iter().filter_map(|(dep_name, dep_value)| {
+            let (dep_ns, dep_ver) = dep_value.as_str()?.split_once(':')?;
+            Some(PackageSpec {
+                namespace: dep_ns.to_owned(),
+                name: dep_name.to_owned(),
+                version: dep_ver.to_owned(),
+            })
+        }));
     }
 
     // 2. Scan package's .typ files for implicit dependencies
