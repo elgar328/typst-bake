@@ -67,7 +67,7 @@ pub fn download_packages(
         return Ok(Vec::new());
     }
 
-    let mut to_download = VecDeque::from(packages.to_vec());
+    let mut to_download: VecDeque<_> = packages.iter().cloned().collect();
     let mut downloaded: HashSet<PackageSpec> = HashSet::new();
     let mut failed_packages = Vec::new();
 
@@ -83,12 +83,7 @@ pub fn download_packages(
         } else {
             eprintln!("  Downloading: {}", pkg);
 
-            let url = format!(
-                "https://packages.typst.org/{}/{}-{}.tar.gz",
-                pkg.namespace, pkg.name, pkg.version
-            );
-
-            match download_and_extract(&url, &pkg_dir) {
+            match download_and_extract(&pkg.download_url(), &pkg_dir) {
                 Ok(_) => {
                     eprintln!("  ✓ {}", pkg);
                 }

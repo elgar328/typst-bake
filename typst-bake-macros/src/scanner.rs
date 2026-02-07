@@ -7,6 +7,8 @@ use typst_syntax::ast::{Expr, Markup};
 use typst_syntax::Source;
 use walkdir::WalkDir;
 
+const PACKAGES_BASE_URL: &str = "https://packages.typst.org";
+
 /// Package info (namespace, name, version)
 #[derive(Clone, Hash, Eq, PartialEq, Debug)]
 pub struct PackageSpec {
@@ -21,6 +23,13 @@ impl PackageSpec {
             .join(&self.namespace)
             .join(&self.name)
             .join(&self.version)
+    }
+
+    pub fn download_url(&self) -> String {
+        format!(
+            "{}/{}/{}-{}.tar.gz",
+            PACKAGES_BASE_URL, self.namespace, self.name, self.version
+        )
     }
 }
 
