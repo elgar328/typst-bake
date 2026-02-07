@@ -37,7 +37,7 @@ impl EmbeddedResolver {
         }
     }
 
-    /// Get file path from FileId
+    /// Get the file path string from a `FileId`.
     fn get_path(&self, id: FileId) -> String {
         if let Some(pkg) = id.package() {
             // Package file: namespace/name/version/vpath
@@ -54,7 +54,7 @@ impl EmbeddedResolver {
         }
     }
 
-    /// Look up compressed file bytes
+    /// Look up compressed file bytes by `FileId`.
     fn lookup(&self, id: FileId) -> Option<&'static [u8]> {
         let path = self.get_path(id);
 

@@ -31,7 +31,7 @@ pub struct DedupStats {
     pub saved_bytes: usize,
 }
 
-/// Statistics for a category of files (templates, fonts)
+/// Statistics for a category of files (templates, fonts).
 #[derive(Debug, Clone, Copy)]
 pub struct CategoryStats {
     /// Original uncompressed size in bytes
@@ -42,7 +42,7 @@ pub struct CategoryStats {
     pub file_count: usize,
 }
 
-/// Statistics for all packages
+/// Statistics for all packages.
 #[derive(Debug, Clone)]
 pub struct PackageStats {
     /// Per-package statistics
@@ -53,7 +53,7 @@ pub struct PackageStats {
     pub compressed_size: usize,
 }
 
-/// Statistics for a single package
+/// Statistics for a single package.
 #[derive(Debug, Clone)]
 pub struct PackageInfo {
     /// Package name with version (e.g., "gentle-clues:1.2.0")
@@ -104,7 +104,7 @@ impl EmbedStats {
                 .sum::<usize>()
     }
 
-    /// Display compression statistics in a human-readable format
+    /// Display compression statistics in a human-readable format.
     pub fn display(&self) {
         print!("{self}");
     }
@@ -234,7 +234,7 @@ fn compression_ratio(original: usize, compressed: usize) -> f64 {
     1.0 - (compressed as f64 / original as f64)
 }
 
-/// Format bytes into human-readable size
+/// Format bytes into a human-readable size string.
 fn format_size(bytes: usize) -> String {
     const KB: usize = 1024;
     const MB: usize = KB * 1024;

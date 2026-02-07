@@ -21,7 +21,7 @@ pub struct DirEmbedResult {
 }
 
 impl DirEmbedResult {
-    /// Wrap entries in a Dir::new(...) expression
+    /// Wrap entries in a `Dir::new(...)` expression.
     pub fn to_dir_code(&self, name: &str) -> TokenStream {
         let entries = &self.entries;
         quote! {
@@ -88,12 +88,10 @@ where
             };
 
             if path.is_file() {
-                // Apply file filter
                 if !(self.file_filter)(&path) {
                     continue;
                 }
 
-                // Read file and compress
                 let file_bytes = match fs::read(&path) {
                     Ok(bytes) => bytes,
                     Err(_) => continue,
