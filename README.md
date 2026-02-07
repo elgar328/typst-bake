@@ -101,7 +101,7 @@ For a complete walkthrough, see the [Quick Start Guide (PDF)](https://github.com
 | with-inputs | Pass dynamic data from Rust to Typst | `cargo run -p example-with-inputs` | [PDF](https://github.com/elgar328/typst-bake/blob/main/examples/with-inputs/output.pdf) |
 | with-files | Embed images and various data files | `cargo run -p example-with-files` | [PDF](https://github.com/elgar328/typst-bake/blob/main/examples/with-files/output.pdf) |
 | with-package | Automatic package bundling | `cargo run -p example-with-package` | [PDF](https://github.com/elgar328/typst-bake/blob/main/examples/with-package/output.pdf) |
-| compression-levels | Custom zstd compression level and stats display | `cargo run -p example-compression-levels` | [PDF](https://github.com/elgar328/typst-bake/blob/main/examples/compression-levels/output.pdf) |
+| compression-levels | Custom compression level with zstd benchmark | `cargo run -p example-compression-levels` | [PDF](https://github.com/elgar328/typst-bake/blob/main/examples/compression-levels/output.pdf) |
 | output-formats | Multi-format output with rendering test patterns | `cargo run -p example-output-formats` | See below |
 
 ### output-formats Example Outputs
