@@ -132,7 +132,7 @@ impl Document {
             .map(|f| decompress(f.contents()).map_err(Error::from))
             .collect::<Result<Vec<_>>>()?;
 
-        let font_refs: Vec<&[u8]> = font_data.iter().map(|v| v.as_slice()).collect();
+        let font_refs: Vec<&[u8]> = font_data.iter().map(Vec::as_slice).collect();
 
         // Build engine with main file, resolver, and fonts
         let builder = TypstEngine::builder()
@@ -160,7 +160,7 @@ impl Document {
                     .map(|d| d.message.as_str())
                     .collect::<Vec<_>>()
                     .join("\n"),
-                other => format!("{other}"),
+                other => other.to_string(),
             };
             Error::Compilation(msg)
         })?;
@@ -234,7 +234,7 @@ impl Document {
                 .map(|page| {
                     typst_render::render(page, pixel_per_pt)
                         .encode_png()
-                        .map_err(|e| Error::PngEncoding(format!("{e}")))
+                        .map_err(|e| Error::PngEncoding(e.to_string()))
                 })
                 .collect()
         })

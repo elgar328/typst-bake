@@ -84,7 +84,7 @@ impl CompressionCache {
     /// Try to load compressed data from disk cache, or compress fresh.
     fn load_or_compress(&mut self, data: &[u8], hash: &str) -> Vec<u8> {
         if let Some(cache_dir) = &self.cache_dir {
-            let cache_filename = format!("{}_{}.zst", hash, self.level);
+            let cache_filename = format!("{hash}_{}.zst", self.level);
             let cache_path = cache_dir.join(&cache_filename);
             self.used_files.insert(cache_filename);
 
@@ -156,13 +156,13 @@ impl CompressionCache {
         let unique = self.blobs.len();
         if self.cache_dir.is_some() {
             eprintln!(
-                "typst-bake: Compression level {}, {} files, {} unique blobs ({} cached, {} compressed)",
-                self.level, total, unique, self.cache_hits, self.misses
+                "typst-bake: Compression level {}, {total} files, {unique} unique blobs ({} cached, {} compressed)",
+                self.level, self.cache_hits, self.misses
             );
         } else {
             eprintln!(
-                "typst-bake: Compression level {}, {} files, {} unique blobs (cache disabled)",
-                self.level, total, unique
+                "typst-bake: Compression level {}, {total} files, {unique} unique blobs (cache disabled)",
+                self.level
             );
         }
         if self.dedup_hits > 0 {
@@ -190,7 +190,7 @@ impl CompressionCache {
 
 fn format_size(bytes: usize) -> String {
     if bytes < 1024 {
-        format!("{} B", bytes)
+        format!("{bytes} B")
     } else if bytes < 1024 * 1024 {
         format!("{:.1} KB", bytes as f64 / 1024.0)
     } else {

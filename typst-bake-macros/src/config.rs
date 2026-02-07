@@ -58,7 +58,7 @@ fn get_config_dir(
         // Priority 2: Cargo.toml metadata
         let manifest = read_manifest(manifest_dir)?;
         let dir = get_metadata_str(&manifest, metadata_key)
-            .ok_or_else(|| not_configured_msg.to_string())?;
+            .ok_or_else(|| not_configured_msg.to_owned())?;
         resolve_path(manifest_dir, dir)
     };
 
@@ -168,14 +168,14 @@ pub fn get_compression_level() -> i32 {
     }
 
     // Priority 2: Cargo.toml metadata
-    if let Ok(manifest_dir) = env::var("CARGO_MANIFEST_DIR") {
-        if let Ok(manifest) = read_manifest(Path::new(&manifest_dir)) {
-            if let Some(level) =
-                get_metadata_value(&manifest, "compression-level").and_then(|v| v.as_integer())
-            {
-                return (level as i32).clamp(ZSTD_LEVEL_MIN, ZSTD_LEVEL_MAX);
-            }
-        }
+    if let Some(level) = env::var("CARGO_MANIFEST_DIR")
+        .ok()
+        .and_then(|dir| read_manifest(Path::new(&dir)).ok())
+        .and_then(|manifest| {
+            get_metadata_value(&manifest, "compression-level").and_then(|v| v.as_integer())
+        })
+    {
+        return (level as i32).clamp(ZSTD_LEVEL_MIN, ZSTD_LEVEL_MAX);
     }
 
     ZSTD_LEVEL_DEFAULT
@@ -187,7 +187,7 @@ pub fn get_compression_level() -> i32 {
 /// Falls back to `dirs::cache_dir()/typst-bake/compression-cache/{CARGO_PKG_NAME}/`
 /// if the target directory cannot be determined.
 pub fn get_compression_cache_dir() -> Result<PathBuf, String> {
-    let pkg_name = env::var("CARGO_PKG_NAME").map_err(|_| "CARGO_PKG_NAME not set".to_string())?;
+    let pkg_name = env::var("CARGO_PKG_NAME").map_err(|_| "CARGO_PKG_NAME not set".to_owned())?;
 
     // 1. CARGO_TARGET_DIR environment variable
     if let Ok(target_dir) = env::var("CARGO_TARGET_DIR") {
@@ -197,7 +197,7 @@ pub fn get_compression_cache_dir() -> Result<PathBuf, String> {
     }
 
     let manifest_dir =
-        env::var("CARGO_MANIFEST_DIR").map_err(|_| "CARGO_MANIFEST_DIR not set".to_string())?;
+        env::var("CARGO_MANIFEST_DIR").map_err(|_| "CARGO_MANIFEST_DIR not set".to_owned())?;
     let manifest_dir = Path::new(&manifest_dir);
 
     // 2. CARGO_MANIFEST_DIR/target/ (standalone project)
@@ -218,7 +218,7 @@ pub fn get_compression_cache_dir() -> Result<PathBuf, String> {
 
     // 4. Fallback: dirs::cache_dir()
     let cache_base =
-        dirs::cache_dir().ok_or_else(|| "Could not determine cache directory".to_string())?;
+        dirs::cache_dir().ok_or_else(|| "Could not determine cache directory".to_owned())?;
     Ok(cache_base
         .join("typst-bake")
         .join("compression-cache")

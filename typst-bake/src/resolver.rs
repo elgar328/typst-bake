@@ -97,7 +97,7 @@ fn normalize_path(path: &std::path::Path) -> String {
 /// Join a prefix and name with `/`, or return name alone if prefix is empty.
 fn join_path(prefix: &str, name: &str) -> String {
     if prefix.is_empty() {
-        name.to_string()
+        name.to_owned()
     } else {
         format!("{prefix}/{name}")
     }
