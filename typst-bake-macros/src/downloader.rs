@@ -6,7 +6,7 @@ use std::fs;
 use std::io::Read;
 use std::path::{Path, PathBuf};
 
-/// Get system cache directory
+/// Get the system cache directory for downloaded packages.
 pub fn get_cache_dir() -> Result<PathBuf, String> {
     let cache_dir = dirs::cache_dir()
         .ok_or("Could not determine system cache directory".to_owned())?
@@ -103,7 +103,7 @@ pub fn download_packages(
     Ok(downloaded.into_iter().collect())
 }
 
-/// Download and extract tar.gz from URL
+/// Download and extract a tar.gz archive from a URL.
 fn download_and_extract(url: &str, dest: &Path) -> Result<(), Box<dyn std::error::Error>> {
     let response = ureq::get(url).call()?;
     let (_, body) = response.into_parts();
@@ -113,7 +113,7 @@ fn download_and_extract(url: &str, dest: &Path) -> Result<(), Box<dyn std::error
     Ok(())
 }
 
-/// Extract tar.gz archive
+/// Extract a tar.gz archive to the destination directory.
 fn extract_tar_gz(bytes: &[u8], dest: &Path) -> Result<(), Box<dyn std::error::Error>> {
     use binstall_tar::Archive;
     use flate2::read::GzDecoder;

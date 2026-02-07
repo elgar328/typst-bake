@@ -1,4 +1,4 @@
-//! Document structure for document rendering
+//! Self-contained document for Typst template rendering.
 
 use crate::error::{Error, Result};
 use crate::resolver::EmbeddedResolver;

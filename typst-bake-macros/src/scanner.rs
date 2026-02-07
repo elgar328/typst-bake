@@ -9,7 +9,7 @@ use walkdir::WalkDir;
 
 const PACKAGES_BASE_URL: &str = "https://packages.typst.org";
 
-/// Package info (namespace, name, version)
+/// A Typst package specifier: `@namespace/name:version`.
 #[derive(Clone, Hash, Eq, PartialEq, Debug)]
 pub struct PackageSpec {
     pub namespace: String,
@@ -39,19 +39,19 @@ impl std::fmt::Display for PackageSpec {
     }
 }
 
-/// Check if valid identifier
+/// Check if a string is a valid package identifier.
 fn is_valid_identifier(s: &str) -> bool {
     !s.is_empty()
         && s.chars()
             .all(|c| c.is_alphanumeric() || c == '-' || c == '_')
 }
 
-/// Check if valid version string
+/// Check if a string is a valid version specifier.
 fn is_valid_version(s: &str) -> bool {
     !s.is_empty() && s.chars().all(|c| c.is_numeric() || c == '.')
 }
 
-/// Parse package specifier (@namespace/name:version)
+/// Parse package specifier (`@namespace/name:version`).
 pub fn parse_package_specifier(path: &str) -> Option<PackageSpec> {
     let path = path.strip_prefix('@')?;
     let (namespace_str, name_version) = path.split_once('/')?;
@@ -71,7 +71,7 @@ pub fn parse_package_specifier(path: &str) -> Option<PackageSpec> {
     })
 }
 
-/// Extract package imports from source code
+/// Extract package imports from Typst source code.
 pub fn parse_packages_from_source(content: &str) -> Result<Vec<PackageSpec>, String> {
     // Parse source into AST
     let source = Source::detached(content);
@@ -98,7 +98,7 @@ pub fn parse_packages_from_source(content: &str) -> Result<Vec<PackageSpec>, Str
     Ok(packages)
 }
 
-/// Extract all package imports from directory
+/// Extract all package imports from `.typ` files in a directory.
 pub fn extract_packages(dir: &Path) -> Vec<PackageSpec> {
     let mut packages = HashSet::new();
 

@@ -1,4 +1,4 @@
-//! Parse Cargo.toml metadata
+//! Cargo.toml metadata parsing for typst-bake configuration.
 
 use std::env;
 use std::fs;
@@ -92,7 +92,7 @@ pub fn get_template_dir() -> Result<PathBuf, String> {
     )
 }
 
-/// Check if cache refresh is needed
+/// Check if cache refresh is needed.
 pub fn should_refresh_cache() -> bool {
     env::var("TYPST_BAKE_REFRESH").is_ok()
 }
