@@ -19,6 +19,39 @@ pub fn get_cache_dir() -> Result<PathBuf, String> {
     Ok(cache_dir)
 }
 
+/// Resolve dependencies from a downloaded package directory.
+///
+/// Collects both explicit dependencies (from `typst.toml`) and implicit ones
+/// (from `#import` in `.typ` files).
+fn resolve_dependencies(pkg_dir: &Path) -> Vec<PackageSpec> {
+    let mut deps = Vec::new();
+
+    // 1. Parse typst.toml for explicit dependencies
+    let toml_path = pkg_dir.join("typst.toml");
+    if let Ok(content) = fs::read_to_string(&toml_path) {
+        if let Ok(manifest) = content.parse::<toml::Table>() {
+            if let Some(table) = manifest
+                .get("package")
+                .and_then(|p| p.get("dependencies"))
+                .and_then(|d| d.as_table())
+            {
+                for (dep_name, dep_value) in table {
+                    if let Some(dep_str) = dep_value.as_str() {
+                        if let Some((dep_ns, dep_ver)) = dep_str.split_once(':') {
+                            deps.push((dep_ns.to_string(), dep_name.clone(), dep_ver.to_string()));
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // 2. Scan package's .typ files for implicit dependencies
+    deps.extend(extract_packages(pkg_dir));
+
+    deps
+}
+
 /// Download packages and resolve dependencies.
 /// Returns the list of all resolved packages (direct + transitive).
 pub fn download_packages(
@@ -31,17 +64,16 @@ pub fn download_packages(
     }
 
     let mut to_download = VecDeque::from(packages.to_vec());
-    let mut downloaded = HashSet::new();
+    let mut downloaded: HashSet<PackageSpec> = HashSet::new();
     let mut failed_packages = Vec::new();
 
-    while let Some((namespace, name, version)) = to_download.pop_front() {
-        // Skip if already downloaded
-        let pkg_key = format!("{}/{}/{}", namespace, name, version);
-        if !downloaded.insert(pkg_key.clone()) {
+    while let Some(pkg) = to_download.pop_front() {
+        if !downloaded.insert(pkg.clone()) {
             continue;
         }
+        let (ref namespace, ref name, ref version) = pkg;
 
-        let pkg_dir = cache_dir.join(&namespace).join(&name).join(&version);
+        let pkg_dir = cache_dir.join(namespace).join(name).join(version);
 
         // Check cache (unless refresh requested)
         if pkg_dir.exists() && !refresh {
@@ -60,41 +92,13 @@ pub fn download_packages(
                 }
                 Err(e) => {
                     eprintln!("  ✗ Failed: @{}/{}/{}: {}", namespace, name, version, e);
-                    failed_packages.push(pkg_key);
+                    failed_packages.push(format!("{}/{}/{}", namespace, name, version));
                     continue;
                 }
             }
         }
 
-        // Resolve dependencies
-
-        // 1. Parse typst.toml for explicit dependencies
-        let toml_path = pkg_dir.join("typst.toml");
-        if let Ok(content) = fs::read_to_string(&toml_path) {
-            if let Ok(manifest) = content.parse::<toml::Table>() {
-                if let Some(deps) = manifest
-                    .get("package")
-                    .and_then(|p| p.get("dependencies"))
-                    .and_then(|d| d.as_table())
-                {
-                    for (dep_name, dep_value) in deps {
-                        if let Some(dep_str) = dep_value.as_str() {
-                            if let Some((dep_ns, dep_ver)) = dep_str.split_once(':') {
-                                to_download.push_back((
-                                    dep_ns.to_string(),
-                                    dep_name.clone(),
-                                    dep_ver.to_string(),
-                                ));
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        // 2. Scan package's .typ files for implicit dependencies
-        let pkg_deps = extract_packages(&pkg_dir);
-        for dep in pkg_deps {
+        for dep in resolve_dependencies(&pkg_dir) {
             to_download.push_back(dep);
         }
     }
@@ -108,21 +112,7 @@ pub fn download_packages(
         ));
     }
 
-    // Convert downloaded keys ("namespace/name/version") back to PackageSpec tuples
-    let resolved: Vec<PackageSpec> = downloaded
-        .into_iter()
-        .filter_map(|key| {
-            let mut parts = key.splitn(3, '/');
-            match (parts.next(), parts.next(), parts.next()) {
-                (Some(ns), Some(name), Some(ver)) => {
-                    Some((ns.to_string(), name.to_string(), ver.to_string()))
-                }
-                _ => None,
-            }
-        })
-        .collect();
-
-    Ok(resolved)
+    Ok(downloaded.into_iter().collect())
 }
 
 /// Download and extract tar.gz from URL

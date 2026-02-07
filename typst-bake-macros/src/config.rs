@@ -33,43 +33,59 @@ fn resolve_path(manifest_dir: &Path, path: &str) -> PathBuf {
     }
 }
 
+/// Shared logic for resolving a config directory from env var or Cargo.toml metadata.
+///
+/// Priority:
+/// 1. Environment variable (`env_var`)
+/// 2. Cargo.toml `[package.metadata.typst-bake]` key (`metadata_key`)
+fn get_config_dir(
+    env_var: &str,
+    metadata_key: &str,
+    not_configured_msg: &str,
+    dir_kind: &str,
+) -> Result<PathBuf, String> {
+    let manifest_dir = env::var("CARGO_MANIFEST_DIR").map_err(|_| "CARGO_MANIFEST_DIR not set")?;
+    let manifest_dir = Path::new(&manifest_dir);
+
+    // Priority 1: Environment variable
+    let path = if let Ok(dir) = env::var(env_var) {
+        resolve_path(manifest_dir, &dir)
+    } else {
+        // Priority 2: Cargo.toml metadata
+        let manifest = read_manifest(manifest_dir)?;
+        let dir = get_metadata_str(&manifest, metadata_key)
+            .ok_or_else(|| not_configured_msg.to_string())?;
+        resolve_path(manifest_dir, dir)
+    };
+
+    if !path.exists() {
+        return Err(format!(
+            "{} directory does not exist: {}",
+            dir_kind,
+            path.display()
+        ));
+    }
+
+    Ok(path)
+}
+
 /// Get template directory path.
 ///
 /// Priority:
 /// 1. Environment variable TYPST_TEMPLATE_DIR
 /// 2. Cargo.toml [package.metadata.typst-bake] template-dir
 pub fn get_template_dir() -> Result<PathBuf, String> {
-    let manifest_dir = env::var("CARGO_MANIFEST_DIR").map_err(|_| "CARGO_MANIFEST_DIR not set")?;
-    let manifest_dir = Path::new(&manifest_dir);
-
-    // Priority 1: Environment variable
-    if let Ok(template_dir) = env::var("TYPST_TEMPLATE_DIR") {
-        return Ok(resolve_path(manifest_dir, &template_dir));
-    }
-
-    // Priority 2: Cargo.toml metadata
-    let manifest = read_manifest(manifest_dir)?;
-
-    let template_dir = get_metadata_str(&manifest, "template-dir").ok_or_else(|| {
+    get_config_dir(
+        "TYPST_TEMPLATE_DIR",
+        "template-dir",
         "Template directory not configured.\n\n\
             Add to your Cargo.toml:\n\n\
             [package.metadata.typst-bake]\n\
             template-dir = \"./templates\"\n\n\
             Or set environment variable:\n\
-            export TYPST_TEMPLATE_DIR=./templates"
-            .to_string()
-    })?;
-
-    let path = resolve_path(manifest_dir, template_dir);
-
-    if !path.exists() {
-        return Err(format!(
-            "Template directory does not exist: {}",
-            path.display()
-        ));
-    }
-
-    Ok(path)
+            export TYPST_TEMPLATE_DIR=./templates",
+        "Template",
+    )
 }
 
 /// Check if cache refresh is needed
@@ -85,36 +101,18 @@ pub fn should_refresh_cache() -> bool {
 ///
 /// At least one font file (.ttf, .otf, .ttc) must exist.
 pub fn get_fonts_dir() -> Result<PathBuf, String> {
-    let manifest_dir = env::var("CARGO_MANIFEST_DIR").map_err(|_| "CARGO_MANIFEST_DIR not set")?;
-    let manifest_dir = Path::new(&manifest_dir);
-
-    // Priority 1: Environment variable
-    let path = if let Ok(fonts_dir) = env::var("TYPST_FONTS_DIR") {
-        resolve_path(manifest_dir, &fonts_dir)
-    } else {
-        // Priority 2: Cargo.toml metadata
-        let manifest = read_manifest(manifest_dir)?;
-
-        let fonts_dir = get_metadata_str(&manifest, "fonts-dir").ok_or_else(|| {
-            "Fonts directory not configured.\n\n\
-                Add to your Cargo.toml:\n\n\
-                [package.metadata.typst-bake]\n\
-                template-dir = \"./templates\"\n\
-                fonts-dir = \"./fonts\"\n\n\
-                Or set environment variable:\n\
-                export TYPST_FONTS_DIR=./fonts"
-                .to_string()
-        })?;
-
-        resolve_path(manifest_dir, fonts_dir)
-    };
-
-    if !path.exists() {
-        return Err(format!(
-            "Fonts directory does not exist: {}",
-            path.display()
-        ));
-    }
+    let path = get_config_dir(
+        "TYPST_FONTS_DIR",
+        "fonts-dir",
+        "Fonts directory not configured.\n\n\
+            Add to your Cargo.toml:\n\n\
+            [package.metadata.typst-bake]\n\
+            template-dir = \"./templates\"\n\
+            fonts-dir = \"./fonts\"\n\n\
+            Or set environment variable:\n\
+            export TYPST_FONTS_DIR=./fonts",
+        "Fonts",
+    )?;
 
     // Check for at least one font file
     let has_fonts = fs::read_dir(&path)
