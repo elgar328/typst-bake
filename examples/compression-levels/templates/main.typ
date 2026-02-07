@@ -23,13 +23,10 @@
 
 The next page shows benchmark results. To run them and generate this PDF on your own machine:
 
-#no-codly[
-#block(fill: luma(245), inset: 10pt, radius: 4pt, width: 100%)[
 ```bash
 cargo test -p example-compression-levels --release --test benchmark -- --ignored --nocapture
 cargo run -p example-compression-levels
 ```
-]]
 
 #pagebreak()
 
