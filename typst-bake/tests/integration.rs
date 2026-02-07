@@ -64,6 +64,14 @@ fn test_with_package_generates_pdf() {
 }
 
 #[test]
+fn test_compression_levels_generates_pdf() {
+    run_example_and_verify_pdf(
+        "example-compression-levels",
+        "examples/compression-levels/output.pdf",
+    );
+}
+
+#[test]
 fn test_output_formats_generates_all() {
     let workspace = workspace_root();
     let example_dir = workspace.join("examples/output-formats");
