@@ -139,12 +139,13 @@ impl CompressionCache {
 
         for entry in entries.filter_map(|e| e.ok()) {
             let path = entry.path();
-            if path.extension().and_then(|e| e.to_str()) == Some("zst") {
-                if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
-                    if !self.used_files.contains(name) {
-                        let _ = fs::remove_file(&path);
-                    }
-                }
+            if path.extension().and_then(|e| e.to_str()) == Some("zst")
+                && path
+                    .file_name()
+                    .and_then(|n| n.to_str())
+                    .is_some_and(|name| !self.used_files.contains(name))
+            {
+                let _ = fs::remove_file(&path);
             }
         }
     }

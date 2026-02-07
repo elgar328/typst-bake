@@ -228,15 +228,15 @@ impl Document {
     pub fn to_png(&self, dpi: f32) -> Result<Vec<Vec<u8>>> {
         self.with_compiled(|compiled| {
             let pixel_per_pt = dpi / 72.0;
-            let mut pngs = Vec::with_capacity(compiled.pages.len());
-            for page in &compiled.pages {
-                let pixmap = typst_render::render(page, pixel_per_pt);
-                let png = pixmap
-                    .encode_png()
-                    .map_err(|e| Error::PngEncoding(format!("{e}")))?;
-                pngs.push(png);
-            }
-            Ok(pngs)
+            compiled
+                .pages
+                .iter()
+                .map(|page| {
+                    typst_render::render(page, pixel_per_pt)
+                        .encode_png()
+                        .map_err(|e| Error::PngEncoding(format!("{e}")))
+                })
+                .collect()
         })
     }
 }

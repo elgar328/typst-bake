@@ -155,26 +155,27 @@ where
     }
 }
 
-/// Generate code that creates a Dir struct from a directory path.
-/// Files are compressed with zstd using the configured compression level and cache.
-pub fn embed_dir(dir_path: &Path, cache: &mut CompressionCache) -> DirEmbedResult {
+fn embed_with_filter(
+    dir_path: &Path,
+    filter: impl Fn(&Path) -> bool + Copy,
+    cache: &mut CompressionCache,
+) -> DirEmbedResult {
     if !dir_path.exists() {
         return DirEmbedResult::default();
     }
-
-    let mut ctx = ScanContext::new(dir_path, |_: &Path| true, cache);
+    let mut ctx = ScanContext::new(dir_path, filter, cache);
     let entries = ctx.scan_entries(dir_path);
     ctx.into_result(entries)
+}
+
+/// Generate code that creates a Dir struct from a directory path.
+/// Files are compressed with zstd using the configured compression level and cache.
+pub fn embed_dir(dir_path: &Path, cache: &mut CompressionCache) -> DirEmbedResult {
+    embed_with_filter(dir_path, |_| true, cache)
 }
 
 /// Generate code that embeds only font files from a directory.
 /// Supported formats: .ttf, .otf, .ttc
 pub fn embed_fonts_dir(dir_path: &Path, cache: &mut CompressionCache) -> DirEmbedResult {
-    if !dir_path.exists() {
-        return DirEmbedResult::default();
-    }
-
-    let mut ctx = ScanContext::new(dir_path, is_font_file, cache);
-    let entries = ctx.scan_entries(dir_path);
-    ctx.into_result(entries)
+    embed_with_filter(dir_path, is_font_file, cache)
 }
