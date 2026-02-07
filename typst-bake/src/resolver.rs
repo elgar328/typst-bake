@@ -23,7 +23,7 @@ pub struct EmbeddedResolver {
 }
 
 impl EmbeddedResolver {
-    /// Create a new resolver from embedded directories
+    /// Create a new resolver from embedded directories.
     pub fn new(templates: &'static Dir<'static>, packages: &'static Dir<'static>) -> Self {
         let mut template_files = HashMap::new();
         let mut package_files = HashMap::new();
@@ -103,7 +103,7 @@ fn join_path(prefix: &str, name: &str) -> String {
     }
 }
 
-/// Recursively collect files from include_dir with path prefix tracking
+/// Recursively collect files from include_dir with path prefix tracking.
 fn collect_files(
     dir: &'static Dir<'static>,
     prefix: &str,
@@ -120,12 +120,12 @@ fn collect_files(
     }
 }
 
-/// Create a "not found" error
+/// Create a "not found" error.
 fn not_found(id: FileId) -> FileError {
     FileError::NotFound(id.vpath().as_rootless_path().into())
 }
 
-/// Convert bytes to Source, handling UTF-8 BOM
+/// Convert bytes to Source, handling UTF-8 BOM.
 fn bytes_to_source(id: FileId, bytes: &[u8]) -> FileResult<Source> {
     // Handle UTF-8 BOM
     let text = if bytes.starts_with(&[0xEF, 0xBB, 0xBF]) {
