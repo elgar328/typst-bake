@@ -43,8 +43,8 @@ impl EmbeddedResolver {
             // Package file: namespace/name/version/vpath
             format!(
                 "{}/{}/{}/{}",
-                pkg.namespace.as_str(),
-                pkg.name.as_str(),
+                pkg.namespace,
+                pkg.name,
                 pkg.version,
                 id.vpath().as_rootless_path().display()
             )
@@ -89,6 +89,11 @@ impl FileResolver for EmbeddedResolver {
     }
 }
 
+/// Convert a Path to a forward-slash string.
+fn normalize_path(path: &std::path::Path) -> String {
+    path.display().to_string().replace('\\', "/")
+}
+
 /// Join a prefix and name with `/`, or return name alone if prefix is empty.
 fn join_path(prefix: &str, name: &str) -> String {
     if prefix.is_empty() {
@@ -105,14 +110,12 @@ fn collect_files(
     map: &mut HashMap<String, &'static [u8]>,
 ) {
     for file in dir.files() {
-        let file_path = file.path().display().to_string().replace('\\', "/");
-        let full_path = join_path(prefix, &file_path);
+        let full_path = join_path(prefix, &normalize_path(file.path()));
         map.insert(full_path, file.contents());
     }
 
     for subdir in dir.dirs() {
-        let subdir_name = subdir.path().display().to_string().replace('\\', "/");
-        let new_prefix = join_path(prefix, &subdir_name);
+        let new_prefix = join_path(prefix, &normalize_path(subdir.path()));
         collect_files(subdir, &new_prefix, map);
     }
 }
