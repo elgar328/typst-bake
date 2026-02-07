@@ -23,6 +23,7 @@ use dir_embed::DirEmbedResult;
 
 use scanner::PackageSpec;
 
+/// Per-package metadata collected during embedding.
 #[derive(Debug)]
 struct MacroPackageInfo {
     name: String,
@@ -31,6 +32,7 @@ struct MacroPackageInfo {
     file_count: usize,
 }
 
+/// Resolved packages with the cache directory they were downloaded to.
 type ResolvedPackages = (Vec<PackageSpec>, PathBuf);
 
 /// Collected results from embedding all packages.

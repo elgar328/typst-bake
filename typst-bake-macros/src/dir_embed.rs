@@ -1,4 +1,4 @@
-//! Directory embedding with zstd compression
+//! Directory embedding with zstd compression.
 
 use crate::compression_cache::CompressionCache;
 use crate::config::{is_font_file, is_hidden};
@@ -10,13 +10,13 @@ use std::path::Path;
 /// Result of embedding a directory, containing entries and statistics.
 #[derive(Default)]
 pub struct DirEmbedResult {
-    /// DirEntry tokens for each item in the directory
+    /// DirEntry tokens for each item in the directory.
     pub entries: Vec<TokenStream>,
-    /// Original uncompressed size in bytes
+    /// Original uncompressed size in bytes.
     pub original_size: usize,
-    /// Compressed size in bytes
+    /// Compressed size in bytes.
     pub compressed_size: usize,
-    /// Number of files embedded
+    /// Number of files embedded.
     pub file_count: usize,
 }
 
@@ -173,7 +173,7 @@ pub fn embed_dir(dir_path: &Path, cache: &mut CompressionCache) -> DirEmbedResul
 }
 
 /// Generate code that embeds only font files from a directory.
-/// Supported formats: .ttf, .otf, .ttc
+/// Supported formats: .ttf, .otf, .ttc.
 pub fn embed_fonts_dir(dir_path: &Path, cache: &mut CompressionCache) -> DirEmbedResult {
     embed_with_filter(dir_path, is_font_file, cache)
 }

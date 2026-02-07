@@ -17,9 +17,9 @@ pub struct DedupSummary {
 /// Information about a compressed blob, used for deduplication.
 #[derive(Debug, Clone)]
 pub struct BlobInfo {
-    /// BLAKE3 hex hash of the original data (64 chars)
+    /// BLAKE3 hex hash of the original data (64 chars).
     pub hash: String,
-    /// Size of the compressed data in bytes
+    /// Size of the compressed data in bytes.
     pub compressed_len: usize,
 }
 
@@ -33,7 +33,7 @@ pub struct CompressionCache {
     misses: usize,
     dedup_hits: usize,
     dedup_saved_bytes: usize,
-    /// hash → compressed bytes (unique blobs only, BTreeMap for deterministic ordering)
+    /// hash → compressed bytes (unique blobs only, BTreeMap for deterministic ordering).
     blobs: BTreeMap<String, Vec<u8>>,
 }
 
@@ -174,6 +174,7 @@ impl CompressionCache {
         }
     }
 
+    /// Return deduplication statistics for this build.
     pub fn dedup_summary(&self) -> DedupSummary {
         DedupSummary {
             total_files: self.cache_hits + self.misses + self.dedup_hits,

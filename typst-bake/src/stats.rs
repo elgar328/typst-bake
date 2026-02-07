@@ -8,91 +8,91 @@
 /// Resources are compressed with zstd at compile time and decompressed lazily at runtime.
 #[derive(Debug, Clone)]
 pub struct EmbedStats {
-    /// Template files statistics
+    /// Template files statistics.
     pub templates: CategoryStats,
-    /// Package files statistics
+    /// Package files statistics.
     pub packages: PackageStats,
-    /// Font files statistics
+    /// Font files statistics.
     pub fonts: CategoryStats,
-    /// Deduplication statistics
+    /// Deduplication statistics.
     pub dedup: DedupStats,
 }
 
 /// Statistics for content deduplication across all categories.
 #[derive(Debug, Clone, Copy)]
 pub struct DedupStats {
-    /// Total number of files (before dedup)
+    /// Total number of files (before dedup).
     pub total_files: usize,
-    /// Number of unique blobs after dedup
+    /// Number of unique blobs after dedup.
     pub unique_blobs: usize,
-    /// Number of duplicate files removed
+    /// Number of duplicate files removed.
     pub duplicate_count: usize,
-    /// Bytes saved by deduplication
+    /// Bytes saved by deduplication.
     pub saved_bytes: usize,
 }
 
 /// Statistics for a category of files (templates, fonts).
 #[derive(Debug, Clone, Copy)]
 pub struct CategoryStats {
-    /// Original uncompressed size in bytes
+    /// Original uncompressed size in bytes.
     pub original_size: usize,
-    /// Compressed size in bytes
+    /// Compressed size in bytes.
     pub compressed_size: usize,
-    /// Number of files
+    /// Number of files.
     pub file_count: usize,
 }
 
 /// Statistics for all packages.
 #[derive(Debug, Clone)]
 pub struct PackageStats {
-    /// Per-package statistics
+    /// Per-package statistics.
     pub packages: Vec<PackageInfo>,
-    /// Original uncompressed size in bytes
+    /// Original uncompressed size in bytes.
     pub original_size: usize,
-    /// Compressed size in bytes
+    /// Compressed size in bytes.
     pub compressed_size: usize,
 }
 
 /// Statistics for a single package.
 #[derive(Debug, Clone)]
 pub struct PackageInfo {
-    /// Package name with version (e.g., "gentle-clues:1.2.0")
+    /// Package name with version (e.g., "gentle-clues:1.2.0").
     pub name: String,
-    /// Original uncompressed size in bytes
+    /// Original uncompressed size in bytes.
     pub original_size: usize,
-    /// Compressed size in bytes
+    /// Compressed size in bytes.
     pub compressed_size: usize,
-    /// Number of files in this package
+    /// Number of files in this package.
     pub file_count: usize,
 }
 
 impl EmbedStats {
-    /// Calculate total original size across all categories
+    /// Calculate total original size across all categories.
     pub fn total_original(&self) -> usize {
         self.templates.original_size + self.packages.original_size + self.fonts.original_size
     }
 
-    /// Calculate total compressed size across all categories
+    /// Calculate total compressed size across all categories.
     pub fn total_compressed(&self) -> usize {
         self.templates.compressed_size + self.packages.compressed_size + self.fonts.compressed_size
     }
 
-    /// Calculate compression ratio (0.0 to 1.0, where 0.0 means no compression)
+    /// Calculate compression ratio (0.0 to 1.0, where 0.0 means no compression).
     pub fn compression_ratio(&self) -> f64 {
         compression_ratio(self.total_original(), self.total_compressed())
     }
 
-    /// Total size after deduplication (actual binary footprint)
+    /// Total size after deduplication (actual binary footprint).
     pub fn total_deduplicated(&self) -> usize {
         self.total_compressed() - self.dedup.saved_bytes
     }
 
-    /// Overall reduction ratio from original to deduplicated
+    /// Overall reduction ratio from original to deduplicated.
     pub fn overall_ratio(&self) -> f64 {
         compression_ratio(self.total_original(), self.total_deduplicated())
     }
 
-    /// Total number of files across all categories
+    /// Total number of files across all categories.
     fn total_file_count(&self) -> usize {
         self.templates.file_count
             + self.fonts.file_count

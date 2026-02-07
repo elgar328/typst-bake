@@ -6,7 +6,7 @@ use proc_macro2::TokenStream;
 use quote::quote;
 use syn::{Data, DeriveInput, Fields, Result};
 
-/// IntoValue derive macro implementation
+/// Generate the [`IntoValue`] trait implementation for a struct.
 pub fn derive_into_value(item: DeriveInput) -> Result<TokenStream> {
     let (ty, dictentries) = gather_input(&item)?;
 
@@ -22,7 +22,7 @@ pub fn derive_into_value(item: DeriveInput) -> Result<TokenStream> {
     })
 }
 
-/// IntoDict derive macro implementation
+/// Generate the [`IntoDict`] implementation and [`From`] conversion for a struct.
 pub fn derive_into_dict(item: DeriveInput) -> Result<TokenStream> {
     let (ty, dictentries) = gather_input(&item)?;
 

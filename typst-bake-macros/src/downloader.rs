@@ -1,4 +1,4 @@
-//! Package download and cache management
+//! Package download and cache management.
 
 use crate::scanner::{extract_packages, PackageSpec};
 use std::collections::{HashSet, VecDeque};
