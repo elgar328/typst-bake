@@ -59,9 +59,8 @@ where
     fn scan_entries(&mut self, current: &Path) -> Vec<TokenStream> {
         let mut entries = Vec::new();
 
-        let read_dir = match fs::read_dir(current) {
-            Ok(rd) => rd,
-            Err(_) => return entries,
+        let Ok(read_dir) = fs::read_dir(current) else {
+            return entries;
         };
 
         // Collect and sort entries for consistent ordering
@@ -75,9 +74,8 @@ where
                 continue;
             }
 
-            let rel_path = match path.strip_prefix(self.base) {
-                Ok(p) => p,
-                Err(_) => continue,
+            let Ok(rel_path) = path.strip_prefix(self.base) else {
+                continue;
             };
 
             // Use just the file/dir name (not full relative path) for proper nesting
@@ -91,9 +89,8 @@ where
                     continue;
                 }
 
-                let file_bytes = match fs::read(&path) {
-                    Ok(bytes) => bytes,
-                    Err(_) => continue,
+                let Ok(file_bytes) = fs::read(&path) else {
+                    continue;
                 };
 
                 let original_len = file_bytes.len();

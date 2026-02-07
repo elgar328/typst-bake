@@ -144,11 +144,13 @@ pub fn is_hidden(path: &Path) -> bool {
 
 /// Check if file is a font file.
 pub fn is_font_file(path: &Path) -> bool {
-    let ext = path
-        .extension()
+    path.extension()
         .and_then(|e| e.to_str())
-        .unwrap_or_default();
-    matches!(ext.to_lowercase().as_str(), "ttf" | "otf" | "ttc")
+        .is_some_and(|ext| {
+            ext.eq_ignore_ascii_case("ttf")
+                || ext.eq_ignore_ascii_case("otf")
+                || ext.eq_ignore_ascii_case("ttc")
+        })
 }
 
 const ZSTD_LEVEL_MIN: i32 = 1;
@@ -191,12 +193,11 @@ pub fn get_compression_level() -> i32 {
 /// if the target directory cannot be determined.
 pub fn get_compression_cache_dir() -> Result<PathBuf, String> {
     let pkg_name = env::var("CARGO_PKG_NAME").map_err(|_| "CARGO_PKG_NAME not set".to_owned())?;
+    let cache_in = |target: PathBuf| target.join("typst-bake-cache").join(&pkg_name);
 
     // 1. CARGO_TARGET_DIR environment variable
     if let Ok(target_dir) = env::var("CARGO_TARGET_DIR") {
-        return Ok(PathBuf::from(target_dir)
-            .join("typst-bake-cache")
-            .join(&pkg_name));
+        return Ok(cache_in(PathBuf::from(target_dir)));
     }
 
     let manifest_dir =
@@ -206,7 +207,7 @@ pub fn get_compression_cache_dir() -> Result<PathBuf, String> {
     // 2. CARGO_MANIFEST_DIR/target/ (standalone project)
     let local_target = manifest_dir.join("target");
     if local_target.is_dir() {
-        return Ok(local_target.join("typst-bake-cache").join(&pkg_name));
+        return Ok(cache_in(local_target));
     }
 
     // 3. Walk up from CARGO_MANIFEST_DIR to find target/ (workspace)
@@ -214,7 +215,7 @@ pub fn get_compression_cache_dir() -> Result<PathBuf, String> {
     while let Some(d) = dir {
         let candidate = d.join("target");
         if candidate.is_dir() {
-            return Ok(candidate.join("typst-bake-cache").join(&pkg_name));
+            return Ok(cache_in(candidate));
         }
         dir = d.parent();
     }
