@@ -86,21 +86,13 @@ pub fn parse_packages_from_source(content: &str) -> Result<Vec<PackageSpec>, Str
 
     // Iterate through all expressions
     for expr in root.exprs() {
-        // Look for import expressions
-        if let Expr::ModuleImport(import) = expr {
-            // Extract the import source
-            let source_expr = import.source();
-
-            // Check if source is a string literal
-            if let Expr::Str(str_node) = source_expr {
-                let import_path = str_node.get();
-
-                // Parse package specifier
-                if let Some(pkg) = parse_package_specifier(&import_path) {
-                    packages.push(pkg);
-                }
-            }
-        }
+        let Expr::ModuleImport(import) = expr else {
+            continue;
+        };
+        let Expr::Str(str_node) = import.source() else {
+            continue;
+        };
+        packages.extend(parse_package_specifier(&str_node.get()));
     }
 
     Ok(packages)

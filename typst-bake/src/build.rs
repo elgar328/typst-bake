@@ -36,7 +36,7 @@ fn get_metadata_str<'a>(manifest: &'a toml::Table, key: &str) -> Option<&'a str>
         .and_then(|p| p.get("metadata"))
         .and_then(|m| m.get("typst-bake"))
         .and_then(|t| t.get(key))
-        .and_then(|v| v.as_str())
+        .and_then(toml::Value::as_str)
 }
 
 fn resolve_path_string(manifest_dir: &Path, path: &str) -> String {
