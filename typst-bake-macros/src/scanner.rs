@@ -27,8 +27,8 @@ impl PackageSpec {
 
     pub fn download_url(&self) -> String {
         format!(
-            "{}/{}/{}-{}.tar.gz",
-            PACKAGES_BASE_URL, self.namespace, self.name, self.version
+            "{PACKAGES_BASE_URL}/{}/{}-{}.tar.gz",
+            self.namespace, self.name, self.version
         )
     }
 }
@@ -65,9 +65,9 @@ pub fn parse_package_specifier(path: &str) -> Option<PackageSpec> {
     }
 
     Some(PackageSpec {
-        namespace: namespace_str.to_string(),
-        name: name_str.to_string(),
-        version: version_str.to_string(),
+        namespace: namespace_str.to_owned(),
+        name: name_str.to_owned(),
+        version: version_str.to_owned(),
     })
 }
 
@@ -122,7 +122,7 @@ pub fn extract_packages(dir: &Path) -> Vec<PackageSpec> {
                 }
                 Err(e) => {
                     // Log but don't fail - graceful degradation
-                    eprintln!("Warning: Failed to parse {}: {}", entry.path().display(), e);
+                    eprintln!("Warning: Failed to parse {}: {e}", entry.path().display());
                 }
             }
         }

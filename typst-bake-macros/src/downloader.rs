@@ -38,9 +38,9 @@ fn resolve_dependencies(pkg_dir: &Path) -> Vec<PackageSpec> {
         for (dep_name, dep_value) in table {
             if let Some((dep_ns, dep_ver)) = dep_value.as_str().and_then(|s| s.split_once(':')) {
                 deps.push(PackageSpec {
-                    namespace: dep_ns.to_string(),
-                    name: dep_name.to_string(),
-                    version: dep_ver.to_string(),
+                    namespace: dep_ns.to_owned(),
+                    name: dep_name.to_owned(),
+                    version: dep_ver.to_owned(),
                 });
             }
         }

@@ -83,7 +83,7 @@ where
 
             // Use just the file/dir name (not full relative path) for proper nesting
             let name = match path.file_name().and_then(|n| n.to_str()) {
-                Some(n) => n.to_string(),
+                Some(n) => n.to_owned(),
                 None => rel_path.to_string_lossy().into_owned(),
             };
 
