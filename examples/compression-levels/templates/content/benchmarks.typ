@@ -11,8 +11,6 @@
 
 // Auto-calculate label y-positions from data range
 #let ratio-label-y = calc.min(..ratio) + (calc.max(..ratio) - calc.min(..ratio)) * 0.15
-#let comp-label-y = calc.max(..comp_scatter_y) - (calc.max(..comp_scatter_y) - calc.min(..comp_scatter_y)) * 0.10
-#let decomp-label-y = calc.max(..decomp_scatter_y) - (calc.max(..decomp_scatter_y) - calc.min(..decomp_scatter_y)) * 0.10
 
 === Compression Ratio vs Level
 
@@ -25,7 +23,7 @@
 
     lq.plot(levels, ratio, mark: "o", mark-size: 3pt),
     lq.vlines(default-level, stroke: (dash: "dashed", paint: red, thickness: 0.8pt)),
-    lq.place(default-level, ratio-label-y, align: left + top, pad(left: 3pt, text(size: 0.75em, fill: red)[Default])),
+    lq.place(default-level, ratio-label-y, align: left + top, pad(left: 3pt, text(size: 0.75em, fill: red)[Default #default-level])),
   )
 ]
 
@@ -42,7 +40,6 @@
     lq.plot(comp_scatter_x, comp_scatter_y, mark: "o", mark-size: 2pt, stroke: none, color: blue.lighten(60%)),
     lq.plot(levels, comp_speed, mark: "o", mark-size: 3pt),
     lq.vlines(default-level, stroke: (dash: "dashed", paint: red, thickness: 0.8pt)),
-    lq.place(default-level, comp-label-y, align: left + bottom, pad(left: 3pt, text(size: 0.75em, fill: red)[Default])),
   )
 ]
 
@@ -58,7 +55,6 @@
     lq.plot(decomp_scatter_x, decomp_scatter_y, mark: "o", mark-size: 2pt, stroke: none, color: blue.lighten(60%)),
     lq.plot(levels, decomp_speed, mark: "o", mark-size: 3pt),
     lq.vlines(default-level, stroke: (dash: "dashed", paint: red, thickness: 0.8pt)),
-    lq.place(default-level, decomp-label-y, align: left + bottom, pad(left: 3pt, text(size: 0.75em, fill: red)[Default])),
   )
 ]
 
