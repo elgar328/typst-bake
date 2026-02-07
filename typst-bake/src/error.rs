@@ -7,7 +7,7 @@ use thiserror::Error;
 pub enum Error {
     /// Entry file was not found in the embedded templates.
     #[error("entry file not found: {0}")]
-    EntryNotFound(String),
+    EntryNotFound(&'static str),
 
     /// Entry file content is not valid UTF-8.
     #[error("entry file is not valid UTF-8")]

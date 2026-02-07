@@ -135,6 +135,13 @@ pub fn get_fonts_dir() -> Result<PathBuf, String> {
     Ok(path)
 }
 
+/// Check if a path refers to a hidden file or directory (name starts with '.').
+pub fn is_hidden(path: &Path) -> bool {
+    path.file_name()
+        .and_then(|n| n.to_str())
+        .is_some_and(|n| n.starts_with('.'))
+}
+
 /// Check if file is a font file.
 pub fn is_font_file(path: &Path) -> bool {
     let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("");

@@ -5,6 +5,14 @@ use std::fs;
 use std::io::Cursor;
 use std::path::PathBuf;
 
+/// Summary of deduplication statistics.
+pub struct DedupSummary {
+    pub total_files: usize,
+    pub unique_blobs: usize,
+    pub duplicate_count: usize,
+    pub saved_bytes: usize,
+}
+
 /// Information about a compressed blob, used for deduplication.
 pub struct BlobInfo {
     /// BLAKE3 hex hash of the original data (64 chars)
@@ -163,20 +171,13 @@ impl CompressionCache {
         }
     }
 
-    pub fn dedup_total_files(&self) -> usize {
-        self.cache_hits + self.misses + self.dedup_hits
-    }
-
-    pub fn dedup_unique_blobs(&self) -> usize {
-        self.blobs.len()
-    }
-
-    pub fn dedup_duplicate_count(&self) -> usize {
-        self.dedup_hits
-    }
-
-    pub fn dedup_saved_bytes(&self) -> usize {
-        self.dedup_saved_bytes
+    pub fn dedup_summary(&self) -> DedupSummary {
+        DedupSummary {
+            total_files: self.cache_hits + self.misses + self.dedup_hits,
+            unique_blobs: self.blobs.len(),
+            duplicate_count: self.dedup_hits,
+            saved_bytes: self.dedup_saved_bytes,
+        }
     }
 
     fn compress_raw(&self, data: &[u8]) -> Vec<u8> {
