@@ -6,6 +6,7 @@ use std::io::Cursor;
 use std::path::PathBuf;
 
 /// Summary of deduplication statistics.
+#[derive(Debug, Clone, Copy)]
 pub struct DedupSummary {
     pub total_files: usize,
     pub unique_blobs: usize,
@@ -14,6 +15,7 @@ pub struct DedupSummary {
 }
 
 /// Information about a compressed blob, used for deduplication.
+#[derive(Debug, Clone)]
 pub struct BlobInfo {
     /// BLAKE3 hex hash of the original data (64 chars)
     pub hash: String,

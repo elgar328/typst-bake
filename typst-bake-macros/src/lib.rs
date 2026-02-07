@@ -23,6 +23,7 @@ use dir_embed::DirEmbedResult;
 
 use scanner::PackageSpec;
 
+#[derive(Debug)]
 struct MacroPackageInfo {
     name: String,
     original_size: usize,

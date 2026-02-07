@@ -31,7 +31,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Display compression statistics
     println!();
-    doc.stats().display();
+    print!("{}", doc.stats());
     println!();
 
     let stats = doc.stats();

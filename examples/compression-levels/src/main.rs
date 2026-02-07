@@ -1,7 +1,7 @@
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let doc = typst_bake::document!("main.typ");
     println!();
-    doc.stats().display();
+    print!("{}", doc.stats());
     println!();
 
     let pdf = doc.to_pdf()?;

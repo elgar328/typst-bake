@@ -106,34 +106,42 @@ impl EmbedStats {
 
     /// Display compression statistics in a human-readable format
     pub fn display(&self) {
-        println!("Embed Summary");
-        println!("========================");
+        print!("{self}");
+    }
+}
+
+impl std::fmt::Display for EmbedStats {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        writeln!(f, "Embed Summary")?;
+        writeln!(f, "========================")?;
 
         // Templates
         if self.templates.file_count > 0 {
-            println!(
+            writeln!(
+                f,
                 "Templates:  {:>9} -> {:>9} ({:>5.1}% reduced, {} files)",
                 format_size(self.templates.original_size),
                 format_size(self.templates.compressed_size),
                 self.templates.compression_ratio() * 100.0,
                 self.templates.file_count
-            );
+            )?;
         }
 
         // Fonts
         if self.fonts.file_count > 0 {
-            println!(
+            writeln!(
+                f,
                 "Fonts:      {:>9} -> {:>9} ({:>5.1}% reduced, {} files)",
                 format_size(self.fonts.original_size),
                 format_size(self.fonts.compressed_size),
                 self.fonts.compression_ratio() * 100.0,
                 self.fonts.file_count
-            );
+            )?;
         }
 
         // Packages
         if !self.packages.packages.is_empty() {
-            println!("Packages:");
+            writeln!(f, "Packages:")?;
 
             // Calculate column widths for package alignment
             let name_width = self
@@ -159,7 +167,8 @@ impl EmbedStats {
                 .unwrap_or(0);
 
             for pkg in &self.packages.packages {
-                println!(
+                writeln!(
+                    f,
                     "  {:<name_w$}  {:>orig_w$} -> {:>comp_w$}  ({:>5.1}%)",
                     pkg.name,
                     format_size(pkg.original_size),
@@ -168,37 +177,40 @@ impl EmbedStats {
                     name_w = name_width,
                     orig_w = orig_width,
                     comp_w = comp_width,
-                );
+                )?;
             }
         }
 
         // Compressed total
-        println!("------------------------");
-        println!(
+        writeln!(f, "------------------------")?;
+        writeln!(
+            f,
             "Compressed: {} -> {} ({:.1}% reduced, {} files)",
             format_size(self.total_original()),
             format_size(self.total_compressed()),
             self.compression_ratio() * 100.0,
             self.total_file_count()
-        );
+        )?;
 
         // Deduplicated (only shown when there are duplicates)
         if self.dedup.duplicate_count > 0 {
-            println!(
+            writeln!(
+                f,
                 "Deduplicated: {} unique blobs, {} duplicates removed (-{})",
                 self.dedup.unique_blobs,
                 self.dedup.duplicate_count,
                 format_size(self.dedup.saved_bytes)
-            );
+            )?;
         }
 
         // Total (actual binary footprint)
-        println!(
+        writeln!(
+            f,
             "Total: {} -> {} ({:.1}% reduced)",
             format_size(self.total_original()),
             format_size(self.total_deduplicated()),
             self.overall_ratio() * 100.0
-        );
+        )
     }
 }
 

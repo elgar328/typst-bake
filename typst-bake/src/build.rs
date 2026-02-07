@@ -43,7 +43,7 @@ fn resolve_path_string(manifest_dir: &Path, path: &str) -> String {
     if Path::new(path).is_absolute() {
         path.to_string()
     } else {
-        manifest_dir.join(path).to_string_lossy().to_string()
+        manifest_dir.join(path).to_string_lossy().into_owned()
     }
 }
 
