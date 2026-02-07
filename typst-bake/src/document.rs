@@ -131,12 +131,11 @@ impl Document {
 
         let font_refs: Vec<&[u8]> = font_data.iter().map(Vec::as_slice).collect();
 
-        let builder = TypstEngine::builder()
+        let engine = TypstEngine::builder()
             .main_file(main_content)
             .add_file_resolver(resolver)
-            .fonts(font_refs);
-
-        let engine = builder.build();
+            .fonts(font_refs)
+            .build();
 
         // Clone inputs (preserve for retry on failure)
         let inputs = self.lock_inputs().clone();

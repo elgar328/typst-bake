@@ -17,23 +17,18 @@ pub use typst_as_lib::file_resolver::FileResolver;
 /// Files are stored in compressed form and decompressed lazily on access.
 /// Typst's internal caching prevents redundant decompression.
 pub struct EmbeddedResolver {
-    template_files: HashMap<String, &'static [u8]>,
-    package_files: HashMap<String, &'static [u8]>,
+    files: HashMap<String, &'static [u8]>,
 }
 
 impl EmbeddedResolver {
     /// Create a new resolver from embedded directories.
     pub fn new(templates: &'static Dir<'static>, packages: &'static Dir<'static>) -> Self {
-        let mut template_files = HashMap::new();
-        let mut package_files = HashMap::new();
+        let mut files = HashMap::new();
 
-        collect_files(templates, "", &mut template_files);
-        collect_files(packages, "", &mut package_files);
+        collect_files(templates, "", &mut files);
+        collect_files(packages, "", &mut files);
 
-        Self {
-            template_files,
-            package_files,
-        }
+        Self { files }
     }
 
     /// Get the file path string from a `FileId`.
@@ -55,13 +50,7 @@ impl EmbeddedResolver {
 
     /// Look up compressed file bytes by `FileId`.
     fn lookup(&self, id: FileId) -> Option<&'static [u8]> {
-        let path = self.get_path(id);
-
-        if id.package().is_some() {
-            self.package_files.get(&path).copied()
-        } else {
-            self.template_files.get(&path).copied()
-        }
+        self.files.get(&self.get_path(id)).copied()
     }
 
     /// Look up and decompress a file by its FileId.
