@@ -24,6 +24,29 @@ use std::env;
 use std::fs;
 use std::path::Path;
 
+fn read_manifest(manifest_dir: &Path) -> toml::Table {
+    let cargo_toml_path = manifest_dir.join("Cargo.toml");
+    let content = fs::read_to_string(&cargo_toml_path).expect("Failed to read Cargo.toml");
+    content.parse().expect("Failed to parse Cargo.toml")
+}
+
+fn get_metadata_str<'a>(manifest: &'a toml::Table, key: &str) -> Option<&'a str> {
+    manifest
+        .get("package")
+        .and_then(|p| p.get("metadata"))
+        .and_then(|m| m.get("typst-bake"))
+        .and_then(|t| t.get(key))
+        .and_then(|v| v.as_str())
+}
+
+fn resolve_path_string(manifest_dir: &Path, path: &str) -> String {
+    if Path::new(path).is_absolute() {
+        path.to_string()
+    } else {
+        manifest_dir.join(path).to_string_lossy().to_string()
+    }
+}
+
 /// Emits `cargo:rerun-if-changed` directives for template and font directories.
 ///
 /// This function reads the `template-dir` and `fonts-dir` paths from your
@@ -52,47 +75,20 @@ use std::path::Path;
 /// Panics if `CARGO_MANIFEST_DIR` is not set or if `Cargo.toml` cannot be read.
 pub fn rebuild_if_changed() {
     let manifest_dir = env::var("CARGO_MANIFEST_DIR").expect("CARGO_MANIFEST_DIR not set");
-    let manifest_path = Path::new(&manifest_dir).join("Cargo.toml");
+    let manifest_dir = Path::new(&manifest_dir);
+    let manifest = read_manifest(manifest_dir);
 
-    let content = fs::read_to_string(&manifest_path).expect("Failed to read Cargo.toml");
-
-    let manifest: toml::Table = content.parse().expect("Failed to parse Cargo.toml");
-
-    // Get template-dir
-    if let Some(template_dir) = manifest
-        .get("package")
-        .and_then(|p| p.get("metadata"))
-        .and_then(|m| m.get("typst-bake"))
-        .and_then(|t| t.get("template-dir"))
-        .and_then(|d| d.as_str())
-    {
-        let path = if Path::new(template_dir).is_absolute() {
-            template_dir.to_string()
-        } else {
-            Path::new(&manifest_dir)
-                .join(template_dir)
-                .to_string_lossy()
-                .to_string()
-        };
-        println!("cargo:rerun-if-changed={}", path);
+    if let Some(template_dir) = get_metadata_str(&manifest, "template-dir") {
+        println!(
+            "cargo:rerun-if-changed={}",
+            resolve_path_string(manifest_dir, template_dir)
+        );
     }
 
-    // Get fonts-dir
-    if let Some(fonts_dir) = manifest
-        .get("package")
-        .and_then(|p| p.get("metadata"))
-        .and_then(|m| m.get("typst-bake"))
-        .and_then(|t| t.get("fonts-dir"))
-        .and_then(|d| d.as_str())
-    {
-        let path = if Path::new(fonts_dir).is_absolute() {
-            fonts_dir.to_string()
-        } else {
-            Path::new(&manifest_dir)
-                .join(fonts_dir)
-                .to_string_lossy()
-                .to_string()
-        };
-        println!("cargo:rerun-if-changed={}", path);
+    if let Some(fonts_dir) = get_metadata_str(&manifest, "fonts-dir") {
+        println!(
+            "cargo:rerun-if-changed={}",
+            resolve_path_string(manifest_dir, fonts_dir)
+        );
     }
 }

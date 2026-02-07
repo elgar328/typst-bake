@@ -87,8 +87,8 @@ impl Document {
     ///     .to_pdf()?;
     /// ```
     pub fn with_inputs<T: Into<Dict>>(self, inputs: T) -> Self {
-        *self.inputs.lock().unwrap() = Some(inputs.into());
-        *self.compiled_cache.lock().unwrap() = None;
+        *self.inputs.lock().expect("lock poisoned") = Some(inputs.into());
+        *self.compiled_cache.lock().expect("lock poisoned") = None;
         self
     }
 
@@ -100,7 +100,7 @@ impl Document {
     /// Internal method to compile the document (with caching).
     fn compile_cached(&self) -> Result<()> {
         // Return early if already cached
-        if self.compiled_cache.lock().unwrap().is_some() {
+        if self.compiled_cache.lock().expect("lock poisoned").is_some() {
             return Ok(());
         }
 
@@ -121,8 +121,8 @@ impl Document {
         let font_data: Vec<Vec<u8>> = self
             .fonts
             .files()
-            .map(|f| decompress(f.contents()).expect("Font decompression failed"))
-            .collect();
+            .map(|f| decompress(f.contents()).map_err(Error::from))
+            .collect::<Result<Vec<_>>>()?;
 
         let font_refs: Vec<&[u8]> = font_data.iter().map(|v| v.as_slice()).collect();
 
@@ -135,7 +135,7 @@ impl Document {
         let engine = builder.build();
 
         // Clone inputs (preserve for retry on failure)
-        let inputs = self.inputs.lock().unwrap().clone();
+        let inputs = self.inputs.lock().expect("lock poisoned").clone();
 
         // Compile (with or without inputs)
         let warned_result = if let Some(inputs) = inputs {
@@ -158,7 +158,7 @@ impl Document {
         })?;
 
         // Store in cache
-        *self.compiled_cache.lock().unwrap() = Some(compiled);
+        *self.compiled_cache.lock().expect("lock poisoned") = Some(compiled);
 
         Ok(())
     }
@@ -174,7 +174,7 @@ impl Document {
     #[cfg_attr(docsrs, doc(cfg(feature = "pdf")))]
     pub fn to_pdf(&self) -> Result<Vec<u8>> {
         self.compile_cached()?;
-        let cache = self.compiled_cache.lock().unwrap();
+        let cache = self.compiled_cache.lock().expect("lock poisoned");
         let compiled = cache.as_ref().unwrap();
         let pdf_bytes = typst_pdf::pdf(compiled, &typst_pdf::PdfOptions::default())
             .map_err(|e| Error::PdfGeneration(format!("{e:?}")))?;
@@ -192,7 +192,7 @@ impl Document {
     #[cfg_attr(docsrs, doc(cfg(feature = "svg")))]
     pub fn to_svg(&self) -> Result<Vec<String>> {
         self.compile_cached()?;
-        let cache = self.compiled_cache.lock().unwrap();
+        let cache = self.compiled_cache.lock().expect("lock poisoned");
         let compiled = cache.as_ref().unwrap();
         let svgs: Vec<String> = compiled.pages.iter().map(typst_svg::svg).collect();
         Ok(svgs)
@@ -212,7 +212,7 @@ impl Document {
     #[cfg_attr(docsrs, doc(cfg(feature = "png")))]
     pub fn to_png(&self, dpi: f32) -> Result<Vec<Vec<u8>>> {
         self.compile_cached()?;
-        let cache = self.compiled_cache.lock().unwrap();
+        let cache = self.compiled_cache.lock().expect("lock poisoned");
         let compiled = cache.as_ref().unwrap();
         let pixel_per_pt = dpi / 72.0;
         let mut pngs = Vec::with_capacity(compiled.pages.len());
