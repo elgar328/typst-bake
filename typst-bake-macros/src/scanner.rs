@@ -78,9 +78,8 @@ pub fn parse_packages_from_source(content: &str) -> Result<Vec<PackageSpec>, Str
     let root_node = source.root();
 
     // Cast SyntaxNode to Markup AST node
-    let root: Markup = match root_node.cast() {
-        Some(markup) => markup,
-        None => return Ok(Vec::new()), // Not a valid markup, skip
+    let Some(root): Option<Markup> = root_node.cast() else {
+        return Ok(Vec::new()); // Not a valid markup, skip
     };
 
     let mut packages = Vec::new();

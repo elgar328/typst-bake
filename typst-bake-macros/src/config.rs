@@ -8,10 +8,10 @@ use std::path::{Path, PathBuf};
 fn read_manifest(manifest_dir: &Path) -> Result<toml::Table, String> {
     let cargo_toml_path = manifest_dir.join("Cargo.toml");
     let content = fs::read_to_string(&cargo_toml_path)
-        .map_err(|e| format!("Failed to read Cargo.toml: {}", e))?;
+        .map_err(|e| format!("Failed to read Cargo.toml: {e}"))?;
     content
         .parse()
-        .map_err(|e| format!("Failed to parse Cargo.toml: {}", e))
+        .map_err(|e| format!("Failed to parse Cargo.toml: {e}"))
 }
 
 /// Get a value from [package.metadata.typst-bake] section.
@@ -120,7 +120,7 @@ pub fn get_fonts_dir() -> Result<PathBuf, String> {
 
     // Check for at least one font file
     let has_fonts = fs::read_dir(&path)
-        .map_err(|e| format!("Failed to read fonts directory: {}", e))?
+        .map_err(|e| format!("Failed to read fonts directory: {e}"))?
         .filter_map(|entry| entry.ok())
         .any(|entry| is_font_file(&entry.path()));
 
@@ -160,10 +160,11 @@ const ZSTD_LEVEL_DEFAULT: i32 = 19;
 /// 3. Default: 19
 pub fn get_compression_level() -> i32 {
     // Priority 1: Environment variable
-    if let Ok(val) = env::var("TYPST_BAKE_COMPRESSION_LEVEL") {
-        if let Ok(level) = val.parse::<i32>() {
-            return level.clamp(ZSTD_LEVEL_MIN, ZSTD_LEVEL_MAX);
-        }
+    if let Some(level) = env::var("TYPST_BAKE_COMPRESSION_LEVEL")
+        .ok()
+        .and_then(|v| v.parse::<i32>().ok())
+    {
+        return level.clamp(ZSTD_LEVEL_MIN, ZSTD_LEVEL_MAX);
     }
 
     // Priority 2: Cargo.toml metadata

@@ -144,27 +144,17 @@ impl std::fmt::Display for EmbedStats {
             writeln!(f, "Packages:")?;
 
             // Calculate column widths for package alignment
-            let name_width = self
-                .packages
-                .packages
-                .iter()
-                .map(|p| p.name.len())
-                .max()
-                .unwrap_or(0);
-            let orig_width = self
-                .packages
-                .packages
-                .iter()
-                .map(|p| format_size(p.original_size).len())
-                .max()
-                .unwrap_or(0);
-            let comp_width = self
-                .packages
-                .packages
-                .iter()
-                .map(|p| format_size(p.compressed_size).len())
-                .max()
-                .unwrap_or(0);
+            let (name_width, orig_width, comp_width) =
+                self.packages
+                    .packages
+                    .iter()
+                    .fold((0, 0, 0), |(nw, ow, cw), p| {
+                        (
+                            nw.max(p.name.len()),
+                            ow.max(format_size(p.original_size).len()),
+                            cw.max(format_size(p.compressed_size).len()),
+                        )
+                    });
 
             for pkg in &self.packages.packages {
                 writeln!(

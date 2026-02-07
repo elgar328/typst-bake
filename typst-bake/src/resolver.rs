@@ -99,7 +99,7 @@ fn join_path(prefix: &str, name: &str) -> String {
     if prefix.is_empty() {
         name.to_string()
     } else {
-        format!("{}/{}", prefix, name)
+        format!("{prefix}/{name}")
     }
 }
 

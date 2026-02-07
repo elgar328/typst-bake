@@ -130,7 +130,7 @@ fn embed_packages(
                 let ver_path = cache_dir.join(namespace).join(name).join(version);
 
                 let pkg_result = dir_embed::embed_dir(&ver_path, cache);
-                let pkg_name = format!("@{}/{}:{}", namespace, name, version);
+                let pkg_name = format!("@{namespace}/{name}:{version}");
 
                 package_infos.push(MacroPackageInfo {
                     name: pkg_name,
@@ -271,7 +271,7 @@ pub fn document(input: TokenStream) -> TokenStream {
     // Set up compression cache
     let compression_level = config::get_compression_level();
     let compression_cache_dir = config::get_compression_cache_dir()
-        .map_err(|e| eprintln!("typst-bake: Compression cache disabled: {}", e))
+        .map_err(|e| eprintln!("typst-bake: Compression cache disabled: {e}"))
         .ok();
     let mut cache = CompressionCache::new(compression_cache_dir, compression_level);
 

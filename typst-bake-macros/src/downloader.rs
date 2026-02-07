@@ -13,8 +13,7 @@ pub fn get_cache_dir() -> Result<PathBuf, String> {
         .join("typst-bake")
         .join("packages");
 
-    fs::create_dir_all(&cache_dir)
-        .map_err(|e| format!("Failed to create cache directory: {}", e))?;
+    fs::create_dir_all(&cache_dir).map_err(|e| format!("Failed to create cache directory: {e}"))?;
 
     Ok(cache_dir)
 }
@@ -27,25 +26,22 @@ fn resolve_dependencies(pkg_dir: &Path) -> Vec<PackageSpec> {
     let mut deps = Vec::new();
 
     // 1. Parse typst.toml for explicit dependencies
-    let toml_path = pkg_dir.join("typst.toml");
-    if let Ok(content) = fs::read_to_string(&toml_path) {
-        if let Ok(manifest) = content.parse::<toml::Table>() {
-            if let Some(table) = manifest
-                .get("package")
-                .and_then(|p| p.get("dependencies"))
-                .and_then(|d| d.as_table())
-            {
-                for (dep_name, dep_value) in table {
-                    if let Some(dep_str) = dep_value.as_str() {
-                        if let Some((dep_ns, dep_ver)) = dep_str.split_once(':') {
-                            deps.push(PackageSpec {
-                                namespace: dep_ns.to_string(),
-                                name: dep_name.clone(),
-                                version: dep_ver.to_string(),
-                            });
-                        }
-                    }
-                }
+    let manifest = fs::read_to_string(pkg_dir.join("typst.toml"))
+        .ok()
+        .and_then(|c| c.parse::<toml::Table>().ok());
+    if let Some(table) = manifest
+        .as_ref()
+        .and_then(|m| m.get("package"))
+        .and_then(|p| p.get("dependencies"))
+        .and_then(|d| d.as_table())
+    {
+        for (dep_name, dep_value) in table {
+            if let Some((dep_ns, dep_ver)) = dep_value.as_str().and_then(|s| s.split_once(':')) {
+                deps.push(PackageSpec {
+                    namespace: dep_ns.to_string(),
+                    name: dep_name.to_string(),
+                    version: dep_ver.to_string(),
+                });
             }
         }
     }
@@ -79,20 +75,16 @@ pub fn download_packages(
 
         // Check cache (unless refresh requested)
         if pkg_dir.exists() && !refresh {
-            eprintln!("  Cached: {}", pkg);
+            eprintln!("  Cached: {pkg}");
         } else {
-            eprintln!("  Downloading: {}", pkg);
+            eprintln!("  Downloading: {pkg}");
 
-            match download_and_extract(&pkg.download_url(), &pkg_dir) {
-                Ok(_) => {
-                    eprintln!("  ✓ {}", pkg);
-                }
-                Err(e) => {
-                    eprintln!("  ✗ Failed: {}: {}", pkg, e);
-                    failed_packages.push(pkg.to_string());
-                    continue;
-                }
+            if let Err(e) = download_and_extract(&pkg.download_url(), &pkg_dir) {
+                eprintln!("  ✗ Failed: {pkg}: {e}");
+                failed_packages.push(pkg.to_string());
+                continue;
             }
+            eprintln!("  ✓ {pkg}");
         }
 
         for dep in resolve_dependencies(&pkg_dir) {

@@ -78,17 +78,12 @@ pub fn rebuild_if_changed() {
     let manifest_dir = Path::new(&manifest_dir);
     let manifest = read_manifest(manifest_dir);
 
-    if let Some(template_dir) = get_metadata_str(&manifest, "template-dir") {
-        println!(
-            "cargo:rerun-if-changed={}",
-            resolve_path_string(manifest_dir, template_dir)
-        );
-    }
-
-    if let Some(fonts_dir) = get_metadata_str(&manifest, "fonts-dir") {
-        println!(
-            "cargo:rerun-if-changed={}",
-            resolve_path_string(manifest_dir, fonts_dir)
-        );
+    for key in ["template-dir", "fonts-dir"] {
+        if let Some(dir) = get_metadata_str(&manifest, key) {
+            println!(
+                "cargo:rerun-if-changed={}",
+                resolve_path_string(manifest_dir, dir)
+            );
+        }
     }
 }
