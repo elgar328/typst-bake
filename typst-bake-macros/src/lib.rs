@@ -21,8 +21,10 @@ use syn::{parse_macro_input, LitStr};
 use compression_cache::CompressionCache;
 use dir_embed::DirEmbedResult;
 
+use scanner::PackageSpec;
+
 type PackageInfoTuple = (String, usize, usize, usize);
-type ResolvedPackages = (Vec<(String, String, String)>, PathBuf);
+type ResolvedPackages = (Vec<PackageSpec>, PathBuf);
 
 /// Collected results from embedding all packages.
 struct EmbeddedPackages {
@@ -80,9 +82,18 @@ fn resolve_and_download_packages(
     Ok((resolved_packages, cache_dir))
 }
 
+/// Generate a DirEntry::Dir token wrapping children under a given name.
+fn dir_entry_token(name: &str, children: &[proc_macro2::TokenStream]) -> proc_macro2::TokenStream {
+    quote! {
+        ::typst_bake::__internal::include_dir::DirEntry::Dir(
+            ::typst_bake::__internal::include_dir::Dir::new(#name, &[#(#children),*])
+        )
+    }
+}
+
 /// Embed all resolved packages, collecting stats and directory entry tokens.
 fn embed_packages(
-    resolved_packages: &[(String, String, String)],
+    resolved_packages: &[PackageSpec],
     cache_dir: &Path,
     cache: &mut CompressionCache,
 ) -> EmbeddedPackages {
@@ -93,13 +104,13 @@ fn embed_packages(
 
     // Group resolved packages into a sorted tree: namespace -> name -> versions
     let mut pkg_tree: BTreeMap<&str, BTreeMap<&str, BTreeSet<&str>>> = BTreeMap::new();
-    for (ns, name, ver) in resolved_packages {
+    for pkg in resolved_packages {
         pkg_tree
-            .entry(ns.as_str())
+            .entry(pkg.namespace.as_str())
             .or_default()
-            .entry(name.as_str())
+            .entry(pkg.name.as_str())
             .or_default()
-            .insert(ver.as_str());
+            .insert(pkg.version.as_str());
     }
 
     for (namespace, names) in &pkg_tree {
@@ -123,29 +134,13 @@ fn embed_packages(
                 pkg_total_original += pkg_result.original_size;
                 pkg_total_compressed += pkg_result.compressed_size;
 
-                let version_str = *version;
-                let pkg_entries = &pkg_result.entries;
-                version_entries.push(quote! {
-                    ::typst_bake::__internal::include_dir::DirEntry::Dir(
-                        ::typst_bake::__internal::include_dir::Dir::new(#version_str, &[#(#pkg_entries),*])
-                    )
-                });
+                version_entries.push(dir_entry_token(version, &pkg_result.entries));
             }
 
-            let name_str = *name;
-            name_entries.push(quote! {
-                ::typst_bake::__internal::include_dir::DirEntry::Dir(
-                    ::typst_bake::__internal::include_dir::Dir::new(#name_str, &[#(#version_entries),*])
-                )
-            });
+            name_entries.push(dir_entry_token(name, &version_entries));
         }
 
-        let ns_str = *namespace;
-        namespace_entries.push(quote! {
-            ::typst_bake::__internal::include_dir::DirEntry::Dir(
-                ::typst_bake::__internal::include_dir::Dir::new(#ns_str, &[#(#name_entries),*])
-            )
-        });
+        namespace_entries.push(dir_entry_token(namespace, &name_entries));
     }
 
     EmbeddedPackages {

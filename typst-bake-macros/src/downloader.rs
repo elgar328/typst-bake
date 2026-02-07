@@ -38,7 +38,11 @@ fn resolve_dependencies(pkg_dir: &Path) -> Vec<PackageSpec> {
                 for (dep_name, dep_value) in table {
                     if let Some(dep_str) = dep_value.as_str() {
                         if let Some((dep_ns, dep_ver)) = dep_str.split_once(':') {
-                            deps.push((dep_ns.to_string(), dep_name.clone(), dep_ver.to_string()));
+                            deps.push(PackageSpec {
+                                namespace: dep_ns.to_string(),
+                                name: dep_name.clone(),
+                                version: dep_ver.to_string(),
+                            });
                         }
                     }
                 }
@@ -71,28 +75,29 @@ pub fn download_packages(
         if !downloaded.insert(pkg.clone()) {
             continue;
         }
-        let (ref namespace, ref name, ref version) = pkg;
-
-        let pkg_dir = cache_dir.join(namespace).join(name).join(version);
+        let pkg_dir = cache_dir
+            .join(&pkg.namespace)
+            .join(&pkg.name)
+            .join(&pkg.version);
 
         // Check cache (unless refresh requested)
         if pkg_dir.exists() && !refresh {
-            eprintln!("  Cached: @{}/{}/{}", namespace, name, version);
+            eprintln!("  Cached: {}", pkg);
         } else {
-            eprintln!("  Downloading: @{}/{}/{}", namespace, name, version);
+            eprintln!("  Downloading: {}", pkg);
 
             let url = format!(
                 "https://packages.typst.org/{}/{}-{}.tar.gz",
-                namespace, name, version
+                pkg.namespace, pkg.name, pkg.version
             );
 
             match download_and_extract(&url, &pkg_dir) {
                 Ok(_) => {
-                    eprintln!("  ✓ @{}/{}/{}", namespace, name, version);
+                    eprintln!("  ✓ {}", pkg);
                 }
                 Err(e) => {
-                    eprintln!("  ✗ Failed: @{}/{}/{}: {}", namespace, name, version, e);
-                    failed_packages.push(format!("{}/{}/{}", namespace, name, version));
+                    eprintln!("  ✗ Failed: {}: {}", pkg, e);
+                    failed_packages.push(pkg.to_string());
                     continue;
                 }
             }
