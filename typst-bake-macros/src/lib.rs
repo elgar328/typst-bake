@@ -104,10 +104,10 @@ fn embed_packages(
     cache_dir: &Path,
     cache: &mut CompressionCache,
 ) -> EmbeddedPackages {
-    let mut package_infos: Vec<MacroPackageInfo> = Vec::new();
+    let mut package_infos = Vec::new();
     let mut pkg_total_original = 0usize;
     let mut pkg_total_compressed = 0usize;
-    let mut namespace_entries: Vec<proc_macro2::TokenStream> = Vec::new();
+    let mut namespace_entries = Vec::new();
 
     // Group resolved packages into a sorted tree: namespace -> name -> versions
     let mut pkg_tree: BTreeMap<&str, BTreeMap<&str, BTreeSet<&str>>> = BTreeMap::new();
@@ -121,10 +121,10 @@ fn embed_packages(
     }
 
     for (namespace, names) in &pkg_tree {
-        let mut name_entries: Vec<proc_macro2::TokenStream> = Vec::new();
+        let mut name_entries = Vec::new();
 
         for (name, versions) in names {
-            let mut version_entries: Vec<proc_macro2::TokenStream> = Vec::new();
+            let mut version_entries = Vec::new();
 
             for version in versions {
                 let ver_path = cache_dir.join(namespace).join(name).join(version);
@@ -194,7 +194,7 @@ fn generate_output(
     let pkg_total_original = packages.total_original;
     let pkg_total_compressed = packages.total_compressed;
 
-    let pkg_info_tokens: Vec<proc_macro2::TokenStream> = packages
+    let pkg_info_tokens: Vec<_> = packages
         .infos
         .iter()
         .map(|info| {

@@ -148,6 +148,10 @@ pub fn is_font_file(path: &Path) -> bool {
     matches!(ext.to_lowercase().as_str(), "ttf" | "otf" | "ttc")
 }
 
+const ZSTD_LEVEL_MIN: i32 = 1;
+const ZSTD_LEVEL_MAX: i32 = 22;
+const ZSTD_LEVEL_DEFAULT: i32 = 19;
+
 /// Get compression level.
 ///
 /// Priority:
@@ -158,7 +162,7 @@ pub fn get_compression_level() -> i32 {
     // Priority 1: Environment variable
     if let Ok(val) = env::var("TYPST_BAKE_COMPRESSION_LEVEL") {
         if let Ok(level) = val.parse::<i32>() {
-            return level.clamp(1, 22);
+            return level.clamp(ZSTD_LEVEL_MIN, ZSTD_LEVEL_MAX);
         }
     }
 
@@ -168,12 +172,12 @@ pub fn get_compression_level() -> i32 {
             if let Some(level) =
                 get_metadata_value(&manifest, "compression-level").and_then(|v| v.as_integer())
             {
-                return (level as i32).clamp(1, 22);
+                return (level as i32).clamp(ZSTD_LEVEL_MIN, ZSTD_LEVEL_MAX);
             }
         }
     }
 
-    19
+    ZSTD_LEVEL_DEFAULT
 }
 
 /// Get the compression cache directory.
