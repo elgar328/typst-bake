@@ -112,7 +112,7 @@ pub fn extract_packages(dir: &Path) -> Vec<PackageSpec> {
 
     for entry in WalkDir::new(dir)
         .into_iter()
-        .filter_map(|e| e.ok())
+        .filter_map(Result::ok)
         .filter(|e| e.path().extension().is_some_and(|ext| ext == "typ"))
     {
         if let Ok(content) = fs::read_to_string(entry.path()) {
@@ -140,9 +140,9 @@ mod tests {
         assert_eq!(
             parse_package_specifier("@preview/cetz:0.3.2"),
             Some(PackageSpec {
-                namespace: "preview".to_string(),
-                name: "cetz".to_string(),
-                version: "0.3.2".to_string(),
+                namespace: "preview".to_owned(),
+                name: "cetz".to_owned(),
+                version: "0.3.2".to_owned(),
             })
         );
     }

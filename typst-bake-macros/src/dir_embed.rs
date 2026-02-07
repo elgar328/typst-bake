@@ -65,7 +65,7 @@ where
         };
 
         // Collect and sort entries for consistent ordering
-        let mut dir_entries: Vec<_> = read_dir.filter_map(|e| e.ok()).collect();
+        let mut dir_entries: Vec<_> = read_dir.filter_map(Result::ok).collect();
         dir_entries.sort_by_key(|e| e.path());
 
         for entry in dir_entries {

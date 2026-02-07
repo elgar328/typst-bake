@@ -9,7 +9,7 @@ use std::path::{Path, PathBuf};
 /// Get system cache directory
 pub fn get_cache_dir() -> Result<PathBuf, String> {
     let cache_dir = dirs::cache_dir()
-        .ok_or("Could not determine system cache directory")?
+        .ok_or("Could not determine system cache directory".to_owned())?
         .join("typst-bake")
         .join("packages");
 

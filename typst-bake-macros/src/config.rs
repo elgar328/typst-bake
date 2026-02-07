@@ -48,7 +48,8 @@ fn get_config_dir(
     not_configured_msg: &str,
     dir_kind: &str,
 ) -> Result<PathBuf, String> {
-    let manifest_dir = env::var("CARGO_MANIFEST_DIR").map_err(|_| "CARGO_MANIFEST_DIR not set")?;
+    let manifest_dir =
+        env::var("CARGO_MANIFEST_DIR").map_err(|_| "CARGO_MANIFEST_DIR not set".to_owned())?;
     let manifest_dir = Path::new(&manifest_dir);
 
     // Priority 1: Environment variable
@@ -64,8 +65,7 @@ fn get_config_dir(
 
     if !path.exists() {
         return Err(format!(
-            "{} directory does not exist: {}",
-            dir_kind,
+            "{dir_kind} directory does not exist: {}",
             path.display()
         ));
     }
@@ -121,7 +121,7 @@ pub fn get_fonts_dir() -> Result<PathBuf, String> {
     // Check for at least one font file
     let has_fonts = fs::read_dir(&path)
         .map_err(|e| format!("Failed to read fonts directory: {e}"))?
-        .filter_map(|entry| entry.ok())
+        .filter_map(Result::ok)
         .any(|entry| is_font_file(&entry.path()));
 
     if !has_fonts {
@@ -144,7 +144,10 @@ pub fn is_hidden(path: &Path) -> bool {
 
 /// Check if file is a font file.
 pub fn is_font_file(path: &Path) -> bool {
-    let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("");
+    let ext = path
+        .extension()
+        .and_then(|e| e.to_str())
+        .unwrap_or_default();
     matches!(ext.to_lowercase().as_str(), "ttf" | "otf" | "ttc")
 }
 

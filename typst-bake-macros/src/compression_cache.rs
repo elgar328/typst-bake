@@ -137,7 +137,7 @@ impl CompressionCache {
             Err(_) => return,
         };
 
-        for entry in entries.filter_map(|e| e.ok()) {
+        for entry in entries.filter_map(Result::ok) {
             let path = entry.path();
             if path.extension().and_then(|e| e.to_str()) == Some("zst")
                 && path
