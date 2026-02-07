@@ -5,7 +5,7 @@ use crate::resolver::EmbeddedResolver;
 use crate::stats::EmbedStats;
 use crate::util::decompress;
 use include_dir::Dir;
-use std::sync::Mutex;
+use std::sync::{Mutex, MutexGuard};
 use typst::foundations::Dict;
 use typst::layout::PagedDocument;
 use typst_as_lib::{TypstAsLibError, TypstEngine};
@@ -44,6 +44,14 @@ impl Document {
             stats,
             compiled_cache: Mutex::new(None),
         }
+    }
+
+    fn lock_inputs(&self) -> MutexGuard<'_, Option<Dict>> {
+        self.inputs.lock().expect("lock poisoned")
+    }
+
+    fn lock_cache(&self) -> MutexGuard<'_, Option<PagedDocument>> {
+        self.compiled_cache.lock().expect("lock poisoned")
     }
 
     /// Add input data to the document.
@@ -87,8 +95,8 @@ impl Document {
     ///     .to_pdf()?;
     /// ```
     pub fn with_inputs<T: Into<Dict>>(self, inputs: T) -> Self {
-        *self.inputs.lock().expect("lock poisoned") = Some(inputs.into());
-        *self.compiled_cache.lock().expect("lock poisoned") = None;
+        *self.lock_inputs() = Some(inputs.into());
+        *self.lock_cache() = None;
         self
     }
 
@@ -100,7 +108,7 @@ impl Document {
     /// Internal method to compile the document (with caching).
     fn compile_cached(&self) -> Result<()> {
         // Return early if already cached
-        if self.compiled_cache.lock().expect("lock poisoned").is_some() {
+        if self.lock_cache().is_some() {
             return Ok(());
         }
 
@@ -135,7 +143,7 @@ impl Document {
         let engine = builder.build();
 
         // Clone inputs (preserve for retry on failure)
-        let inputs = self.inputs.lock().expect("lock poisoned").clone();
+        let inputs = self.lock_inputs().clone();
 
         // Compile (with or without inputs)
         let warned_result = if let Some(inputs) = inputs {
@@ -158,7 +166,7 @@ impl Document {
         })?;
 
         // Store in cache
-        *self.compiled_cache.lock().expect("lock poisoned") = Some(compiled);
+        *self.lock_cache() = Some(compiled);
 
         Ok(())
     }
@@ -169,7 +177,7 @@ impl Document {
         F: FnOnce(&PagedDocument) -> Result<T>,
     {
         self.compile_cached()?;
-        let cache = self.compiled_cache.lock().expect("lock poisoned");
+        let cache = self.lock_cache();
         let compiled = cache
             .as_ref()
             .expect("compiled_cache must be Some after successful compile_cached()");

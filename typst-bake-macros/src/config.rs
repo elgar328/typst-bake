@@ -14,14 +14,18 @@ fn read_manifest(manifest_dir: &Path) -> Result<toml::Table, String> {
         .map_err(|e| format!("Failed to parse Cargo.toml: {}", e))
 }
 
-/// Get a string value from [package.metadata.typst-bake] section.
-fn get_metadata_str<'a>(manifest: &'a toml::Table, key: &str) -> Option<&'a str> {
+/// Get a value from [package.metadata.typst-bake] section.
+fn get_metadata_value<'a>(manifest: &'a toml::Table, key: &str) -> Option<&'a toml::Value> {
     manifest
         .get("package")
         .and_then(|p| p.get("metadata"))
         .and_then(|m| m.get("typst-bake"))
         .and_then(|t| t.get(key))
-        .and_then(|v| v.as_str())
+}
+
+/// Get a string value from [package.metadata.typst-bake] section.
+fn get_metadata_str<'a>(manifest: &'a toml::Table, key: &str) -> Option<&'a str> {
+    get_metadata_value(manifest, key).and_then(|v| v.as_str())
 }
 
 /// Resolve a path relative to the manifest directory (absolute paths pass through).
@@ -154,12 +158,8 @@ pub fn get_compression_level() -> i32 {
     // Priority 2: Cargo.toml metadata
     if let Ok(manifest_dir) = env::var("CARGO_MANIFEST_DIR") {
         if let Ok(manifest) = read_manifest(Path::new(&manifest_dir)) {
-            if let Some(level) = manifest
-                .get("package")
-                .and_then(|p| p.get("metadata"))
-                .and_then(|m| m.get("typst-bake"))
-                .and_then(|t| t.get("compression-level"))
-                .and_then(|v| v.as_integer())
+            if let Some(level) =
+                get_metadata_value(&manifest, "compression-level").and_then(|v| v.as_integer())
             {
                 return (level as i32).clamp(1, 22);
             }
