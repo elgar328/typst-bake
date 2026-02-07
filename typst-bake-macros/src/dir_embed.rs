@@ -8,6 +8,7 @@ use std::fs;
 use std::path::Path;
 
 /// Result of embedding a directory, containing entries and statistics.
+#[derive(Default)]
 pub struct DirEmbedResult {
     /// DirEntry tokens for each item in the directory
     pub entries: Vec<TokenStream>,
@@ -17,18 +18,6 @@ pub struct DirEmbedResult {
     pub compressed_size: usize,
     /// Number of files embedded
     pub file_count: usize,
-}
-
-#[allow(clippy::derivable_impls)]
-impl Default for DirEmbedResult {
-    fn default() -> Self {
-        Self {
-            entries: Vec::new(),
-            original_size: 0,
-            compressed_size: 0,
-            file_count: 0,
-        }
-    }
 }
 
 impl DirEmbedResult {

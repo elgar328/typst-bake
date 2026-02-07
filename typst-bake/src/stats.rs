@@ -19,7 +19,7 @@ pub struct EmbedStats {
 }
 
 /// Statistics for content deduplication across all categories.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub struct DedupStats {
     /// Total number of files (before dedup)
     pub total_files: usize,
@@ -32,7 +32,7 @@ pub struct DedupStats {
 }
 
 /// Statistics for a category of files (templates, fonts)
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub struct CategoryStats {
     /// Original uncompressed size in bytes
     pub original_size: usize,

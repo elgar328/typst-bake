@@ -53,43 +53,21 @@ fn is_valid_version(s: &str) -> bool {
 
 /// Parse package specifier (@namespace/name:version)
 pub fn parse_package_specifier(path: &str) -> Option<PackageSpec> {
-    // Package imports start with @
-    if !path.starts_with('@') {
-        return None;
-    }
+    let path = path.strip_prefix('@')?;
+    let (namespace_str, name_version) = path.split_once('/')?;
+    let (name_str, version_str) = name_version.split_once(':')?;
 
-    let path = &path[1..]; // Remove @
-
-    // Split namespace/name:version
-    let parts: Vec<&str> = path.split('/').collect();
-    if parts.len() != 2 {
-        return None;
-    }
-
-    let namespace = parts[0].to_string();
-    let name_version = parts[1];
-
-    // Split name and version
-    let nv_parts: Vec<&str> = name_version.split(':').collect();
-    if nv_parts.len() != 2 {
-        return None;
-    }
-
-    let name = nv_parts[0].to_string();
-    let version = nv_parts[1].to_string();
-
-    // Validate format
-    if !is_valid_identifier(&namespace)
-        || !is_valid_identifier(&name)
-        || !is_valid_version(&version)
+    if !is_valid_identifier(namespace_str)
+        || !is_valid_identifier(name_str)
+        || !is_valid_version(version_str)
     {
         return None;
     }
 
     Some(PackageSpec {
-        namespace,
-        name,
-        version,
+        namespace: namespace_str.to_string(),
+        name: name_str.to_string(),
+        version: version_str.to_string(),
     })
 }
 
