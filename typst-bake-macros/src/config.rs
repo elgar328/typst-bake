@@ -4,6 +4,35 @@ use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
 
+/// Read and parse the Cargo.toml in the given manifest directory.
+fn read_manifest(manifest_dir: &Path) -> Result<toml::Table, String> {
+    let cargo_toml_path = manifest_dir.join("Cargo.toml");
+    let content = fs::read_to_string(&cargo_toml_path)
+        .map_err(|e| format!("Failed to read Cargo.toml: {}", e))?;
+    content
+        .parse()
+        .map_err(|e| format!("Failed to parse Cargo.toml: {}", e))
+}
+
+/// Get a string value from [package.metadata.typst-bake] section.
+fn get_metadata_str<'a>(manifest: &'a toml::Table, key: &str) -> Option<&'a str> {
+    manifest
+        .get("package")
+        .and_then(|p| p.get("metadata"))
+        .and_then(|m| m.get("typst-bake"))
+        .and_then(|t| t.get(key))
+        .and_then(|v| v.as_str())
+}
+
+/// Resolve a path relative to the manifest directory (absolute paths pass through).
+fn resolve_path(manifest_dir: &Path, path: &str) -> PathBuf {
+    if Path::new(path).is_absolute() {
+        PathBuf::from(path)
+    } else {
+        manifest_dir.join(path)
+    }
+}
+
 /// Get template directory path.
 ///
 /// Priority:
@@ -15,44 +44,23 @@ pub fn get_template_dir() -> Result<PathBuf, String> {
 
     // Priority 1: Environment variable
     if let Ok(template_dir) = env::var("TYPST_TEMPLATE_DIR") {
-        let path = if Path::new(&template_dir).is_absolute() {
-            PathBuf::from(&template_dir)
-        } else {
-            manifest_dir.join(&template_dir)
-        };
-        return Ok(path);
+        return Ok(resolve_path(manifest_dir, &template_dir));
     }
 
     // Priority 2: Cargo.toml metadata
-    let cargo_toml_path = manifest_dir.join("Cargo.toml");
-    let content = fs::read_to_string(&cargo_toml_path)
-        .map_err(|e| format!("Failed to read Cargo.toml: {}", e))?;
+    let manifest = read_manifest(manifest_dir)?;
 
-    let manifest: toml::Table = content
-        .parse()
-        .map_err(|e| format!("Failed to parse Cargo.toml: {}", e))?;
+    let template_dir = get_metadata_str(&manifest, "template-dir").ok_or_else(|| {
+        "Template directory not configured.\n\n\
+            Add to your Cargo.toml:\n\n\
+            [package.metadata.typst-bake]\n\
+            template-dir = \"./templates\"\n\n\
+            Or set environment variable:\n\
+            export TYPST_TEMPLATE_DIR=./templates"
+            .to_string()
+    })?;
 
-    let template_dir = manifest
-        .get("package")
-        .and_then(|p| p.get("metadata"))
-        .and_then(|m| m.get("typst-bake"))
-        .and_then(|t| t.get("template-dir"))
-        .and_then(|d| d.as_str())
-        .ok_or_else(|| {
-            "Template directory not configured.\n\n\
-                Add to your Cargo.toml:\n\n\
-                [package.metadata.typst-bake]\n\
-                template-dir = \"./templates\"\n\n\
-                Or set environment variable:\n\
-                export TYPST_TEMPLATE_DIR=./templates"
-                .to_string()
-        })?;
-
-    let path = if Path::new(template_dir).is_absolute() {
-        PathBuf::from(template_dir)
-    } else {
-        manifest_dir.join(template_dir)
-    };
+    let path = resolve_path(manifest_dir, template_dir);
 
     if !path.exists() {
         return Err(format!(
@@ -82,43 +90,23 @@ pub fn get_fonts_dir() -> Result<PathBuf, String> {
 
     // Priority 1: Environment variable
     let path = if let Ok(fonts_dir) = env::var("TYPST_FONTS_DIR") {
-        if Path::new(&fonts_dir).is_absolute() {
-            PathBuf::from(&fonts_dir)
-        } else {
-            manifest_dir.join(&fonts_dir)
-        }
+        resolve_path(manifest_dir, &fonts_dir)
     } else {
         // Priority 2: Cargo.toml metadata
-        let cargo_toml_path = manifest_dir.join("Cargo.toml");
-        let content = fs::read_to_string(&cargo_toml_path)
-            .map_err(|e| format!("Failed to read Cargo.toml: {}", e))?;
+        let manifest = read_manifest(manifest_dir)?;
 
-        let manifest: toml::Table = content
-            .parse()
-            .map_err(|e| format!("Failed to parse Cargo.toml: {}", e))?;
+        let fonts_dir = get_metadata_str(&manifest, "fonts-dir").ok_or_else(|| {
+            "Fonts directory not configured.\n\n\
+                Add to your Cargo.toml:\n\n\
+                [package.metadata.typst-bake]\n\
+                template-dir = \"./templates\"\n\
+                fonts-dir = \"./fonts\"\n\n\
+                Or set environment variable:\n\
+                export TYPST_FONTS_DIR=./fonts"
+                .to_string()
+        })?;
 
-        let fonts_dir = manifest
-            .get("package")
-            .and_then(|p| p.get("metadata"))
-            .and_then(|m| m.get("typst-bake"))
-            .and_then(|t| t.get("fonts-dir"))
-            .and_then(|d| d.as_str())
-            .ok_or_else(|| {
-                "Fonts directory not configured.\n\n\
-                    Add to your Cargo.toml:\n\n\
-                    [package.metadata.typst-bake]\n\
-                    template-dir = \"./templates\"\n\
-                    fonts-dir = \"./fonts\"\n\n\
-                    Or set environment variable:\n\
-                    export TYPST_FONTS_DIR=./fonts"
-                    .to_string()
-            })?;
-
-        if Path::new(fonts_dir).is_absolute() {
-            PathBuf::from(fonts_dir)
-        } else {
-            manifest_dir.join(fonts_dir)
-        }
+        resolve_path(manifest_dir, fonts_dir)
     };
 
     if !path.exists() {
@@ -167,18 +155,15 @@ pub fn get_compression_level() -> i32 {
 
     // Priority 2: Cargo.toml metadata
     if let Ok(manifest_dir) = env::var("CARGO_MANIFEST_DIR") {
-        let cargo_toml_path = Path::new(&manifest_dir).join("Cargo.toml");
-        if let Ok(content) = fs::read_to_string(&cargo_toml_path) {
-            if let Ok(manifest) = content.parse::<toml::Table>() {
-                if let Some(level) = manifest
-                    .get("package")
-                    .and_then(|p| p.get("metadata"))
-                    .and_then(|m| m.get("typst-bake"))
-                    .and_then(|t| t.get("compression-level"))
-                    .and_then(|v| v.as_integer())
-                {
-                    return (level as i32).clamp(1, 22);
-                }
+        if let Ok(manifest) = read_manifest(Path::new(&manifest_dir)) {
+            if let Some(level) = manifest
+                .get("package")
+                .and_then(|p| p.get("metadata"))
+                .and_then(|m| m.get("typst-bake"))
+                .and_then(|t| t.get("compression-level"))
+                .and_then(|v| v.as_integer())
+            {
+                return (level as i32).clamp(1, 22);
             }
         }
     }

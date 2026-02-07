@@ -11,180 +11,175 @@ mod dir_embed;
 mod downloader;
 mod scanner;
 
+use std::collections::{BTreeMap, BTreeSet};
+use std::path::{Path, PathBuf};
+
 use proc_macro::TokenStream;
 use quote::quote;
 use syn::{parse_macro_input, LitStr};
 
-#[proc_macro]
-pub fn document(input: TokenStream) -> TokenStream {
-    let entry = parse_macro_input!(input as LitStr);
-    let entry_value = entry.value();
+use compression_cache::CompressionCache;
+use dir_embed::DirEmbedResult;
 
-    // Get template directory
-    let template_dir = match config::get_template_dir() {
-        Ok(dir) => dir,
-        Err(e) => {
-            return syn::Error::new_spanned(entry, e).to_compile_error().into();
-        }
-    };
+type PackageInfoTuple = (String, usize, usize, usize);
+type ResolvedPackages = (Vec<(String, String, String)>, PathBuf);
 
-    // Check if entry file exists
-    let entry_path = template_dir.join(&entry_value);
+/// Collected results from embedding all packages.
+struct EmbeddedPackages {
+    infos: Vec<PackageInfoTuple>,
+    total_original: usize,
+    total_compressed: usize,
+    namespace_entries: Vec<proc_macro2::TokenStream>,
+}
+
+/// Resolve template_dir, fonts_dir and validate the entry file exists.
+fn resolve_config(
+    entry: &LitStr,
+    entry_value: &str,
+) -> Result<(PathBuf, PathBuf), proc_macro2::TokenStream> {
+    let template_dir = config::get_template_dir()
+        .map_err(|e| syn::Error::new_spanned(entry, e).to_compile_error())?;
+
+    let entry_path = template_dir.join(entry_value);
     if !entry_path.exists() {
-        return syn::Error::new_spanned(
+        return Err(syn::Error::new_spanned(
             entry,
             format!("Entry file not found: {}", entry_path.display()),
         )
-        .to_compile_error()
-        .into();
+        .to_compile_error());
     }
 
-    // Get fonts directory
-    let fonts_dir = match config::get_fonts_dir() {
-        Ok(dir) => dir,
-        Err(e) => {
-            return syn::Error::new_spanned(entry, e).to_compile_error().into();
-        }
-    };
+    let fonts_dir = config::get_fonts_dir()
+        .map_err(|e| syn::Error::new_spanned(entry, e).to_compile_error())?;
 
-    // Scan for packages
+    Ok((template_dir, fonts_dir))
+}
+
+/// Scan template directory for package imports and download them.
+fn resolve_and_download_packages(
+    entry: &LitStr,
+    template_dir: &Path,
+) -> Result<ResolvedPackages, proc_macro2::TokenStream> {
     eprintln!("typst-bake: Scanning for package imports...");
-    let packages = scanner::extract_packages(&template_dir);
+    let packages = scanner::extract_packages(template_dir);
 
-    // Download packages if any
-    let cache_dir = match downloader::get_cache_dir() {
-        Ok(dir) => dir,
-        Err(e) => {
-            return syn::Error::new_spanned(entry, e).to_compile_error().into();
-        }
-    };
+    let cache_dir = downloader::get_cache_dir()
+        .map_err(|e| syn::Error::new_spanned(entry, e).to_compile_error())?;
 
     let resolved_packages = if !packages.is_empty() {
         eprintln!("typst-bake: Found {} package(s) to bundle", packages.len());
 
         let refresh = config::should_refresh_cache();
-        match downloader::download_packages(&packages, &cache_dir, refresh) {
-            Ok(pkgs) => pkgs,
-            Err(e) => {
-                return syn::Error::new_spanned(entry, e).to_compile_error().into();
-            }
-        }
+        downloader::download_packages(&packages, &cache_dir, refresh)
+            .map_err(|e| syn::Error::new_spanned(entry, e).to_compile_error())?
     } else {
         eprintln!("typst-bake: No packages found");
         Vec::new()
     };
 
-    // Set up compression cache
-    let compression_level = config::get_compression_level();
-    let compression_cache_dir = match config::get_compression_cache_dir() {
-        Ok(dir) => Some(dir),
-        Err(e) => {
-            eprintln!("typst-bake: Compression cache disabled: {}", e);
-            None
-        }
-    };
-    let mut cache =
-        compression_cache::CompressionCache::new(compression_cache_dir, compression_level);
+    Ok((resolved_packages, cache_dir))
+}
 
-    // Generate code
-    // We directly generate Dir struct code instead of using include_dir! macro
-    // This allows users to not need include_dir in their dependencies
-    let templates_result = dir_embed::embed_dir(&template_dir, &mut cache);
-    let fonts_result = dir_embed::embed_fonts_dir(&fonts_dir, &mut cache);
-
-    // Collect per-package stats and entries in a single pass
-    let mut package_infos = Vec::new();
+/// Embed all resolved packages, collecting stats and directory entry tokens.
+fn embed_packages(
+    resolved_packages: &[(String, String, String)],
+    cache_dir: &Path,
+    cache: &mut CompressionCache,
+) -> EmbeddedPackages {
+    let mut package_infos: Vec<PackageInfoTuple> = Vec::new();
     let mut pkg_total_original = 0usize;
     let mut pkg_total_compressed = 0usize;
     let mut namespace_entries: Vec<proc_macro2::TokenStream> = Vec::new();
 
-    {
-        use std::collections::{BTreeMap, BTreeSet};
+    // Group resolved packages into a sorted tree: namespace -> name -> versions
+    let mut pkg_tree: BTreeMap<&str, BTreeMap<&str, BTreeSet<&str>>> = BTreeMap::new();
+    for (ns, name, ver) in resolved_packages {
+        pkg_tree
+            .entry(ns.as_str())
+            .or_default()
+            .entry(name.as_str())
+            .or_default()
+            .insert(ver.as_str());
+    }
 
-        // Group resolved packages into a sorted tree: namespace -> name -> versions
-        let mut pkg_tree: BTreeMap<&str, BTreeMap<&str, BTreeSet<&str>>> = BTreeMap::new();
-        for (ns, name, ver) in &resolved_packages {
-            pkg_tree
-                .entry(ns.as_str())
-                .or_default()
-                .entry(name.as_str())
-                .or_default()
-                .insert(ver.as_str());
-        }
+    for (namespace, names) in &pkg_tree {
+        let mut name_entries: Vec<proc_macro2::TokenStream> = Vec::new();
 
-        for (namespace, names) in &pkg_tree {
-            let mut name_entries: Vec<proc_macro2::TokenStream> = Vec::new();
+        for (name, versions) in names {
+            let mut version_entries: Vec<proc_macro2::TokenStream> = Vec::new();
 
-            for (name, versions) in names {
-                let mut version_entries: Vec<proc_macro2::TokenStream> = Vec::new();
+            for version in versions {
+                let ver_path = cache_dir.join(namespace).join(name).join(version);
 
-                for version in versions {
-                    let ver_path = cache_dir.join(namespace).join(name).join(version);
+                let pkg_result = dir_embed::embed_dir(&ver_path, cache);
+                let pkg_name = format!("@{}/{}:{}", namespace, name, version);
 
-                    // Embed this package
-                    let pkg_result = dir_embed::embed_dir(&ver_path, &mut cache);
-                    let pkg_name = format!("@{}/{}:{}", namespace, name, version);
+                package_infos.push((
+                    pkg_name,
+                    pkg_result.original_size,
+                    pkg_result.compressed_size,
+                    pkg_result.file_count,
+                ));
+                pkg_total_original += pkg_result.original_size;
+                pkg_total_compressed += pkg_result.compressed_size;
 
-                    // Collect stats
-                    package_infos.push((
-                        pkg_name,
-                        pkg_result.original_size,
-                        pkg_result.compressed_size,
-                        pkg_result.file_count,
-                    ));
-                    pkg_total_original += pkg_result.original_size;
-                    pkg_total_compressed += pkg_result.compressed_size;
-
-                    // Build version directory entry
-                    let version_str = *version;
-                    let pkg_entries = &pkg_result.entries;
-                    version_entries.push(quote! {
-                        ::typst_bake::__internal::include_dir::DirEntry::Dir(
-                            ::typst_bake::__internal::include_dir::Dir::new(#version_str, &[#(#pkg_entries),*])
-                        )
-                    });
-                }
-
-                // Build name directory entry
-                let name_str = *name;
-                name_entries.push(quote! {
+                let version_str = *version;
+                let pkg_entries = &pkg_result.entries;
+                version_entries.push(quote! {
                     ::typst_bake::__internal::include_dir::DirEntry::Dir(
-                        ::typst_bake::__internal::include_dir::Dir::new(#name_str, &[#(#version_entries),*])
+                        ::typst_bake::__internal::include_dir::Dir::new(#version_str, &[#(#pkg_entries),*])
                     )
                 });
             }
 
-            // Build namespace directory entry
-            let ns_str = *namespace;
-            namespace_entries.push(quote! {
+            let name_str = *name;
+            name_entries.push(quote! {
                 ::typst_bake::__internal::include_dir::DirEntry::Dir(
-                    ::typst_bake::__internal::include_dir::Dir::new(#ns_str, &[#(#name_entries),*])
+                    ::typst_bake::__internal::include_dir::Dir::new(#name_str, &[#(#version_entries),*])
                 )
             });
         }
+
+        let ns_str = *namespace;
+        namespace_entries.push(quote! {
+            ::typst_bake::__internal::include_dir::DirEntry::Dir(
+                ::typst_bake::__internal::include_dir::Dir::new(#ns_str, &[#(#name_entries),*])
+            )
+        });
     }
 
-    // Log compression stats and clean up unused cache files
+    EmbeddedPackages {
+        infos: package_infos,
+        total_original: pkg_total_original,
+        total_compressed: pkg_total_compressed,
+        namespace_entries,
+    }
+}
+
+/// Generate the final output TokenStream from embedded results and stats.
+fn generate_output(
+    entry_value: &str,
+    templates_result: &DirEmbedResult,
+    fonts_result: &DirEmbedResult,
+    packages: &EmbeddedPackages,
+    cache: &mut CompressionCache,
+) -> proc_macro2::TokenStream {
     cache.log_summary();
     cache.cleanup();
 
-    // Collect dedup stats before generating statics
     let dedup_total_files = cache.dedup_total_files();
     let dedup_unique_blobs = cache.dedup_unique_blobs();
     let dedup_duplicate_count = cache.dedup_duplicate_count();
     let dedup_saved_bytes = cache.dedup_saved_bytes();
-
-    // Generate deduplicated static declarations for all unique blobs
     let dedup_statics = cache.dedup_statics();
 
-    // Build final code
     let templates_code = templates_result.to_dir_code("");
     let fonts_code = fonts_result.to_dir_code("");
+    let namespace_entries = &packages.namespace_entries;
     let packages_code = quote! {
         ::typst_bake::__internal::include_dir::Dir::new("", &[#(#namespace_entries),*])
     };
 
-    // Generate stats
     let template_original = templates_result.original_size;
     let template_compressed = templates_result.compressed_size;
     let template_count = templates_result.file_count;
@@ -193,8 +188,11 @@ pub fn document(input: TokenStream) -> TokenStream {
     let font_compressed = fonts_result.compressed_size;
     let font_count = fonts_result.file_count;
 
-    // Generate package info tokens
-    let pkg_info_tokens: Vec<_> = package_infos
+    let pkg_total_original = packages.total_original;
+    let pkg_total_compressed = packages.total_compressed;
+
+    let pkg_info_tokens: Vec<proc_macro2::TokenStream> = packages
+        .infos
         .iter()
         .map(|(name, orig, comp, count)| {
             quote! {
@@ -208,7 +206,7 @@ pub fn document(input: TokenStream) -> TokenStream {
         })
         .collect();
 
-    let expanded = quote! {
+    quote! {
         {
             use ::typst_bake::__internal::{Dir, Document};
 
@@ -244,9 +242,52 @@ pub fn document(input: TokenStream) -> TokenStream {
 
             Document::__new(&TEMPLATES, &PACKAGES, &FONTS, #entry_value, stats)
         }
+    }
+}
+
+#[proc_macro]
+pub fn document(input: TokenStream) -> TokenStream {
+    let entry = parse_macro_input!(input as LitStr);
+    let entry_value = entry.value();
+
+    let (template_dir, fonts_dir) = match resolve_config(&entry, &entry_value) {
+        Ok(v) => v,
+        Err(e) => return e.into(),
     };
 
-    expanded.into()
+    let (resolved_packages, cache_dir) = match resolve_and_download_packages(&entry, &template_dir)
+    {
+        Ok(v) => v,
+        Err(e) => return e.into(),
+    };
+
+    // Set up compression cache
+    let compression_level = config::get_compression_level();
+    let compression_cache_dir = match config::get_compression_cache_dir() {
+        Ok(dir) => Some(dir),
+        Err(e) => {
+            eprintln!("typst-bake: Compression cache disabled: {}", e);
+            None
+        }
+    };
+    let mut cache = CompressionCache::new(compression_cache_dir, compression_level);
+
+    // Embed templates and fonts
+    let templates_result = dir_embed::embed_dir(&template_dir, &mut cache);
+    let fonts_result = dir_embed::embed_fonts_dir(&fonts_dir, &mut cache);
+
+    // Embed packages
+    let embedded_packages = embed_packages(&resolved_packages, &cache_dir, &mut cache);
+
+    // Generate final output
+    generate_output(
+        &entry_value,
+        &templates_result,
+        &fonts_result,
+        &embedded_packages,
+        &mut cache,
+    )
+    .into()
 }
 
 #[proc_macro_derive(IntoValue)]

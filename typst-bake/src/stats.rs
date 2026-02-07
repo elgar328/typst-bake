@@ -79,11 +79,7 @@ impl EmbedStats {
 
     /// Calculate compression ratio (0.0 to 1.0, where 0.0 means no compression)
     pub fn compression_ratio(&self) -> f64 {
-        let original = self.total_original();
-        if original == 0 {
-            return 0.0;
-        }
-        1.0 - (self.total_compressed() as f64 / original as f64)
+        compression_ratio(self.total_original(), self.total_compressed())
     }
 
     /// Total size after deduplication (actual binary footprint)
@@ -93,11 +89,7 @@ impl EmbedStats {
 
     /// Overall reduction ratio from original to deduplicated
     pub fn overall_ratio(&self) -> f64 {
-        let original = self.total_original();
-        if original == 0 {
-            return 0.0;
-        }
-        1.0 - (self.total_deduplicated() as f64 / original as f64)
+        compression_ratio(self.total_original(), self.total_deduplicated())
     }
 
     /// Total number of files across all categories
@@ -213,31 +205,31 @@ impl EmbedStats {
 impl CategoryStats {
     /// Calculate compression ratio for this category
     pub fn compression_ratio(&self) -> f64 {
-        if self.original_size == 0 {
-            return 0.0;
-        }
-        1.0 - (self.compressed_size as f64 / self.original_size as f64)
+        compression_ratio(self.original_size, self.compressed_size)
     }
 }
 
 impl PackageInfo {
     /// Calculate compression ratio for this package
     pub fn compression_ratio(&self) -> f64 {
-        if self.original_size == 0 {
-            return 0.0;
-        }
-        1.0 - (self.compressed_size as f64 / self.original_size as f64)
+        compression_ratio(self.original_size, self.compressed_size)
     }
 }
 
 impl PackageStats {
     /// Calculate compression ratio for all packages
     pub fn compression_ratio(&self) -> f64 {
-        if self.total_original == 0 {
-            return 0.0;
-        }
-        1.0 - (self.total_compressed as f64 / self.total_original as f64)
+        compression_ratio(self.total_original, self.total_compressed)
     }
+}
+
+/// Calculate compression ratio from original and compressed sizes.
+/// Returns 0.0 when original is 0, otherwise 1.0 - (compressed / original).
+fn compression_ratio(original: usize, compressed: usize) -> f64 {
+    if original == 0 {
+        return 0.0;
+    }
+    1.0 - (compressed as f64 / original as f64)
 }
 
 /// Format bytes into human-readable size

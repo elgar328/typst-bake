@@ -1,6 +1,7 @@
 //! Directory embedding with zstd compression
 
 use crate::compression_cache::CompressionCache;
+use crate::config::is_font_file;
 use proc_macro2::TokenStream;
 use quote::quote;
 use std::fs;
@@ -28,6 +29,138 @@ impl DirEmbedResult {
     }
 }
 
+/// Context for recursive directory scanning, bundling mutable state and config.
+struct ScanContext<'a, F> {
+    base: &'a Path,
+    file_filter: F,
+    original_size: usize,
+    compressed_size: usize,
+    file_count: usize,
+    cache: &'a mut CompressionCache,
+}
+
+impl<'a, F> ScanContext<'a, F>
+where
+    F: Fn(&Path) -> bool + Copy,
+{
+    fn new(base: &'a Path, file_filter: F, cache: &'a mut CompressionCache) -> Self {
+        Self {
+            base,
+            file_filter,
+            original_size: 0,
+            compressed_size: 0,
+            file_count: 0,
+            cache,
+        }
+    }
+
+    /// Recursively scan directory and generate DirEntry code for each item.
+    fn scan_entries(&mut self, current: &Path) -> Vec<TokenStream> {
+        let mut entries = Vec::new();
+
+        let read_dir = match fs::read_dir(current) {
+            Ok(rd) => rd,
+            Err(_) => return entries,
+        };
+
+        // Collect and sort entries for consistent ordering
+        let mut dir_entries: Vec<_> = read_dir.filter_map(|e| e.ok()).collect();
+        dir_entries.sort_by_key(|e| e.path());
+
+        for entry in dir_entries {
+            let path = entry.path();
+
+            // Skip hidden files and directories
+            if path
+                .file_name()
+                .and_then(|n| n.to_str())
+                .map(|n| n.starts_with('.'))
+                .unwrap_or(false)
+            {
+                continue;
+            }
+
+            let rel_path = match path.strip_prefix(self.base) {
+                Ok(p) => p,
+                Err(_) => continue,
+            };
+            let rel_path_str = rel_path.to_string_lossy().to_string();
+
+            // Use just the file/dir name (not full relative path) for proper nesting
+            let name = path
+                .file_name()
+                .and_then(|n| n.to_str())
+                .unwrap_or(&rel_path_str)
+                .to_string();
+
+            if path.is_file() {
+                // Apply file filter
+                if !(self.file_filter)(&path) {
+                    continue;
+                }
+
+                // Read file and compress
+                let file_bytes = match fs::read(&path) {
+                    Ok(bytes) => bytes,
+                    Err(_) => continue,
+                };
+
+                let original_len = file_bytes.len();
+                let blob_info = self.cache.compress(&file_bytes);
+                let compressed_len = blob_info.compressed_len;
+
+                self.original_size += original_len;
+                self.compressed_size += compressed_len;
+                self.file_count += 1;
+
+                let blob_ident = quote::format_ident!("BLOB_{}", blob_info.hash);
+
+                // Get absolute path for Cargo file tracking
+                let abs_path = path
+                    .canonicalize()
+                    .expect("Failed to get absolute path")
+                    .to_string_lossy()
+                    .replace('\\', "/");
+
+                entries.push(quote! {
+                    ::typst_bake::__internal::include_dir::DirEntry::File(
+                        ::typst_bake::__internal::include_dir::File::new(
+                            #name,
+                            {
+                                // Cargo file tracking (not used at runtime)
+                                const _: &[u8] = include_bytes!(#abs_path);
+                                &#blob_ident
+                            }
+                        )
+                    )
+                });
+            } else if path.is_dir() {
+                let sub_entries = self.scan_entries(&path);
+                entries.push(quote! {
+                    ::typst_bake::__internal::include_dir::DirEntry::Dir(
+                        ::typst_bake::__internal::include_dir::Dir::new(
+                            #name,
+                            &[#(#sub_entries),*]
+                        )
+                    )
+                });
+            }
+            // Skip symlinks and other special files
+        }
+
+        entries
+    }
+
+    fn into_result(self, entries: Vec<TokenStream>) -> DirEmbedResult {
+        DirEmbedResult {
+            entries,
+            original_size: self.original_size,
+            compressed_size: self.compressed_size,
+            file_count: self.file_count,
+        }
+    }
+}
+
 /// Generate code that creates a Dir struct from a directory path.
 /// Files are compressed with zstd using the configured compression level and cache.
 pub fn embed_dir(dir_path: &Path, cache: &mut CompressionCache) -> DirEmbedResult {
@@ -40,143 +173,9 @@ pub fn embed_dir(dir_path: &Path, cache: &mut CompressionCache) -> DirEmbedResul
         };
     }
 
-    let mut original_size = 0;
-    let mut compressed_size = 0;
-    let mut file_count = 0;
-
-    let entries = scan_entries(
-        dir_path,
-        dir_path,
-        |_| true,
-        &mut original_size,
-        &mut compressed_size,
-        &mut file_count,
-        cache,
-    );
-
-    DirEmbedResult {
-        entries,
-        original_size,
-        compressed_size,
-        file_count,
-    }
-}
-
-/// Recursively scan directory and generate DirEntry code for each item.
-/// Uses file_filter to determine which files to include.
-fn scan_entries<F>(
-    base: &Path,
-    current: &Path,
-    file_filter: F,
-    original_size: &mut usize,
-    compressed_size: &mut usize,
-    file_count: &mut usize,
-    cache: &mut CompressionCache,
-) -> Vec<TokenStream>
-where
-    F: Fn(&Path) -> bool + Copy,
-{
-    let mut entries = Vec::new();
-
-    let read_dir = match fs::read_dir(current) {
-        Ok(rd) => rd,
-        Err(_) => return entries,
-    };
-
-    // Collect and sort entries for consistent ordering
-    let mut dir_entries: Vec<_> = read_dir.filter_map(|e| e.ok()).collect();
-    dir_entries.sort_by_key(|e| e.path());
-
-    for entry in dir_entries {
-        let path = entry.path();
-
-        // Skip hidden files and directories
-        if path
-            .file_name()
-            .and_then(|n| n.to_str())
-            .map(|n| n.starts_with('.'))
-            .unwrap_or(false)
-        {
-            continue;
-        }
-
-        let rel_path = match path.strip_prefix(base) {
-            Ok(p) => p,
-            Err(_) => continue,
-        };
-        let rel_path_str = rel_path.to_string_lossy().to_string();
-
-        // Use just the file/dir name (not full relative path) for proper nesting
-        let name = path
-            .file_name()
-            .and_then(|n| n.to_str())
-            .unwrap_or(&rel_path_str)
-            .to_string();
-
-        if path.is_file() {
-            // Apply file filter
-            if !file_filter(&path) {
-                continue;
-            }
-
-            // Read file and compress
-            let file_bytes = match fs::read(&path) {
-                Ok(bytes) => bytes,
-                Err(_) => continue,
-            };
-
-            let original_len = file_bytes.len();
-            let blob_info = cache.compress(&file_bytes);
-            let compressed_len = blob_info.compressed_len;
-
-            *original_size += original_len;
-            *compressed_size += compressed_len;
-            *file_count += 1;
-
-            let blob_ident = quote::format_ident!("BLOB_{}", blob_info.hash);
-
-            // Get absolute path for Cargo file tracking
-            let abs_path = path
-                .canonicalize()
-                .expect("Failed to get absolute path")
-                .to_string_lossy()
-                .replace('\\', "/");
-
-            entries.push(quote! {
-                ::typst_bake::__internal::include_dir::DirEntry::File(
-                    ::typst_bake::__internal::include_dir::File::new(
-                        #name,
-                        {
-                            // Cargo file tracking (not used at runtime)
-                            const _: &[u8] = include_bytes!(#abs_path);
-                            &#blob_ident
-                        }
-                    )
-                )
-            });
-        } else if path.is_dir() {
-            let sub_entries = scan_entries(
-                base,
-                &path,
-                file_filter,
-                original_size,
-                compressed_size,
-                file_count,
-                cache,
-            );
-            entries.push(quote! {
-                ::typst_bake::__internal::include_dir::DirEntry::Dir(
-                    ::typst_bake::__internal::include_dir::Dir::new(
-                        #name,
-                        &[#(#sub_entries),*]
-                    )
-                )
-            });
-        }
-        // Skip symlinks and other special files
-    }
-
-    entries
+    let mut ctx = ScanContext::new(dir_path, |_: &Path| true, cache);
+    let entries = ctx.scan_entries(dir_path);
+    ctx.into_result(entries)
 }
 
 /// Generate code that embeds only font files from a directory.
@@ -191,30 +190,7 @@ pub fn embed_fonts_dir(dir_path: &Path, cache: &mut CompressionCache) -> DirEmbe
         };
     }
 
-    let mut original_size = 0;
-    let mut compressed_size = 0;
-    let mut file_count = 0;
-
-    let entries = scan_entries(
-        dir_path,
-        dir_path,
-        is_font_file,
-        &mut original_size,
-        &mut compressed_size,
-        &mut file_count,
-        cache,
-    );
-
-    DirEmbedResult {
-        entries,
-        original_size,
-        compressed_size,
-        file_count,
-    }
-}
-
-/// Check if a file is a supported font file.
-fn is_font_file(path: &Path) -> bool {
-    let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("");
-    matches!(ext.to_lowercase().as_str(), "ttf" | "otf" | "ttc")
+    let mut ctx = ScanContext::new(dir_path, is_font_file, cache);
+    let entries = ctx.scan_entries(dir_path);
+    ctx.into_result(entries)
 }
