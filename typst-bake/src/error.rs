@@ -1,4 +1,4 @@
-//! Error types for typst-bake
+//! Error types for typst-bake.
 
 use thiserror::Error;
 

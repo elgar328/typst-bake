@@ -107,7 +107,6 @@ impl Document {
 
     /// Internal method to compile the document (with caching).
     fn compile_cached(&self) -> Result<()> {
-        // Return early if already cached
         if self.lock_cache().is_some() {
             return Ok(());
         }
@@ -122,7 +121,6 @@ impl Document {
         let main_bytes = decompress(main_file.contents())?;
         let main_content = std::str::from_utf8(&main_bytes).map_err(|_| Error::InvalidUtf8)?;
 
-        // Create resolver
         let resolver = EmbeddedResolver::new(self.templates, self.packages);
 
         // Collect and decompress fonts from the embedded fonts directory
@@ -134,7 +132,6 @@ impl Document {
 
         let font_refs: Vec<&[u8]> = font_data.iter().map(Vec::as_slice).collect();
 
-        // Build engine with main file, resolver, and fonts
         let builder = TypstEngine::builder()
             .main_file(main_content)
             .add_file_resolver(resolver)
@@ -145,7 +142,6 @@ impl Document {
         // Clone inputs (preserve for retry on failure)
         let inputs = self.lock_inputs().clone();
 
-        // Compile (with or without inputs)
         let warned_result = if let Some(inputs) = inputs {
             engine.compile_with_input::<_, PagedDocument>(inputs)
         } else {
@@ -165,7 +161,6 @@ impl Document {
             Error::Compilation(msg)
         })?;
 
-        // Store in cache
         *self.lock_cache() = Some(compiled);
 
         Ok(())

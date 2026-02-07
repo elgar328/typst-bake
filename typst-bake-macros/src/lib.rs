@@ -268,21 +268,17 @@ pub fn document(input: TokenStream) -> TokenStream {
         Err(e) => return e.into(),
     };
 
-    // Set up compression cache
     let compression_level = config::get_compression_level();
     let compression_cache_dir = config::get_compression_cache_dir()
         .map_err(|e| eprintln!("typst-bake: Compression cache disabled: {e}"))
         .ok();
     let mut cache = CompressionCache::new(compression_cache_dir, compression_level);
 
-    // Embed templates and fonts
     let templates_result = dir_embed::embed_dir(&template_dir, &mut cache);
     let fonts_result = dir_embed::embed_fonts_dir(&fonts_dir, &mut cache);
 
-    // Embed packages
     let embedded_packages = embed_packages(&resolved_packages, &cache_dir, &mut cache);
 
-    // Generate final output
     generate_output(
         &entry_value,
         &templates_result,
