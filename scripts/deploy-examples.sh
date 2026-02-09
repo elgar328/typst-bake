@@ -1,8 +1,6 @@
 #!/bin/bash
 set -euo pipefail
 
-TAG=${1:?Usage: $0 <tag>}
-
 ASSETS="
 quick-start.pdf=examples/quick-start/output.pdf
 font-guide.pdf=examples/font-guide/output.pdf
@@ -32,5 +30,12 @@ for entry in $ASSETS; do
   count=$((count + 1))
 done
 
-gh release upload "$TAG" "$tmpdir"/*
-echo "Uploaded $count assets to $TAG"
+touch "$tmpdir/.nojekyll"
+
+git -C "$tmpdir" init -b gh-pages
+git -C "$tmpdir" add .
+git -C "$tmpdir" commit -m "deploy example outputs"
+git -C "$tmpdir" remote add origin "$(git remote get-url origin)"
+git -C "$tmpdir" push -f origin gh-pages
+
+echo "Deployed $count files to gh-pages"

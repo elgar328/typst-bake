@@ -90,27 +90,27 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 ```
 
-For a complete walkthrough, see the [Quick Start Guide (PDF)](https://github.com/elgar328/typst-bake/releases/latest/download/quick-start.pdf). Also check out the PDF outputs from other examples below—each document explains its usage in detail.
+For a complete walkthrough, see the [Quick Start Guide (PDF)](https://elgar328.github.io/typst-bake/quick-start.pdf). Also check out the PDF outputs from other examples below—each document explains its usage in detail.
 
 ## Examples
 
 | Example | Description | Command | Output |
 |---------|-------------|---------|--------|
-| quick-start | Generates the Quick Start PDF using all features | `cargo run -p example-quick-start` | [PDF](https://github.com/elgar328/typst-bake/releases/latest/download/quick-start.pdf) |
-| font-guide | Guide to font setup and usage | `cargo run -p example-font-guide` | [PDF](https://github.com/elgar328/typst-bake/releases/latest/download/font-guide.pdf) |
-| with-inputs | Pass dynamic data from Rust to Typst | `cargo run -p example-with-inputs` | [PDF](https://github.com/elgar328/typst-bake/releases/latest/download/with-inputs.pdf) |
-| with-files | Embed images and various data files | `cargo run -p example-with-files` | [PDF](https://github.com/elgar328/typst-bake/releases/latest/download/with-files.pdf) |
-| with-package | Automatic package bundling | `cargo run -p example-with-package` | [PDF](https://github.com/elgar328/typst-bake/releases/latest/download/with-package.pdf) |
-| compression-levels | Custom compression level with zstd benchmark | `cargo run -p example-compression-levels` | [PDF](https://github.com/elgar328/typst-bake/releases/latest/download/compression-levels.pdf) |
+| quick-start | Generates the Quick Start PDF using all features | `cargo run -p example-quick-start` | [PDF](https://elgar328.github.io/typst-bake/quick-start.pdf) |
+| font-guide | Guide to font setup and usage | `cargo run -p example-font-guide` | [PDF](https://elgar328.github.io/typst-bake/font-guide.pdf) |
+| with-inputs | Pass dynamic data from Rust to Typst | `cargo run -p example-with-inputs` | [PDF](https://elgar328.github.io/typst-bake/with-inputs.pdf) |
+| with-files | Embed images and various data files | `cargo run -p example-with-files` | [PDF](https://elgar328.github.io/typst-bake/with-files.pdf) |
+| with-package | Automatic package bundling | `cargo run -p example-with-package` | [PDF](https://elgar328.github.io/typst-bake/with-package.pdf) |
+| compression-levels | Custom compression level with zstd benchmark | `cargo run -p example-compression-levels` | [PDF](https://elgar328.github.io/typst-bake/compression-levels.pdf) |
 | output-formats | Multi-format output with rendering test patterns | `cargo run -p example-output-formats` | See below |
 
 ### output-formats Example Outputs
 
 | Format | Files |
 |--------|-------|
-| PDF | [output.pdf](https://github.com/elgar328/typst-bake/releases/latest/download/output-formats.pdf) (42KB) |
-| SVG | [output_1.svg](https://github.com/elgar328/typst-bake/releases/latest/download/output-formats_1.svg) (306KB), [output_2.svg](https://github.com/elgar328/typst-bake/releases/latest/download/output-formats_2.svg) (700KB) |
-| PNG | [output_1.png](https://github.com/elgar328/typst-bake/releases/latest/download/output-formats_1.png) (388KB), [output_2.png](https://github.com/elgar328/typst-bake/releases/latest/download/output-formats_2.png) (693KB) |
+| PDF | [output.pdf](https://elgar328.github.io/typst-bake/output-formats.pdf) (42KB) |
+| SVG | [output_1.svg](https://elgar328.github.io/typst-bake/output-formats_1.svg) (306KB), [output_2.svg](https://elgar328.github.io/typst-bake/output-formats_2.svg) (700KB) |
+| PNG | [output_1.png](https://elgar328.github.io/typst-bake/output-formats_1.png) (388KB), [output_2.png](https://elgar328.github.io/typst-bake/output-formats_2.png) (693KB) |
 
 ## Comparison with typst-as-lib
 

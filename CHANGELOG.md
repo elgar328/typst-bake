@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- Example outputs (PDF/PNG/SVG) are now hosted as GitHub Release assets instead of tracked in the repository
+- Example outputs (PDF/PNG/SVG) are now hosted on GitHub Pages instead of tracked in the repository
 - **Note:** Git history has been rewritten to remove binary output files. If you have a local clone, please re-clone the repository.
 
 ## [0.1.4] - 2025-02-08
