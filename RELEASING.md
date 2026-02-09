@@ -55,7 +55,24 @@ cargo publish -p typst-bake
 gh release create vX.Y.Z --title "vX.Y.Z" --notes-file <(sed -n '/^## \[X\.Y\.Z\]/,/^## \[/{ /^## \[X\.Y\.Z\]/d; /^## \[/d; p; }' CHANGELOG.md)
 ```
 
-### 8. Bump version and restore `-dev` suffix
+### 8. Upload example outputs to release
+
+```sh
+gh release upload vX.Y.Z \
+  examples/quick-start/output.pdf#quick-start.pdf \
+  examples/font-guide/output.pdf#font-guide.pdf \
+  examples/with-inputs/output.pdf#with-inputs.pdf \
+  examples/with-files/output.pdf#with-files.pdf \
+  examples/with-package/output.pdf#with-package.pdf \
+  examples/compression-levels/output.pdf#compression-levels.pdf \
+  examples/output-formats/output.pdf#output-formats.pdf \
+  examples/output-formats/output_1.svg#output-formats_1.svg \
+  examples/output-formats/output_2.svg#output-formats_2.svg \
+  examples/output-formats/output_1.png#output-formats_1.png \
+  examples/output-formats/output_2.png#output-formats_2.png
+```
+
+### 9. Bump version and restore `-dev` suffix
 
 Update the same three locations in `Cargo.toml` to the next development version (e.g., `X.Y.(Z+1)-dev`):
 
@@ -63,7 +80,7 @@ Update the same three locations in `Cargo.toml` to the next development version 
 - [ ] `workspace.dependencies.typst-bake.version`
 - [ ] `workspace.dependencies.typst-bake-macros.version`
 
-### 9. Commit and push development version
+### 10. Commit and push development version
 
 ```sh
 git add -A

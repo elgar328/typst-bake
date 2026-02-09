@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+
+- Example outputs (PDF/PNG/SVG) are now hosted as GitHub Release assets instead of tracked in the repository
+- **Note:** Git history has been rewritten to remove binary output files. If you have a local clone, please re-clone the repository.
+
 ## [0.1.4] - 2025-02-08
 
 ### Added
@@ -81,11 +88,6 @@ Initial release of typst-bake - a library to bake Typst templates, fonts, and pa
 - **Runtime Inputs** - Pass data from Rust to Typst via `IntoValue` / `IntoDict` derive macros
 - **Optimized Binary Size** - Resources compressed with zstd, decompressed lazily at runtime
 - **Smart Recompilation** - File changes detected automatically by Cargo
-
-### Links
-
-- [Quick Start Guide (PDF)](https://github.com/elgar328/typst-bake/blob/main/examples/quick-start/output.pdf)
-
 
 [0.1.4]: https://github.com/elgar328/typst-bake/compare/v0.1.3...v0.1.4
 [0.1.3]: https://github.com/elgar328/typst-bake/compare/v0.1.2...v0.1.3
