@@ -9,4 +9,3 @@ fonts-dir = "./fonts"
 
 [dependencies]
 typst-bake.workspace = true
-chrono.workspace = true

@@ -1,4 +1,3 @@
-use chrono::Local;
 use typst_bake::{IntoDict, IntoValue};
 
 #[derive(IntoValue, IntoDict)]
@@ -42,10 +41,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let total = items.iter().map(|i| i.amount).sum();
 
-    let now = Local::now();
     let invoice = Inputs {
-        number: format!("INV-{}-001", now.format("%Y")),
-        date: now.format("%Y-%m-%d").to_string(),
+        number: "INV-2025-001".into(),
+        date: "2025-01-15".into(),
         customer: "Acme Corporation".into(),
         items,
         total,
