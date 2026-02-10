@@ -16,6 +16,8 @@ pub struct EmbedStats {
     pub fonts: CategoryStats,
     /// Deduplication statistics.
     pub dedup: DedupStats,
+    /// Zstd compression level used.
+    pub compression_level: i32,
 }
 
 /// Statistics for content deduplication across all categories.
@@ -175,9 +177,10 @@ impl std::fmt::Display for EmbedStats {
         writeln!(f, "------------------------")?;
         writeln!(
             f,
-            "Compressed: {} -> {} ({:.1}% reduced, {} files)",
+            "Compressed: {} -> {} (level {}, {:.1}% reduced, {} files)",
             format_size(self.total_original()),
             format_size(self.total_compressed()),
+            self.compression_level,
             self.compression_ratio() * 100.0,
             self.total_file_count()
         )?;
@@ -319,6 +322,7 @@ mod tests {
                 duplicate_count: 1,
                 saved_bytes: 100,
             },
+            compression_level: 19,
         };
         // Total: 4000 -> 1000 (75% compression)
         assert_eq!(stats.total_original(), 4000);

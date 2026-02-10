@@ -17,6 +17,7 @@ struct Inputs {
     dedup_saved_bytes: usize,
     dedup_unique_blobs: usize,
     total_deduplicated: usize,
+    compression_level: i32,
 }
 
 fn save_pdf(data: &[u8], filename: &str) -> Result<(), Box<dyn std::error::Error>> {
@@ -51,6 +52,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         dedup_saved_bytes: stats.dedup.saved_bytes,
         dedup_unique_blobs: stats.dedup.unique_blobs,
         total_deduplicated: stats.total_deduplicated(),
+        compression_level: stats.compression_level,
     };
 
     let pdf = doc.with_inputs(inputs).to_pdf()?;

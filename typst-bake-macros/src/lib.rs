@@ -167,6 +167,7 @@ fn generate_output(
     fonts_result: &DirEmbedResult,
     packages: &EmbeddedPackages,
     cache: &mut CompressionCache,
+    compression_level: i32,
 ) -> proc_macro2::TokenStream {
     cache.log_summary();
     cache.cleanup();
@@ -247,6 +248,7 @@ fn generate_output(
                     duplicate_count: #dedup_duplicate_count,
                     saved_bytes: #dedup_saved_bytes,
                 },
+                compression_level: #compression_level,
             };
 
             Document::__new(&TEMPLATES, &PACKAGES, &FONTS, #entry_value, stats)
@@ -287,6 +289,7 @@ pub fn document(input: TokenStream) -> TokenStream {
         &fonts_result,
         &embedded_packages,
         &mut cache,
+        compression_level,
     )
     .into()
 }
