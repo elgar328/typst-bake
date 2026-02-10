@@ -7,15 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.5] - 2025-02-10
+
+### Added
+
+- `compression_level` field to `EmbedStats`
+
 ### Fixed
 
-- Fix package download race condition with fd-lock and atomic extraction
+- Fix package download race condition using file locks (`fd-lock`) and atomic extraction
 
 ### Changed
 
-- Unify environment variable prefix to `TYPST_BAKE_` and rename `REFRESH` to `PKG_NOCACHE`
-- Add `compression_level` field to `EmbedStats`
-- Remove `chrono` dependency
+- **BREAKING:** Unify environment variable prefix to `TYPST_BAKE_` and rename `REFRESH` to `PKG_NOCACHE`
+  - `TYPST_TEMPLATE_DIR` → `TYPST_BAKE_TEMPLATE_DIR`
+  - `TYPST_FONTS_DIR` → `TYPST_BAKE_FONTS_DIR`
+  - `TYPST_BAKE_REFRESH` → `TYPST_BAKE_PKG_NOCACHE`
+- Remove `chrono` dependency (only used in example)
 - Example outputs (PDF/PNG/SVG) are now hosted on GitHub Pages instead of tracked in the repository
 - Consolidate example fonts into a shared `examples/fonts/` directory
 - **Note:** Git history has been rewritten to remove example output files (PDF/PNG/SVG) and duplicate font files. If you have a local clone, please re-clone the repository.
@@ -97,6 +105,7 @@ Initial release of typst-bake - a library to bake Typst templates, fonts, and pa
 - **Optimized Binary Size** - Resources compressed with zstd, decompressed lazily at runtime
 - **Smart Recompilation** - File changes detected automatically by Cargo
 
+[0.1.5]: https://github.com/elgar328/typst-bake/compare/v0.1.4...v0.1.5
 [0.1.4]: https://github.com/elgar328/typst-bake/compare/v0.1.3...v0.1.4
 [0.1.3]: https://github.com/elgar328/typst-bake/compare/v0.1.2...v0.1.3
 [0.1.2]: https://github.com/elgar328/typst-bake/compare/v0.1.1...v0.1.2
