@@ -7,8 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Fix package download race condition with fd-lock and atomic extraction
+
 ### Changed
 
+- Unify environment variable prefix to `TYPST_BAKE_` and rename `REFRESH` to `PKG_NOCACHE`
+- Add `compression_level` field to `EmbedStats`
+- Remove `chrono` dependency
 - Example outputs (PDF/PNG/SVG) are now hosted on GitHub Pages instead of tracked in the repository
 - Consolidate example fonts into a shared `examples/fonts/` directory
 - **Note:** Git history has been rewritten to remove example output files (PDF/PNG/SVG) and duplicate font files. If you have a local clone, please re-clone the repository.
