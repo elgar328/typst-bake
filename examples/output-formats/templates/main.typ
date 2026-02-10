@@ -1,9 +1,8 @@
 #set page(margin: 2cm)
 #set text(font: "Source Serif 4", size: 11pt)
-#show heading.where(level: 1): set text(size: 20pt, weight: "bold")
-#show heading.where(level: 2): set text(size: 14pt, weight: "bold")
-#show heading.where(level: 2): set block(above: 1.5em, below: 0.8em)
-#show raw: set text(size: 9pt)
+#show heading.where(level: 1): set text(size: 1.5em)
+#show heading.where(level: 2): set block(above: 1.5em)
+#show raw: set text(font: "JetBrains Mono", size: 9pt)
 
 = Output Formats
 

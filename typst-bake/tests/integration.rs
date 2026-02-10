@@ -49,6 +49,11 @@ fn test_quick_start_generates_pdf() {
 }
 
 #[test]
+fn test_with_files_generates_pdf() {
+    run_example_and_verify_pdf("example-with-files", "examples/with-files/output.pdf");
+}
+
+#[test]
 fn test_font_guide_generates_pdf() {
     run_example_and_verify_pdf("example-font-guide", "examples/font-guide/output.pdf");
 }

@@ -1,6 +1,6 @@
 #set text(font: "Source Serif 4")
-#show heading: set text(weight: "bold")
-#show heading.where(level: 2): set block(above: 2em)
+#show heading.where(level: 1): set text(size: 1.5em)
+#show heading.where(level: 2): set block(above: 1.5em)
 
 = File Embedding Example
 

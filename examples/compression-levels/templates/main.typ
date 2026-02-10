@@ -3,8 +3,9 @@
 #import "@preview/codly-languages:0.1.1": *
 
 #set text(font: "Source Serif 4")
-#show math.equation: set text(font: "STIX Two Math")
 #show heading.where(level: 1): set text(size: 1.5em)
+#show heading.where(level: 2): set block(above: 1.5em)
+#show math.equation: set text(font: "STIX Two Math")
 #show raw: set text(font: "JetBrains Mono")
 #show: codly-init.with()
 #codly(languages: codly-languages)
@@ -20,13 +21,7 @@
 #include("content/configuration.typ")
 
 == Running Benchmarks
-
-The next page shows benchmark results. To run them and generate this PDF on your own machine:
-
-```bash
-cargo test -p example-compression-levels --release --test benchmark -- --ignored --nocapture --test-threads=1
-cargo run -p example-compression-levels
-```
+#include("content/running.typ")
 
 #pagebreak()
 

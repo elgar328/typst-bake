@@ -1,7 +1,7 @@
 #import sys: inputs
 
 #set text(font: "Source Serif 4")
-#show heading: set text(weight: "bold")
+#show heading.where(level: 1): set text(size: 1.5em)
 
 = Dynamic Input Example
 

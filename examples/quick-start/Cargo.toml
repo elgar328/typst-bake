@@ -6,7 +6,7 @@ build = "build.rs"
 
 [package.metadata.typst-bake]
 template-dir = "./templates"
-fonts-dir = "./fonts"
+fonts-dir = "../fonts"
 
 [dependencies]
 typst-bake.workspace = true

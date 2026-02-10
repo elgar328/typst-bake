@@ -1,6 +1,6 @@
-#set text(font: "Inter 18pt")
-#show heading: set text(font: "Source Serif 4", weight: "bold")
-#show heading.where(level: 2): set block(above: 2em)
+#set text(font: "Source Serif 4")
+#show heading.where(level: 1): set text(size: 1.5em)
+#show heading.where(level: 2): set block(above: 1.5em)
 #show math.equation: set text(font: "STIX Two Math")
 #show raw: set text(font: "JetBrains Mono")
 
@@ -10,7 +10,7 @@
 
 While all files in `template-dir` are embedded, only supported font formats (TTF, OTF, TTC) are embedded from `fonts-dir`. Other files are ignored.
 
-This document uses `Source Serif 4` for headings and `Inter` for body text.
+This document uses `Source Serif 4` for headings and body text.
 
 == Math Example
 
