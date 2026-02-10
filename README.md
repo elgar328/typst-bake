@@ -108,9 +108,9 @@ For a complete walkthrough, see the [Quick Start Guide (PDF)](https://elgar328.g
 
 | Format | Files |
 |--------|-------|
-| PDF | [output.pdf](https://elgar328.github.io/typst-bake/output-formats.pdf) (42KB) |
-| SVG | [output_1.svg](https://elgar328.github.io/typst-bake/output-formats_1.svg) (306KB), [output_2.svg](https://elgar328.github.io/typst-bake/output-formats_2.svg) (700KB) |
-| PNG | [output_1.png](https://elgar328.github.io/typst-bake/output-formats_1.png) (388KB), [output_2.png](https://elgar328.github.io/typst-bake/output-formats_2.png) (693KB) |
+| PDF | [output.pdf](https://elgar328.github.io/typst-bake/output-formats.pdf) (47KB) |
+| SVG | [output_1.svg](https://elgar328.github.io/typst-bake/output-formats_1.svg) (276KB), [output_2.svg](https://elgar328.github.io/typst-bake/output-formats_2.svg) (700KB) |
+| PNG | [output_1.png](https://elgar328.github.io/typst-bake/output-formats_1.png) (397KB), [output_2.png](https://elgar328.github.io/typst-bake/output-formats_2.png) (695KB) |
 
 ## Comparison with typst-as-lib
 
