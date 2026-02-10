@@ -16,6 +16,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Fix package download race condition using file locks (`fd-lock`) and atomic extraction
+  - Concurrent builds sharing a package cache could corrupt partially extracted directories
+  - Now acquires per-package file locks and extracts to a temp directory before atomic rename
 
 ### Changed
 
