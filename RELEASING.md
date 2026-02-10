@@ -53,8 +53,13 @@ cargo publish -p typst-bake
 ### 7. Create GitHub Release
 
 ```sh
-gh release create vX.Y.Z --title "vX.Y.Z" --notes-file <(sed -n '/^## \[X\.Y\.Z\]/,/^## \[/{ /^## \[X\.Y\.Z\]/d; /^## \[/d; p; }' CHANGELOG.md)
+gh release create vX.Y.Z --title "vX.Y.Z" --notes-file <(
+  sed -n '/^## \[X\.Y\.Z\]/,/^## \[/{ /^## \[X\.Y\.Z\]/d; /^## \[/d; p; }' CHANGELOG.md
+  echo "**Full Changelog**: https://github.com/elgar328/typst-bake/compare/vA.B.C...vX.Y.Z"
+)
 ```
+
+> Replace `vA.B.C` with the previous release tag.
 
 ### 8. Deploy example outputs to GitHub Pages
 
