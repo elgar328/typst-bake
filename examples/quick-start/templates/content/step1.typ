@@ -16,6 +16,6 @@ Add typst-bake to your dependencies and configure the template and font director
     ```
   ],
   [
-    #tip[You can also use `TYPST_TEMPLATE_DIR` and `TYPST_FONTS_DIR` environment variables. If both are set, environment variables take priority.]
+    #tip[You can also use `TYPST_BAKE_TEMPLATE_DIR` and `TYPST_BAKE_FONTS_DIR` environment variables. If both are set, environment variables take priority.]
   ]
 )

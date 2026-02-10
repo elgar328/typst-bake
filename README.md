@@ -15,7 +15,7 @@ Bake Typst templates, fonts, and packages into your Rust binary — use [Typst](
 - **File Embedding** - All files in `template-dir` are embedded and accessible from `.typ` files
 - **Font Embedding** - Fonts (TTF, OTF, TTC) in `fonts-dir` are automatically bundled into the binary
 - **Automatic Package Bundling** - Scans for package imports, downloads them at compile time, and recursively resolves all dependencies
-- **Package Caching** - Downloaded packages are cached in system cache directory for faster compilation. Use `TYPST_BAKE_REFRESH=1` to force re-download
+- **Package Caching** - Downloaded packages are cached in system cache directory for faster compilation. Use `TYPST_BAKE_PKG_NOCACHE=1` to force re-download
 - **Runtime Inputs** - Pass dynamic data from Rust structs to Typst via `IntoValue` / `IntoDict` derive macros
 - **Optimized Binary Size** - Resources are deduplicated and compressed with zstd, then decompressed lazily at runtime
 - **Compression Caching** - Compressed data is cached on disk to speed up incremental builds

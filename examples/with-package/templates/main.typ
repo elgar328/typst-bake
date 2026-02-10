@@ -11,7 +11,7 @@ Packages require no manual setup. Just use `#import` as you normally would in Ty
 
 The `cetz` and `lilaq` packages were automatically detected from the import statements and downloaded at compile time. Their internal dependencies (such as `oxifmt`, `zero`, `tiptoe`, `elembic`) are also automatically resolved and embedded. No manual package installation is required.
 
-Downloaded packages are cached in the system cache directory to speed up future compilations. To force a fresh download, run with `TYPST_BAKE_REFRESH=1 cargo build`.
+Downloaded packages are cached in the system cache directory to speed up future compilations. To force a fresh download, run with `TYPST_BAKE_PKG_NOCACHE=1 cargo build`.
 
 == CetZ Drawing
 

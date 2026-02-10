@@ -76,37 +76,37 @@ fn get_config_dir(
 /// Get template directory path.
 ///
 /// Priority:
-/// 1. Environment variable TYPST_TEMPLATE_DIR
+/// 1. Environment variable TYPST_BAKE_TEMPLATE_DIR
 /// 2. Cargo.toml [package.metadata.typst-bake] template-dir
 pub fn get_template_dir() -> Result<PathBuf, String> {
     get_config_dir(
-        "TYPST_TEMPLATE_DIR",
+        "TYPST_BAKE_TEMPLATE_DIR",
         "template-dir",
         "Template directory not configured.\n\n\
             Add to your Cargo.toml:\n\n\
             [package.metadata.typst-bake]\n\
             template-dir = \"./templates\"\n\n\
             Or set environment variable:\n\
-            export TYPST_TEMPLATE_DIR=./templates",
+            export TYPST_BAKE_TEMPLATE_DIR=./templates",
         "Template",
     )
 }
 
-/// Check if cache refresh is needed.
+/// Check if package cache should be bypassed.
 pub fn should_refresh_cache() -> bool {
-    env::var("TYPST_BAKE_REFRESH").is_ok()
+    env::var("TYPST_BAKE_PKG_NOCACHE").is_ok()
 }
 
 /// Get fonts directory path.
 ///
 /// Priority:
-/// 1. Environment variable TYPST_FONTS_DIR
+/// 1. Environment variable TYPST_BAKE_FONTS_DIR
 /// 2. Cargo.toml [package.metadata.typst-bake] fonts-dir
 ///
 /// At least one font file (.ttf, .otf, .ttc) must exist.
 pub fn get_fonts_dir() -> Result<PathBuf, String> {
     let path = get_config_dir(
-        "TYPST_FONTS_DIR",
+        "TYPST_BAKE_FONTS_DIR",
         "fonts-dir",
         "Fonts directory not configured.\n\n\
             Add to your Cargo.toml:\n\n\
@@ -114,7 +114,7 @@ pub fn get_fonts_dir() -> Result<PathBuf, String> {
             template-dir = \"./templates\"\n\
             fonts-dir = \"./fonts\"\n\n\
             Or set environment variable:\n\
-            export TYPST_FONTS_DIR=./fonts",
+            export TYPST_BAKE_FONTS_DIR=./fonts",
         "Fonts",
     )?;
 
