@@ -24,3 +24,4 @@ walkdir.workspace = true
 dirs.workspace = true
 zstd.workspace = true
 blake3.workspace = true
+fd-lock.workspace = true

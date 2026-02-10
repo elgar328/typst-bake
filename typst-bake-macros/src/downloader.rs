@@ -78,7 +78,7 @@ pub fn download_packages(
         } else {
             eprintln!("  Downloading: {pkg}");
 
-            if let Err(e) = download_and_extract(&pkg.download_url(), &pkg_dir) {
+            if let Err(e) = download_and_extract(&pkg.download_url(), &pkg_dir, refresh) {
                 eprintln!("  ✗ Failed: {pkg}: {e}");
                 failed_packages.push(pkg.to_string());
                 continue;
@@ -104,29 +104,81 @@ pub fn download_packages(
 }
 
 /// Download and extract a tar.gz archive from a URL.
-fn download_and_extract(url: &str, dest: &Path) -> Result<(), Box<dyn std::error::Error>> {
+///
+/// Uses a per-package file lock to prevent race conditions when multiple
+/// processes (e.g. parallel cargo builds) try to download the same package.
+fn download_and_extract(
+    url: &str,
+    dest: &Path,
+    refresh: bool,
+) -> Result<(), Box<dyn std::error::Error>> {
+    // Ensure parent directory exists for the lock file
+    if let Some(parent) = dest.parent() {
+        fs::create_dir_all(parent)?;
+    }
+
+    // Acquire per-package exclusive lock (other processes block here)
+    let lock_path = dest.with_file_name(format!(
+        "{}.lock",
+        dest.file_name().unwrap().to_string_lossy()
+    ));
+    let mut lock = fd_lock::RwLock::new(fs::File::create(&lock_path)?);
+    let _guard = lock.write()?;
+
+    // After acquiring lock: check if another process already completed
+    if dest.exists() && !refresh {
+        return Ok(());
+    }
+
+    // Download
     let response = ureq::get(url).call()?;
     let (_, body) = response.into_parts();
     let mut bytes = Vec::new();
     body.into_reader().read_to_end(&mut bytes)?;
+
+    // Extract atomically
     extract_tar_gz(&bytes, dest)?;
     Ok(())
+    // _guard dropped here → lock released
 }
 
-/// Extract a tar.gz archive to the destination directory.
+/// Extract a tar.gz archive to the destination directory atomically.
+///
+/// Extracts into a PID-stamped temp directory first, then renames to the
+/// final destination. This ensures other processes never see a half-extracted
+/// package directory.
 fn extract_tar_gz(bytes: &[u8], dest: &Path) -> Result<(), Box<dyn std::error::Error>> {
     use binstall_tar::Archive;
     use flate2::read::GzDecoder;
 
-    // Remove existing directory if present
+    // PID-based unique temp directory (same parent = same filesystem → rename is atomic)
+    let temp = dest.with_file_name(format!(
+        "{}.tmp.{}",
+        dest.file_name().unwrap().to_string_lossy(),
+        std::process::id()
+    ));
+
+    // Clean up any leftover temp directory and create fresh
+    if temp.exists() {
+        fs::remove_dir_all(&temp)?;
+    }
+    fs::create_dir_all(&temp)?;
+
+    // Extract into temp directory (clean up on failure)
+    let gz = GzDecoder::new(bytes);
+    let mut archive = Archive::new(gz);
+    if let Err(e) = archive.unpack(&temp) {
+        let _ = fs::remove_dir_all(&temp);
+        return Err(e.into());
+    }
+
+    // Remove existing dest (refresh case)
     if dest.exists() {
         fs::remove_dir_all(dest)?;
     }
-    fs::create_dir_all(dest)?;
 
-    let gz = GzDecoder::new(bytes);
-    let mut archive = Archive::new(gz);
-    archive.unpack(dest)?;
+    // Atomic rename
+    fs::rename(&temp, dest)?;
 
     Ok(())
 }
