@@ -47,7 +47,7 @@ The table below shows the resources embedded to generate this document.
     columns: (auto, 1fr),
     column-gutter: 6pt,
     row-gutter: 0.65em,
-    [*Compressed:*], [#format-size(inputs.total_original) #sym.arrow.r #format-size(inputs.total_compressed) (#ratio(inputs.total_original, inputs.total_compressed) reduced, level #inputs.compression_level)],
+    [*Compressed:*], [#format-size(inputs.total_original) #sym.arrow.r #format-size(inputs.total_compressed) (#ratio(inputs.total_original, inputs.total_compressed) reduced)],
     ..if inputs.dedup_duplicate_count > 0 {
       ([*Deduplicated:*], [#inputs.dedup_unique_blobs unique, #inputs.dedup_duplicate_count removed (#sym.minus#format-size(inputs.dedup_saved_bytes))])
     } else { () },
