@@ -92,6 +92,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 For a complete walkthrough, see the [Quick Start Guide (PDF)](https://elgar328.github.io/typst-bake/quick-start.pdf). Also check out the PDF outputs from other examples below—each document explains its usage in detail.
 
+## How it Works
+
+<img src="https://elgar328.github.io/typst-bake/architecture.svg" alt="Architecture diagram">
+
 ## Examples
 
 | Example | Description | Command | Output |

@@ -18,6 +18,17 @@ output-formats_2.png=examples/output-formats/output_2.png
 tmpdir=$(mktemp -d)
 trap 'rm -rf "$tmpdir"' EXIT
 
+origin_url="$(git remote get-url origin)"
+
+# Clone existing gh-pages branch (preserves manually deployed files),
+# or create a new one if it doesn't exist yet.
+if ! git clone --branch gh-pages --single-branch --depth 1 "$origin_url" "$tmpdir" 2>/dev/null; then
+  rm -rf "$tmpdir"
+  tmpdir=$(mktemp -d)
+  git -C "$tmpdir" init -b gh-pages
+  git -C "$tmpdir" remote add origin "$origin_url"
+fi
+
 count=0
 for entry in $ASSETS; do
   name="${entry%%=*}"
@@ -32,10 +43,8 @@ done
 
 touch "$tmpdir/.nojekyll"
 
-git -C "$tmpdir" init -b gh-pages
 git -C "$tmpdir" add .
-git -C "$tmpdir" commit -m "deploy example outputs"
-git -C "$tmpdir" remote add origin "$(git remote get-url origin)"
+git -C "$tmpdir" commit -m "deploy example outputs" --allow-empty
 git -C "$tmpdir" push -f origin gh-pages
 
 echo "Deployed $count files to gh-pages"

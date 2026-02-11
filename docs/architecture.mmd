@@ -1,0 +1,63 @@
+---
+config:
+  layout: dagre
+  theme: redux
+  look: neo
+  flowchart:
+    subGraphTitleMargin:
+      top: 10
+      bottom: 15
+---
+flowchart LR
+    subgraph scan_download["Scan & Download"]
+        direction TB
+        P1["document!('main.typ')<br/>Proc macro invocation"]
+        P1 --> P2["Read Cargo.toml metadata<br/>template-dir"]
+        P2 --> P3["Scan .typ files for<br/>#import '@preview/name:version'"]
+        P3 --> P4{"Package in cache?"}
+        P4 -- Yes --> P5["Skip download"]
+        P4 -- No --> P6["Download package<br/>(file lock + atomic extraction)"]
+        P5 --> P7["Scan downloaded package:<br/>.typ files for #import +<br/>typst.toml for dependencies"]
+        P6 --> P7
+        P7 --> P8{"More packages<br/>to download?"}
+        P8 -- Yes --> P4
+        P8 -- No --> P9["All packages downloaded<br/>to system cache directory"]
+    end
+
+    subgraph compress_dedup["Compress & Deduplicate"]
+        direction TB
+        C1["Read from Cargo.toml:<br/>template-dir, fonts-dir, compression-level"]
+        C1 --> C2T["template-dir:<br/>read all files"]
+        C1 --> C2F["fonts-dir:<br/>read ttf, otf, ttc only"]
+        C2P["system cache:<br/>read files from each required package"]
+        C2T & C2F & C2P --> C3["For each file:<br/>compute BLAKE3 hash"]
+        C3 --> C4{"Hash exists<br/>in memory?"}
+        C4 -- Yes --> C5["Duplicate: reference<br/>the same blob"]
+        C4 -- No --> C6{"Compressed in<br/>previous build?"}
+        C6 -- Yes --> C7["Load compressed data<br/>from disk cache<br/>(target/typst-bake-cache/)"]
+        C6 -- No --> C8["Compress with zstd<br/>Save as {hash}_{level}.zst"]
+        C5 & C7 & C8 --> C9["Store blob in BTreeMap<br/>(reproducible ordering)"]
+    end
+
+    subgraph macro_expansion["Macro Expansion"]
+        direction TB
+        M1["Embed compressed blobs<br/>as static byte arrays in Rust code"]
+        M1 --> M2["Reconstruct templates, fonts, packages<br/>as directory trees referencing blobs"]
+        M2 --> M3["Create Document struct that holds<br/>all directories as read-only data"]
+        M3 --> M4["rustc compiles everything<br/>into a self-contained binary"]
+    end
+
+    subgraph runtime["Runtime"]
+        direction TB
+        R1["Call to_pdf() / to_svg() / to_png()"]
+        R1 --> R2["Decompress entry file<br/>and all fonts upfront"]
+        R2 --> R3["Create EmbeddedResolver<br/>remaining files stay compressed"]
+        R3 --> R4["Pass entry, fonts, resolver<br/>to Typst engine"]
+        R4 --> R5["Typst compiles document<br/>(resolver decompresses on demand)"]
+        R5 --> R6["Output PDF / SVG / PNG"]
+    end
+
+    scan_download --> compress_dedup --> macro_expansion -.-> runtime
+
+    classDef subgraphTitle font-size:16px,font-weight:bold;
+    class scan_download,compress_dedup,macro_expansion,runtime subgraphTitle
