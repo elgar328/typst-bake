@@ -94,7 +94,9 @@ For a complete walkthrough, see the [Quick Start Guide (PDF)](https://elgar328.g
 
 ## How it Works
 
-<img src="https://elgar328.github.io/typst-bake/architecture.png" alt="Architecture diagram">
+<a href="https://elgar328.github.io/typst-bake/architecture.pdf">
+  <img src="https://elgar328.github.io/typst-bake/architecture.png" alt="Architecture diagram">
+</a>
 
 ## Examples
 
