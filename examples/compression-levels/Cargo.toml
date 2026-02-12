@@ -14,4 +14,4 @@ typst-bake.workspace = true
 [dev-dependencies]
 zstd.workspace = true
 ureq.workspace = true
-zip = { version = "2", default-features = false, features = ["deflate"] }
+zip = { version = "7", default-features = false, features = ["deflate"] }
