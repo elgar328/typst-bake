@@ -1,5 +1,7 @@
 # typst-bake
 
+<img src="https://github.com/user-attachments/assets/dbb1d712-c319-47b5-9724-21f3cd82bfea" alt="Banner" width="100%">
+
 [![Crates.io](https://img.shields.io/crates/v/typst-bake.svg)](https://crates.io/crates/typst-bake)
 [![Documentation](https://docs.rs/typst-bake/badge.svg)](https://docs.rs/typst-bake)
 [![CI](https://github.com/elgar328/typst-bake/actions/workflows/ci.yml/badge.svg)](https://github.com/elgar328/typst-bake/actions/workflows/ci.yml)
