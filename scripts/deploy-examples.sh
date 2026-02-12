@@ -20,14 +20,11 @@ trap 'rm -rf "$tmpdir"' EXIT
 
 origin_url="$(git remote get-url origin)"
 
-# Clone existing gh-pages branch (preserves manually deployed files),
-# or create a new one if it doesn't exist yet.
-if ! git clone --branch gh-pages --single-branch --depth 1 "$origin_url" "$tmpdir" 2>/dev/null; then
-  rm -rf "$tmpdir"
-  tmpdir=$(mktemp -d)
-  git -C "$tmpdir" init -b gh-pages
-  git -C "$tmpdir" remote add origin "$origin_url"
-fi
+git -C "$tmpdir" init -b gh-pages
+git -C "$tmpdir" remote add origin "$origin_url"
+
+# Download architecture.pdf from issue #5
+curl -sL "https://github.com/user-attachments/files/25240517/architecture.pdf" -o "$tmpdir/architecture.pdf"
 
 count=0
 for entry in $ASSETS; do
