@@ -9,19 +9,20 @@ config:
       bottom: 15
 ---
 flowchart LR
-    subgraph scan_download["Scan & Download"]
+    subgraph scan_download["Scan & Resolve"]
         direction TB
         P1["document!('main.typ')<br/>Proc macro invocation"]
         P1 --> P2["Read Cargo.toml metadata<br/>template-dir"]
-        P2 --> P3["Scan .typ files for<br/>#import '@preview/name:version'"]
-        P3 --> P4{"Package in cache?"}
-        P4 -- Yes --> P5["Skip download"]
-        P4 -- No --> P6["Download package<br/>(file lock + atomic extraction)"]
-        P5 --> P7["Scan downloaded package:<br/>.typ files for #import +<br/>typst.toml for dependencies"]
-        P6 --> P7
-        P7 --> P8{"More packages<br/>to download?"}
+        P2 --> P3["Scan .typ files for<br/>#import '@namespace/name:version'"]
+        P3 --> P4{"In local<br/>data dir?"}
+        P4 -- Yes --> P5["Use local package"]
+        P4 -- No --> P4b{"In cache dir?"}
+        P4b -- Yes --> P5b["Use cached package"]
+        P4b -- No --> P6["Download from<br/>Typst Universe"]
+        P5 & P5b & P6 --> P7["Scan resolved package:<br/>.typ files for #import +<br/>typst.toml for dependencies"]
+        P7 --> P8{"More packages<br/>to resolve?"}
         P8 -- Yes --> P4
-        P8 -- No --> P9["All packages downloaded<br/>to system cache directory"]
+        P8 -- No --> P9["All packages resolved"]
     end
 
     subgraph compress_dedup["Compress & Deduplicate"]
@@ -29,7 +30,7 @@ flowchart LR
         C1["Read from Cargo.toml:<br/>template-dir, fonts-dir, compression-level"]
         C1 --> C2T["template-dir:<br/>read all files"]
         C1 --> C2F["fonts-dir:<br/>read ttf, otf, ttc only"]
-        C2P["system cache:<br/>read files from each required package"]
+        C2P["resolved packages:<br/>read files from each required package"]
         C2T & C2F & C2P --> C3["For each file:<br/>compute BLAKE3 hash"]
         C3 --> C4{"Hash exists<br/>in memory?"}
         C4 -- Yes --> C5["Duplicate: reference<br/>the same blob"]
