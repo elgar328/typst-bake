@@ -88,8 +88,9 @@ pub use stats::{
 /// - **Fonts**: Only supported font formats (TTF, OTF, TTC) are embedded. At least one font
 ///   is required; without fonts, Typst produces invisible text
 /// - **Packages**: Using packages requires no manual setup. Just use `#import "@preview/..."`
-///   as you normally would in Typst. The macro scans for package imports and
-///   recursively resolves all dependencies at compile time
+///   or `#import "@local/..."` as you normally would in Typst. The macro scans for package
+///   imports and recursively resolves all dependencies at compile time. Shares Typst's own
+///   package directories, so locally installed packages are picked up automatically
 pub use typst_bake_macros::document;
 
 /// Derive macro for converting a struct to a Typst value.

@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Align package directories with Typst: use `{cache}/typst/packages/` and `{data}/typst/packages/` instead of `{cache}/typst-bake/packages/`
+- Add local data directory lookup: locally installed packages (e.g. `@local`) are found automatically
+- Support `TYPST_PACKAGE_PATH` and `TYPST_PACKAGE_CACHE_PATH` environment variables (same as Typst)
+- Package resolution order: local data dir → cache dir → download from Typst Universe
+- Improve error messages for failed package resolution
+
 ## [0.1.5] - 2025-02-10
 
 ### Added

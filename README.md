@@ -11,18 +11,12 @@ Bake Typst templates, fonts, and packages into your Rust binary — use [Typst](
 
 ## Features
 
+- **Simple API** - Set `template-dir` and `fonts-dir` in `Cargo.toml`, then generate documents with just `document!("main.typ").to_pdf()`
 - **Multi-Format Output** - Generate PDF, SVG, or PNG from the same template
-- **Simple API** - Generate documents with just `document!("main.typ").to_pdf()`
-- **Minimal Setup** - Just specify `template-dir` and `fonts-dir` in `Cargo.toml` metadata
-- **File Embedding** - All files in `template-dir` are embedded and accessible from `.typ` files
-- **Font Embedding** - Fonts (TTF, OTF, TTC) in `fonts-dir` are automatically bundled into the binary
-- **Automatic Package Bundling** - Scans for package imports, downloads them at compile time, and recursively resolves all dependencies
-- **Package Caching** - Downloaded packages are cached in system cache directory for faster compilation. Use `TYPST_BAKE_PKG_NOCACHE=1` to force re-download
+- **Self-Contained Binary** - Templates, fonts, and packages are all embedded into the binary at compile time. No external files or internet connection needed at runtime
+- **Automatic Package Resolution** - Just use `#import "@preview/..."` as in Typst. Packages are resolved automatically using Typst's own cache and data directories
 - **Runtime Inputs** - Pass dynamic data from Rust structs to Typst via `IntoValue` / `IntoDict` derive macros
-- **Optimized Binary Size** - Resources are deduplicated and compressed with zstd, then decompressed lazily at runtime
-- **Compression Caching** - Compressed data is cached on disk to speed up incremental builds
-- **Custom Compression Level** - Zstd compression level (1–22, default 19) is configurable via `compression-level` in Cargo.toml metadata
-- **Smart Recompilation** - File changes trigger recompilation automatically, with optional build script for complete coverage
+- **Optimized Binary Size** - Embedded resources are deduplicated and compressed automatically
 
 ## Installation
 
