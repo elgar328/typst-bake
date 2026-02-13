@@ -18,10 +18,9 @@ pub struct PackageSpec {
 }
 
 impl PackageSpec {
-    /// Build the local cache directory path for this package.
-    pub fn cache_path(&self, cache_dir: &Path) -> PathBuf {
-        cache_dir
-            .join(&self.namespace)
+    /// Build the on-disk directory path for this package under a base directory.
+    pub fn package_dir(&self, base: &Path) -> PathBuf {
+        base.join(&self.namespace)
             .join(&self.name)
             .join(&self.version)
     }
@@ -33,6 +32,20 @@ impl PackageSpec {
             self.namespace, self.name, self.version
         )
     }
+
+    /// Whether this package can be downloaded from the Typst Universe registry.
+    ///
+    /// Currently only `@preview` packages are hosted on `packages.typst.org`.
+    pub fn is_downloadable(&self) -> bool {
+        self.namespace == "preview"
+    }
+}
+
+/// A resolved package: spec paired with its actual on-disk path.
+#[derive(Clone, Debug)]
+pub struct ResolvedPackage {
+    pub spec: PackageSpec,
+    pub path: PathBuf,
 }
 
 impl std::fmt::Display for PackageSpec {
@@ -151,5 +164,22 @@ mod tests {
         let packages = parse_packages_from_source(content).unwrap();
         assert_eq!(packages.len(), 1);
         assert_eq!(packages[0].name, "cetz");
+    }
+
+    #[test]
+    fn test_is_downloadable() {
+        let preview_pkg = PackageSpec {
+            namespace: "preview".to_owned(),
+            name: "cetz".to_owned(),
+            version: "0.3.2".to_owned(),
+        };
+        assert!(preview_pkg.is_downloadable());
+
+        let local_pkg = PackageSpec {
+            namespace: "local".to_owned(),
+            name: "mypkg".to_owned(),
+            version: "0.1.0".to_owned(),
+        };
+        assert!(!local_pkg.is_downloadable());
     }
 }

@@ -1,21 +1,44 @@
 //! Package download and cache management.
 
-use crate::scanner::{extract_packages, PackageSpec};
+use crate::scanner::{extract_packages, PackageSpec, ResolvedPackage};
 use std::collections::{HashSet, VecDeque};
 use std::fs;
 use std::io::Read;
 use std::path::{Path, PathBuf};
 
-/// Get the system cache directory for downloaded packages.
+/// Get the cache directory for downloaded packages.
+///
+/// Resolution order:
+/// 1. `TYPST_PACKAGE_CACHE_PATH` environment variable
+/// 2. `{system-cache-dir}/typst/packages/`
 pub fn get_cache_dir() -> Result<PathBuf, String> {
-    let cache_dir = dirs::cache_dir()
-        .ok_or("Could not determine system cache directory".to_owned())?
-        .join("typst-bake")
-        .join("packages");
+    let cache_dir = if let Ok(env_path) = std::env::var("TYPST_PACKAGE_CACHE_PATH") {
+        PathBuf::from(env_path)
+    } else {
+        dirs::cache_dir()
+            .ok_or("Could not determine system cache directory".to_owned())?
+            .join("typst")
+            .join("packages")
+    };
 
     fs::create_dir_all(&cache_dir).map_err(|e| format!("Failed to create cache directory: {e}"))?;
 
     Ok(cache_dir)
+}
+
+/// Get the data directory for locally installed packages.
+///
+/// Resolution order:
+/// 1. `TYPST_PACKAGE_PATH` environment variable
+/// 2. `{system-data-dir}/typst/packages/`
+///
+/// Returns `None` if neither is available. Does not create the directory.
+pub fn get_data_dir() -> Option<PathBuf> {
+    if let Ok(env_path) = std::env::var("TYPST_PACKAGE_PATH") {
+        Some(PathBuf::from(env_path))
+    } else {
+        dirs::data_dir().map(|d| d.join("typst").join("packages"))
+    }
 }
 
 /// Resolve dependencies from a downloaded package directory.
@@ -51,67 +74,111 @@ fn resolve_dependencies(pkg_dir: &Path) -> Vec<PackageSpec> {
     deps
 }
 
-/// Download packages and resolve dependencies.
-/// Returns the list of all resolved packages (direct + transitive).
-pub fn download_packages(
+/// Resolve packages using a multi-step lookup and download if needed.
+///
+/// For each package, resolution follows this priority:
+/// 1. Local data directory (e.g. `@local` packages)
+/// 2. Cache directory (previously downloaded)
+/// 3. Download from Typst Universe (only `@preview` packages)
+pub fn resolve_packages(
     packages: &[PackageSpec],
+    data_dir: Option<&Path>,
     cache_dir: &Path,
     refresh: bool,
-) -> Result<Vec<PackageSpec>, String> {
+) -> Result<Vec<ResolvedPackage>, String> {
     if packages.is_empty() {
         return Ok(Vec::new());
     }
 
-    let mut to_download: VecDeque<_> = packages.iter().cloned().collect();
-    let mut downloaded: HashSet<PackageSpec> = HashSet::new();
+    let mut queue: VecDeque<_> = packages.iter().cloned().collect();
+    let mut seen: HashSet<PackageSpec> = HashSet::new();
+    let mut resolved = Vec::new();
     let mut failed_packages = Vec::new();
 
-    while let Some(pkg) = to_download.pop_front() {
-        if !downloaded.insert(pkg.clone()) {
+    while let Some(pkg) = queue.pop_front() {
+        if !seen.insert(pkg.clone()) {
             continue;
         }
-        let pkg_dir = pkg.cache_path(cache_dir);
 
-        // Check cache (unless refresh requested)
-        if pkg_dir.exists() && !refresh {
+        // 1. Check local data directory
+        if let Some(data) = data_dir {
+            let local_path = pkg.package_dir(data);
+            if local_path.exists() {
+                eprintln!("  Local: {pkg}");
+                for dep in resolve_dependencies(&local_path) {
+                    queue.push_back(dep);
+                }
+                resolved.push(ResolvedPackage {
+                    spec: pkg,
+                    path: local_path,
+                });
+                continue;
+            }
+        }
+
+        // 2. Check cache directory
+        let cache_path = pkg.package_dir(cache_dir);
+        if cache_path.exists() && !refresh {
             eprintln!("  Cached: {pkg}");
-        } else {
-            eprintln!("  Downloading: {pkg}");
+            for dep in resolve_dependencies(&cache_path) {
+                queue.push_back(dep);
+            }
+            resolved.push(ResolvedPackage {
+                spec: pkg,
+                path: cache_path,
+            });
+            continue;
+        }
 
-            if let Err(e) = download_and_extract(&pkg.download_url(), &pkg_dir, refresh) {
+        // 3. Download from Universe (only for downloadable namespaces)
+        if pkg.is_downloadable() {
+            eprintln!("  Downloading: {pkg}");
+            if let Err(e) = download_and_extract(&pkg.download_url(), &cache_path) {
                 eprintln!("  ✗ Failed: {pkg}: {e}");
-                failed_packages.push(pkg.to_string());
+                failed_packages.push(format!("{pkg}: download failed: {e}"));
                 continue;
             }
             eprintln!("  ✓ {pkg}");
+            for dep in resolve_dependencies(&cache_path) {
+                queue.push_back(dep);
+            }
+            resolved.push(ResolvedPackage {
+                spec: pkg,
+                path: cache_path,
+            });
+            continue;
         }
 
-        for dep in resolve_dependencies(&pkg_dir) {
-            to_download.push_back(dep);
+        // 4. Not found anywhere
+        let mut searched = Vec::new();
+        if let Some(data) = data_dir {
+            searched.push(pkg.package_dir(data));
         }
+        searched.push(cache_path);
+        let paths: String = searched
+            .iter()
+            .map(|p| format!("      {}", p.display()))
+            .collect::<Vec<_>>()
+            .join("\n");
+        failed_packages.push(format!("{pkg}: not found, searched:\n{paths}"));
     }
 
     if !failed_packages.is_empty() {
         return Err(format!(
-            "Failed to download {} package(s):\n  - {}\n\n\
-            Please check your internet connection.",
+            "Failed to resolve {} package(s):\n  - {}",
             failed_packages.len(),
             failed_packages.join("\n  - ")
         ));
     }
 
-    Ok(downloaded.into_iter().collect())
+    Ok(resolved)
 }
 
 /// Download and extract a tar.gz archive from a URL.
 ///
 /// Uses a per-package file lock to prevent race conditions when multiple
 /// processes (e.g. parallel cargo builds) try to download the same package.
-fn download_and_extract(
-    url: &str,
-    dest: &Path,
-    refresh: bool,
-) -> Result<(), Box<dyn std::error::Error>> {
+fn download_and_extract(url: &str, dest: &Path) -> Result<(), Box<dyn std::error::Error>> {
     // Ensure parent directory exists for the lock file
     if let Some(parent) = dest.parent() {
         fs::create_dir_all(parent)?;
@@ -126,7 +193,7 @@ fn download_and_extract(
     let _guard = lock.write()?;
 
     // After acquiring lock: check if another process already completed
-    if dest.exists() && !refresh {
+    if dest.exists() {
         return Ok(());
     }
 
@@ -189,7 +256,15 @@ mod tests {
 
     #[test]
     fn test_get_cache_dir() {
-        let cache_dir = get_cache_dir();
-        assert!(cache_dir.is_ok());
+        let cache_dir = get_cache_dir().unwrap();
+        assert!(cache_dir.ends_with("typst/packages"));
+    }
+
+    #[test]
+    fn test_get_data_dir() {
+        let data_dir = get_data_dir();
+        if let Some(dir) = data_dir {
+            assert!(dir.ends_with("typst/packages"));
+        }
     }
 }

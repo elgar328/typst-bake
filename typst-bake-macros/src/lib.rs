@@ -11,7 +11,7 @@ mod dir_embed;
 mod downloader;
 mod scanner;
 
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
 use proc_macro::TokenStream;
@@ -21,7 +21,7 @@ use syn::{parse_macro_input, LitStr};
 use compression_cache::CompressionCache;
 use dir_embed::DirEmbedResult;
 
-use scanner::PackageSpec;
+use scanner::ResolvedPackage;
 
 /// Per-package metadata collected during embedding.
 #[derive(Debug)]
@@ -32,8 +32,8 @@ struct MacroPackageInfo {
     file_count: usize,
 }
 
-/// Resolved packages with the cache directory they were downloaded to.
-type ResolvedPackages = (Vec<PackageSpec>, PathBuf);
+/// Resolved packages: each entry pairs a package spec with its on-disk path.
+type ResolvedPackages = Vec<ResolvedPackage>;
 
 /// Collected results from embedding all packages.
 struct EmbeddedPackages {
@@ -66,7 +66,7 @@ fn resolve_config(
     Ok((template_dir, fonts_dir))
 }
 
-/// Scan template directory for package imports and download them.
+/// Scan template directory for package imports and resolve them.
 fn resolve_and_download_packages(
     entry: &LitStr,
     template_dir: &Path,
@@ -74,6 +74,7 @@ fn resolve_and_download_packages(
     eprintln!("typst-bake: Scanning for package imports...");
     let packages = scanner::extract_packages(template_dir);
 
+    let data_dir = downloader::get_data_dir();
     let cache_dir = downloader::get_cache_dir()
         .map_err(|e| syn::Error::new_spanned(entry, e).to_compile_error())?;
 
@@ -81,14 +82,14 @@ fn resolve_and_download_packages(
         eprintln!("typst-bake: Found {} package(s) to bundle", packages.len());
 
         let refresh = config::should_refresh_cache();
-        downloader::download_packages(&packages, &cache_dir, refresh)
+        downloader::resolve_packages(&packages, data_dir.as_deref(), &cache_dir, refresh)
             .map_err(|e| syn::Error::new_spanned(entry, e).to_compile_error())?
     } else {
         eprintln!("typst-bake: No packages found");
         Vec::new()
     };
 
-    Ok((resolved_packages, cache_dir))
+    Ok(resolved_packages)
 }
 
 /// Generate a `DirEntry::Dir` token wrapping children under a given name.
@@ -102,8 +103,7 @@ fn dir_entry_token(name: &str, children: &[proc_macro2::TokenStream]) -> proc_ma
 
 /// Embed all resolved packages, collecting stats and directory entry tokens.
 fn embed_packages(
-    resolved_packages: &[PackageSpec],
-    cache_dir: &Path,
+    resolved_packages: &[ResolvedPackage],
     cache: &mut CompressionCache,
 ) -> EmbeddedPackages {
     let mut package_infos = Vec::new();
@@ -111,15 +111,15 @@ fn embed_packages(
     let mut pkg_total_compressed = 0;
     let mut namespace_entries = Vec::new();
 
-    // Group resolved packages into a sorted tree: namespace -> name -> versions
-    let mut pkg_tree: BTreeMap<&str, BTreeMap<&str, BTreeSet<&str>>> = BTreeMap::new();
-    for pkg in resolved_packages {
+    // Group resolved packages into a sorted tree: namespace -> name -> (version -> path)
+    let mut pkg_tree: BTreeMap<&str, BTreeMap<&str, BTreeMap<&str, &Path>>> = BTreeMap::new();
+    for rp in resolved_packages {
         pkg_tree
-            .entry(pkg.namespace.as_str())
+            .entry(rp.spec.namespace.as_str())
             .or_default()
-            .entry(pkg.name.as_str())
+            .entry(rp.spec.name.as_str())
             .or_default()
-            .insert(pkg.version.as_str());
+            .insert(rp.spec.version.as_str(), &rp.path);
     }
 
     for (namespace, names) in &pkg_tree {
@@ -128,10 +128,8 @@ fn embed_packages(
         for (name, versions) in names {
             let mut version_entries = Vec::new();
 
-            for version in versions {
-                let ver_path = cache_dir.join(namespace).join(name).join(version);
-
-                let pkg_result = dir_embed::embed_dir(&ver_path, cache);
+            for (version, ver_path) in versions {
+                let pkg_result = dir_embed::embed_dir(ver_path, cache);
                 let pkg_name = format!("@{namespace}/{name}:{version}");
 
                 package_infos.push(MacroPackageInfo {
@@ -266,8 +264,7 @@ pub fn document(input: TokenStream) -> TokenStream {
         Err(e) => return e.into(),
     };
 
-    let (resolved_packages, cache_dir) = match resolve_and_download_packages(&entry, &template_dir)
-    {
+    let resolved_packages = match resolve_and_download_packages(&entry, &template_dir) {
         Ok(v) => v,
         Err(e) => return e.into(),
     };
@@ -281,7 +278,7 @@ pub fn document(input: TokenStream) -> TokenStream {
     let templates_result = dir_embed::embed_dir(&template_dir, &mut cache);
     let fonts_result = dir_embed::embed_fonts_dir(&fonts_dir, &mut cache);
 
-    let embedded_packages = embed_packages(&resolved_packages, &cache_dir, &mut cache);
+    let embedded_packages = embed_packages(&resolved_packages, &mut cache);
 
     generate_output(
         &entry_value,
