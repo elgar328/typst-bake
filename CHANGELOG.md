@@ -7,13 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.6] - 2025-02-14
+
+### Added
+
+- Local data directory lookup: locally installed packages (e.g. `@local`) are found automatically
+- `TYPST_PACKAGE_PATH` and `TYPST_PACKAGE_CACHE_PATH` environment variable support (same as Typst)
+
 ### Changed
 
 - Align package directories with Typst: use `{cache}/typst/packages/` and `{data}/typst/packages/` instead of `{cache}/typst-bake/packages/`
-- Add local data directory lookup: locally installed packages (e.g. `@local`) are found automatically
-- Support `TYPST_PACKAGE_PATH` and `TYPST_PACKAGE_CACHE_PATH` environment variables (same as Typst)
 - Package resolution order: local data dir → cache dir → download from Typst Universe
 - Improve error messages for failed package resolution
+- Update dependencies: `zip` 7, `toml` 1.0
 
 ## [0.1.5] - 2025-02-10
 
@@ -115,6 +121,7 @@ Initial release of typst-bake - a library to bake Typst templates, fonts, and pa
 - **Optimized Binary Size** - Resources compressed with zstd, decompressed lazily at runtime
 - **Smart Recompilation** - File changes detected automatically by Cargo
 
+[0.1.6]: https://github.com/elgar328/typst-bake/compare/v0.1.5...v0.1.6
 [0.1.5]: https://github.com/elgar328/typst-bake/compare/v0.1.4...v0.1.5
 [0.1.4]: https://github.com/elgar328/typst-bake/compare/v0.1.3...v0.1.4
 [0.1.3]: https://github.com/elgar328/typst-bake/compare/v0.1.2...v0.1.3
