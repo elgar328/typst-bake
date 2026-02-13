@@ -3,15 +3,16 @@
 
 #set text(font: "Source Serif 4")
 #show heading.where(level: 1): set text(size: 1.5em)
+#show heading.where(level: 2): set block(above: 1.5em)
 #show math.equation: set text(font: "STIX Two Math")
 
-= Package Bundling Example
+= Packages Just Work
 
 Packages require no manual setup. Just use `#import` as you normally would in Typst, and `typst-bake` handles the rest automatically.
 
-The `cetz` and `lilaq` packages were automatically detected from the import statements and downloaded at compile time. Their internal dependencies (such as `oxifmt`, `zero`, `tiptoe`, `elembic`) are also automatically resolved and embedded. No manual package installation is required.
+The `cetz` and `lilaq` packages were automatically detected from the import statements and resolved at compile time. Their internal dependencies (such as `oxifmt`, `zero`, `tiptoe`, `elembic`) are also recursively resolved and embedded.
 
-Downloaded packages are cached in the system cache directory to speed up future compilations. To force a fresh download, run with `TYPST_BAKE_PKG_NOCACHE=1 cargo build`.
+Downloaded packages are cached in Typst's cache directory and reused across builds. To force a fresh download, run with `TYPST_BAKE_PKG_NOCACHE=1 cargo build`.
 
 #grid(
   columns: (1fr, auto),
@@ -106,3 +107,37 @@ Downloaded packages are cached in the system cache directory to speed up future 
     #text(size: 0.8em)[Butterfly Curve — Temple H. Fay (1989)]
   ])
 ]
+
+#pagebreak()
+
+= How Package Resolution Works
+
+`typst-bake` shares the same package directories as the Typst CLI. This means packages you've already downloaded with Typst are reused automatically — no duplicate downloads.
+
+== Resolution Order
+
+For each `#import` statement, packages are looked up in the following order:
+
++ *Local data directory* — Locally installed packages (e.g. `@local/mypkg:1.0.0`) are found here. This is the same directory where `typst` CLI looks for local packages.
+  - `TYPST_PACKAGE_PATH` env var, or
+  - `{data-dir}/typst/packages/` (platform default)
++ *Cache directory* — Previously downloaded packages from Typst Universe are cached here, shared with the Typst CLI.
+  - `TYPST_PACKAGE_CACHE_PATH` env var, or
+  - `{cache-dir}/typst/packages/` (platform default)
++ *Download from Typst Universe* — If not found locally, `@preview` packages are downloaded automatically.
+
+== Platform Default Directories
+
+#table(
+  columns: (auto, 1fr, 1fr),
+  table.header[*Platform*][*Data directory*][*Cache directory*],
+  [Linux], [`~/.local/share/typst/packages/`], [`~/.cache/typst/packages/`],
+  [macOS], [`~/Library/Application Support/typst/packages/`], [`~/Library/Caches/typst/packages/`],
+  [Windows], [`%APPDATA%\typst\packages\`], [`%LOCALAPPDATA%\typst\packages\`],
+)
+
+== Environment Variables
+
+- `TYPST_PACKAGE_PATH` — Override the data directory for local packages
+- `TYPST_PACKAGE_CACHE_PATH` — Override the cache directory for downloaded packages
+- `TYPST_BAKE_PKG_NOCACHE=1` — Force re-download of all packages (ignore cache)
