@@ -44,7 +44,7 @@ thiserror = "2"
 # Utilities
 include_dir = "0.7"
 ureq = "3.1"
-zip = { version = "7", default-features = false, features = ["deflate"] }
+zip = { version = "8", default-features = false, features = ["deflate"] }
 binstall-tar = "0.4"
 toml = "1.0"
 walkdir = "2"
