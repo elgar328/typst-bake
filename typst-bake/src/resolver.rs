@@ -40,11 +40,11 @@ impl EmbeddedResolver {
                 pkg.namespace,
                 pkg.name,
                 pkg.version,
-                id.vpath().as_rootless_path().display()
+                normalize_path(id.vpath().as_rootless_path())
             )
         } else {
             // Template file: just vpath
-            id.vpath().as_rootless_path().display().to_string()
+            normalize_path(id.vpath().as_rootless_path())
         }
     }
 
