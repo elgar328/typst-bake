@@ -4,7 +4,7 @@ use crate::error::{Error, Result};
 use crate::resolver::EmbeddedResolver;
 use crate::stats::EmbedStats;
 use crate::util::decompress;
-use include_dir::Dir;
+use include_dir::{Dir, File};
 use std::sync::{Mutex, MutexGuard};
 use typst::foundations::Dict;
 use typst::layout::PagedDocument;
@@ -112,10 +112,8 @@ impl Document {
         }
 
         // Read main template content (compressed)
-        let main_file = self
-            .templates
-            .get_file(self.entry)
-            .ok_or(Error::EntryNotFound(self.entry))?;
+        let main_file =
+            resolve_entry(self.templates, self.entry).ok_or(Error::EntryNotFound(self.entry))?;
 
         let main_bytes = decompress(main_file.contents())?;
         let main_content = std::str::from_utf8(&main_bytes).map_err(|_| Error::InvalidUtf8)?;
@@ -132,7 +130,7 @@ impl Document {
         let font_refs: Vec<&[u8]> = font_data.iter().map(Vec::as_slice).collect();
 
         let engine = TypstEngine::builder()
-            .main_file(main_content)
+            .main_file((self.entry, main_content))
             .add_file_resolver(resolver)
             .fonts(font_refs)
             .build();
@@ -233,3 +231,38 @@ impl Document {
         })
     }
 }
+
+fn resolve_entry<'a>(templates: &'a Dir<'a>, entry: &str) -> Option<&'a File<'a>> {
+    let normalized = entry.trim_start_matches("./").replace('\\', "/");
+    let segments: Vec<&str> = normalized.split('/').filter(|s| !s.is_empty()).collect();
+    let (file_name, dirs) = segments.split_last()?;
+
+    let mut current = templates;
+    for dir in dirs {
+        let mut next = None;
+        for entry in current.entries() {
+            let Some(dir_entry) = entry.as_dir() else {
+                continue;
+            };
+            let name = dir_entry.path().file_name()?.to_str()?;
+            if name == *dir {
+                next = Some(dir_entry);
+                break;
+            }
+        }
+        current = next?;
+    }
+
+    for entry in current.entries() {
+        let Some(file_entry) = entry.as_file() else {
+            continue;
+        };
+        let name = file_entry.path().file_name()?.to_str()?;
+        if name == *file_name {
+            return Some(file_entry);
+        }
+    }
+
+    None
+}
+
