@@ -16,6 +16,7 @@ Bake Typst templates, fonts, and packages into your Rust binary — use [Typst](
 - **Self-Contained Binary** - Templates, fonts, and packages are all embedded into the binary at compile time. No external files or internet connection needed at runtime
 - **Automatic Package Resolution** - Just use `#import "@preview/..."` as in Typst. Packages are resolved automatically using Typst's own cache and data directories
 - **Runtime Inputs** - Pass dynamic data from Rust structs to Typst via `IntoValue` / `IntoDict` derive macros
+- **Runtime Files** - Inject files at runtime with `add_file()` for dynamically generated content or downloaded resources
 - **Optimized Binary Size** - Embedded resources are deduplicated and compressed automatically
 
 ## Installation
