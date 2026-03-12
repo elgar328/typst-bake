@@ -102,6 +102,7 @@ For a complete walkthrough, see the [Quick Start Guide (PDF)](https://elgar328.g
 | font-guide | Guide to font setup and usage | `cargo run -p example-font-guide` | [PDF](https://elgar328.github.io/typst-bake/font-guide.pdf) |
 | with-inputs | Pass dynamic data from Rust to Typst | `cargo run -p example-with-inputs` | [PDF](https://elgar328.github.io/typst-bake/with-inputs.pdf) |
 | with-files | Embed images and various data files | `cargo run -p example-with-files` | [PDF](https://elgar328.github.io/typst-bake/with-files.pdf) |
+| with-runtime-files | Runtime file injection with add_file() | `cargo run -p example-with-runtime-files` | [PDF](https://elgar328.github.io/typst-bake/with-runtime-files.pdf) |
 | with-package | Automatic package bundling | `cargo run -p example-with-package` | [PDF](https://elgar328.github.io/typst-bake/with-package.pdf) |
 | compression-levels | Custom compression level with zstd benchmark | `cargo run -p example-compression-levels` | [PDF](https://elgar328.github.io/typst-bake/compression-levels.pdf) |
 | output-formats | Multi-format output with rendering test patterns | `cargo run -p example-output-formats` | See below |
