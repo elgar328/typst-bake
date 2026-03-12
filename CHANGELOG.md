@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.8] - 2026-03-13
+
+### Fixed
+
+- Support nested entry paths in `document!` macro (e.g., `document!("dir/main.typ")`)
+- File paths in `.typ` files now resolve relative to the referring `.typ` file, enabling correct `#include`, `#import`, `image()`, `read()`, etc. across nested directories
+
+### Added
+
+- `test-nested-entry` example to verify relative path resolution from various directory depths
+
 ## [0.1.7] - 2026-03-03
 
 ### Fixed
@@ -131,6 +142,7 @@ Initial release of typst-bake - a library to bake Typst templates, fonts, and pa
 - **Optimized Binary Size** - Resources compressed with zstd, decompressed lazily at runtime
 - **Smart Recompilation** - File changes detected automatically by Cargo
 
+[0.1.8]: https://github.com/elgar328/typst-bake/compare/v0.1.7...v0.1.8
 [0.1.7]: https://github.com/elgar328/typst-bake/compare/v0.1.6...v0.1.7
 [0.1.6]: https://github.com/elgar328/typst-bake/compare/v0.1.5...v0.1.6
 [0.1.5]: https://github.com/elgar328/typst-bake/compare/v0.1.4...v0.1.5
