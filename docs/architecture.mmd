@@ -50,7 +50,8 @@ flowchart LR
 
     subgraph runtime["Runtime"]
         direction TB
-        R1["Call to_pdf() / to_svg() / to_png()"]
+        R0["(Optional) add_file()<br/>Inject runtime files"]
+        R0 --> R1["Call to_pdf() / to_svg() / to_png()"]
         R1 --> R2["Decompress entry file<br/>and all fonts upfront"]
         R2 --> R3["Create EmbeddedResolver<br/>remaining files stay compressed"]
         R3 --> R4["Pass entry, fonts, resolver<br/>to Typst engine"]

@@ -24,8 +24,9 @@ origin_url="$(git remote get-url origin)"
 git -C "$tmpdir" init -b gh-pages
 git -C "$tmpdir" remote add origin "$origin_url"
 
-# Download architecture.pdf from issue #5
-curl -sL "https://github.com/user-attachments/files/25300958/architecture.pdf" -o "$tmpdir/architecture.pdf"
+# Download architecture diagram files from issue #5
+curl -sL "https://github.com/user-attachments/files/25948944/architecture.pdf" -o "$tmpdir/architecture.pdf"
+curl -sL "https://github.com/user-attachments/assets/c6791f95-7ea5-4379-84a0-e3261e1ea1c4" -o "$tmpdir/architecture.svg"
 
 count=0
 for entry in $ASSETS; do

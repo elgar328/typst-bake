@@ -92,7 +92,7 @@ For a complete walkthrough, see the [Quick Start Guide (PDF)](https://elgar328.g
 ## How it Works
 
 <a href="https://elgar328.github.io/typst-bake/architecture.pdf">
-  <img src="https://github.com/user-attachments/assets/17bd699b-e5d1-4fbc-b924-924fd28757ac" alt="Architecture diagram">
+  <img src="https://elgar328.github.io/typst-bake/architecture.svg" alt="Architecture diagram">
 </a>
 
 ## Examples
