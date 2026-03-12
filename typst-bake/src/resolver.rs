@@ -18,6 +18,7 @@ pub use typst_as_lib::file_resolver::FileResolver;
 /// Typst's internal caching prevents redundant decompression.
 pub struct EmbeddedResolver {
     files: HashMap<String, &'static [u8]>,
+    runtime_files: HashMap<String, Vec<u8>>,
 }
 
 impl EmbeddedResolver {
@@ -28,7 +29,10 @@ impl EmbeddedResolver {
         collect_files(templates, "", &mut files);
         collect_files(packages, "", &mut files);
 
-        Self { files }
+        Self {
+            files,
+            runtime_files: HashMap::new(),
+        }
     }
 
     /// Get the file path string from a `FileId`.
@@ -48,18 +52,28 @@ impl EmbeddedResolver {
         }
     }
 
-    /// Look up compressed file bytes by `FileId`.
-    fn lookup(&self, id: FileId) -> Option<&'static [u8]> {
-        self.files.get(&self.get_path(id)).copied()
+    /// Insert a runtime file (uncompressed).
+    pub(crate) fn insert_runtime_file(&mut self, path: String, data: Vec<u8>) {
+        self.runtime_files.insert(path, data);
     }
 
     /// Look up and decompress a file by its FileId.
+    /// Runtime files take priority over embedded files.
     fn decompress_file(&self, id: FileId) -> FileResult<Vec<u8>> {
-        let compressed = self.lookup(id).ok_or_else(|| not_found(id))?;
+        let path = self.get_path(id);
+
+        // Runtime files are stored uncompressed — return directly.
+        if let Some(data) = self.runtime_files.get(&path) {
+            return Ok(data.clone());
+        }
+
+        let compressed = self
+            .files
+            .get(&path)
+            .copied()
+            .ok_or_else(|| not_found(id))?;
         decompress(compressed).map_err(|e| {
-            FileError::Other(Some(
-                format!("Decompression failed for {}: {e}", self.get_path(id)).into(),
-            ))
+            FileError::Other(Some(format!("Decompression failed for {path}: {e}").into()))
         })
     }
 }
@@ -80,6 +94,11 @@ impl FileResolver for EmbeddedResolver {
 /// Convert a Path to a forward-slash string.
 fn normalize_path(path: &std::path::Path) -> String {
     path.display().to_string().replace('\\', "/")
+}
+
+/// Normalize a string file path: strip leading `./` and convert `\` to `/`.
+pub(crate) fn normalize_file_path(path: &str) -> String {
+    path.trim_start_matches("./").replace('\\', "/")
 }
 
 /// Join a prefix and name with `/`, or return name alone if prefix is empty.

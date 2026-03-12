@@ -25,6 +25,10 @@ pub enum Error {
     #[error("PNG encoding failed: {0}")]
     PngEncoding(String),
 
+    /// Invalid file path provided for runtime file injection.
+    #[error("invalid file path: {0}")]
+    InvalidFilePath(String),
+
     /// Decompression of embedded content failed.
     #[error("decompression failed")]
     Decompression(#[from] std::io::Error),

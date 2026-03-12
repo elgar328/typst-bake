@@ -1,10 +1,11 @@
 //! Self-contained document for Typst template rendering.
 
 use crate::error::{Error, Result};
-use crate::resolver::EmbeddedResolver;
+use crate::resolver::{normalize_file_path, EmbeddedResolver};
 use crate::stats::EmbedStats;
 use crate::util::decompress;
 use include_dir::{Dir, File};
+use std::collections::HashMap;
 use std::sync::{Mutex, MutexGuard};
 use typst::foundations::Dict;
 use typst::layout::PagedDocument;
@@ -20,6 +21,7 @@ pub struct Document {
     fonts: &'static Dir<'static>,
     entry: &'static str,
     inputs: Mutex<Option<Dict>>,
+    runtime_files: Mutex<HashMap<String, Vec<u8>>>,
     stats: EmbedStats,
     compiled_cache: Mutex<Option<PagedDocument>>,
 }
@@ -41,6 +43,7 @@ impl Document {
             fonts,
             entry,
             inputs: Mutex::new(None),
+            runtime_files: Mutex::new(HashMap::new()),
             stats,
             compiled_cache: Mutex::new(None),
         }
@@ -48,6 +51,10 @@ impl Document {
 
     fn lock_inputs(&self) -> MutexGuard<'_, Option<Dict>> {
         self.inputs.lock().expect("lock poisoned")
+    }
+
+    fn lock_runtime_files(&self) -> MutexGuard<'_, HashMap<String, Vec<u8>>> {
+        self.runtime_files.lock().expect("lock poisoned")
     }
 
     fn lock_cache(&self) -> MutexGuard<'_, Option<PagedDocument>> {
@@ -100,6 +107,64 @@ impl Document {
         self
     }
 
+    /// Add or replace a runtime file at the given path.
+    ///
+    /// The file becomes available to Typst templates via `#image("path")`,
+    /// `#read("path")`, etc. Runtime files take priority over embedded files
+    /// with the same path.
+    ///
+    /// # Errors
+    /// Returns [`Error::InvalidFilePath`] if the path is empty, absolute, or
+    /// contains `..` segments.
+    ///
+    /// # Example
+    /// ```rust,ignore
+    /// let pdf = typst_bake::document!("main.typ")
+    ///     .add_file("images/chart.png", chart_bytes)?
+    ///     .to_pdf()?;
+    /// ```
+    pub fn add_file(self, path: impl Into<String>, data: impl Into<Vec<u8>>) -> Result<Self> {
+        let raw = path.into();
+        let normalized = normalize_file_path(&raw);
+
+        if normalized.is_empty() {
+            return Err(Error::InvalidFilePath("path is empty".into()));
+        }
+        if normalized.starts_with('/') {
+            return Err(Error::InvalidFilePath(format!(
+                "absolute path not allowed: {normalized}"
+            )));
+        }
+        if normalized.split('/').any(|s| s == "..") {
+            return Err(Error::InvalidFilePath(format!(
+                "path with '..' not allowed: {normalized}"
+            )));
+        }
+
+        self.lock_runtime_files().insert(normalized, data.into());
+        *self.lock_cache() = None;
+        Ok(self)
+    }
+
+    /// Check if a file exists at the given path.
+    ///
+    /// Checks both embedded (compile-time) and runtime files.
+    pub fn has_file(&self, path: impl AsRef<str>) -> bool {
+        let normalized = normalize_file_path(path.as_ref());
+
+        // Check runtime files first.
+        if self.lock_runtime_files().contains_key(&normalized) {
+            return true;
+        }
+
+        // Check embedded templates.
+        if find_entry(self.templates, &normalized).is_some() {
+            return true;
+        }
+
+        false
+    }
+
     /// Get compression statistics for embedded content.
     pub fn stats(&self) -> &EmbedStats {
         &self.stats
@@ -118,7 +183,10 @@ impl Document {
         let main_bytes = decompress(main_file.contents())?;
         let main_content = std::str::from_utf8(&main_bytes).map_err(|_| Error::InvalidUtf8)?;
 
-        let resolver = EmbeddedResolver::new(self.templates, self.packages);
+        let mut resolver = EmbeddedResolver::new(self.templates, self.packages);
+        for (path, data) in self.lock_runtime_files().iter() {
+            resolver.insert_runtime_file(path.clone(), data.clone());
+        }
 
         // Collect and decompress fonts from the embedded fonts directory
         let font_data: Vec<Vec<u8>> = self
