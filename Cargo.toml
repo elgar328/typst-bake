@@ -10,6 +10,7 @@ members = [
     "examples/output-formats",
     "examples/compression-levels",
     "examples/test-nested-entry",
+    "examples/with-runtime-files",
 ]
 resolver = "2"
 

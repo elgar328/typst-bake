@@ -82,6 +82,14 @@ fn test_nested_entry_generates_pdf() {
 }
 
 #[test]
+fn test_with_runtime_files_generates_pdf() {
+    run_example_and_verify_pdf(
+        "example-with-runtime-files",
+        "examples/with-runtime-files/output.pdf",
+    );
+}
+
+#[test]
 fn test_output_formats_generates_all() {
     let workspace = workspace_root();
     let example_dir = workspace.join("examples/output-formats");

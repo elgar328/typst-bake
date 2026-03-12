@@ -13,6 +13,7 @@ output-formats_1.svg=examples/output-formats/output_1.svg
 output-formats_2.svg=examples/output-formats/output_2.svg
 output-formats_1.png=examples/output-formats/output_1.png
 output-formats_2.png=examples/output-formats/output_2.png
+with-runtime-files.pdf=examples/with-runtime-files/output.pdf
 "
 
 tmpdir=$(mktemp -d)
