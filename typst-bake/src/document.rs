@@ -113,7 +113,7 @@ impl Document {
 
         // Read main template content (compressed)
         let main_file =
-            resolve_entry(self.templates, self.entry).ok_or(Error::EntryNotFound(self.entry))?;
+            find_entry(self.templates, self.entry).ok_or(Error::EntryNotFound(self.entry))?;
 
         let main_bytes = decompress(main_file.contents())?;
         let main_content = std::str::from_utf8(&main_bytes).map_err(|_| Error::InvalidUtf8)?;
@@ -232,37 +232,28 @@ impl Document {
     }
 }
 
-fn resolve_entry<'a>(templates: &'a Dir<'a>, entry: &str) -> Option<&'a File<'a>> {
-    let normalized = entry.trim_start_matches("./").replace('\\', "/");
-    let segments: Vec<&str> = normalized.split('/').filter(|s| !s.is_empty()).collect();
-    let (file_name, dirs) = segments.split_last()?;
+/// Find a file in a `Dir` tree by a potentially nested path (e.g. "dir/main.typ").
+fn find_entry<'a>(dir: &'a Dir<'a>, path: &str) -> Option<&'a File<'a>> {
+    let normalized = path.trim_start_matches("./").replace('\\', "/");
+    let (dir_path, file_name) = match normalized.rsplit_once('/') {
+        Some((d, f)) => (Some(d), f),
+        None => (None, normalized.as_str()),
+    };
 
-    let mut current = templates;
-    for dir in dirs {
-        let mut next = None;
-        for entry in current.entries() {
-            let Some(dir_entry) = entry.as_dir() else {
-                continue;
-            };
-            let name = dir_entry.path().file_name()?.to_str()?;
-            if name == *dir {
-                next = Some(dir_entry);
-                break;
+    let target_dir = match dir_path {
+        Some(dir_path) => {
+            let mut current = dir;
+            for segment in dir_path.split('/') {
+                current = current
+                    .dirs()
+                    .find(|d| d.path().file_name().and_then(|n| n.to_str()) == Some(segment))?;
             }
+            current
         }
-        current = next?;
-    }
+        None => dir,
+    };
 
-    for entry in current.entries() {
-        let Some(file_entry) = entry.as_file() else {
-            continue;
-        };
-        let name = file_entry.path().file_name()?.to_str()?;
-        if name == *file_name {
-            return Some(file_entry);
-        }
-    }
-
-    None
+    target_dir
+        .files()
+        .find(|f| f.path().file_name().and_then(|n| n.to_str()) == Some(file_name))
 }
-

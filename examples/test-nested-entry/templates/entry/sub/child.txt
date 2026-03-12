@@ -1,0 +1,1 @@
+I am child.txt (located at /entry/sub/child.txt)

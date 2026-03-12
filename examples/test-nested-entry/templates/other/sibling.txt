@@ -1,0 +1,1 @@
+I am sibling.txt (located at /other/sibling.txt)

@@ -9,6 +9,7 @@ members = [
     "examples/quick-start",
     "examples/output-formats",
     "examples/compression-levels",
+    "examples/test-nested-entry",
 ]
 resolver = "2"
 

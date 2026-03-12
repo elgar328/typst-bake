@@ -84,13 +84,14 @@ pub use stats::{
 ///
 /// # What Gets Embedded
 ///
-/// - **Templates**: All files in `template-dir` are embedded and accessible from `.typ` files
+/// - **Templates**: All files in `template-dir` are embedded and accessible from `.typ` files.
+///   Paths resolve relative to the referring `.typ` file.
 /// - **Fonts**: Only supported font formats (TTF, OTF, TTC) are embedded. At least one font
-///   is required; without fonts, Typst produces invisible text
+///   is required; without fonts, Typst produces invisible text.
 /// - **Packages**: Using packages requires no manual setup. Just use `#import "@preview/..."`
 ///   or `#import "@local/..."` as you normally would in Typst. The macro scans for package
 ///   imports and recursively resolves all dependencies at compile time. Shares Typst's own
-///   package directories, so locally installed packages are picked up automatically
+///   package directories, so locally installed packages are picked up automatically.
 pub use typst_bake_macros::document;
 
 /// Derive macro for converting a struct to a Typst value.
