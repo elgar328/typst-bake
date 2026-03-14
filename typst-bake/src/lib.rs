@@ -20,6 +20,7 @@
 //! - **Package Bundling** - Scans for package imports and recursively resolves all dependencies
 //! - **Optimized Binary Size** - Resources are compressed with zstd and decompressed lazily at runtime
 //! - **Runtime Inputs** - Pass dynamic data from Rust structs to Typst via [`IntoValue`] / [`IntoDict`] derive macros
+//! - **Page Selection** - Select specific pages for output via [`Document::select_pages`]
 //!
 //! ## Quick Start
 //!
@@ -53,7 +54,7 @@ mod stats;
 mod util;
 
 pub use build::rebuild_if_changed;
-pub use document::Document;
+pub use document::{Document, Pages};
 pub use error::{Error, Result};
 pub use stats::{
     CategoryStats, DedupStats, EmbedStats, HasCompressionRatio, PackageInfo, PackageStats,

@@ -5,7 +5,7 @@ use crate::resolver::{normalize_file_path, EmbeddedResolver};
 use crate::stats::EmbedStats;
 use crate::util::decompress;
 use include_dir::{Dir, File};
-use std::collections::HashMap;
+use std::collections::{BTreeSet, HashMap};
 use std::sync::{Mutex, MutexGuard};
 use typst::foundations::Dict;
 use typst::layout::PagedDocument;
@@ -165,6 +165,54 @@ impl Document {
         false
     }
 
+    /// Select specific pages for output, returning a [`Pages`] view.
+    ///
+    /// Pages are 0-indexed. Duplicates are removed and pages are always
+    /// output in document order regardless of input order.
+    ///
+    /// # Errors
+    /// Returns [`Error::InvalidPageSelection`] at render time if any index
+    /// is out of range or the selection is empty.
+    ///
+    /// # Example
+    /// ```rust,ignore
+    /// // Select specific pages
+    /// let pdf = typst_bake::document!("main.typ")
+    ///     .select_pages([0, 2, 4])
+    ///     .to_pdf()?;
+    ///
+    /// // Works with ranges too
+    /// let svgs = typst_bake::document!("main.typ")
+    ///     .select_pages(0..3)
+    ///     .to_svg()?;
+    ///
+    /// // Reuse with different selections
+    /// let doc = typst_bake::document!("main.typ");
+    /// let cover = doc.select_pages([0]).to_pdf()?;
+    /// let body = doc.select_pages(1..5).to_pdf()?;
+    /// ```
+    pub fn select_pages(&self, pages: impl IntoIterator<Item = usize>) -> Pages<'_> {
+        Pages {
+            doc: self,
+            indices: pages.into_iter().collect(),
+        }
+    }
+
+    /// Get the total number of pages in the compiled document.
+    ///
+    /// Compiles the document if not already compiled.
+    /// Returns the total page count regardless of `select_pages`.
+    ///
+    /// # Example
+    /// ```rust,ignore
+    /// let doc = typst_bake::document!("main.typ").with_inputs(data);
+    /// let count = doc.page_count()?;
+    /// let thumbnail = doc.select_pages([0]).to_png(72.0)?;
+    /// ```
+    pub fn page_count(&self) -> Result<usize> {
+        self.with_compiled(|compiled| Ok(compiled.pages.len()))
+    }
+
     /// Get compression statistics for embedded content.
     pub fn stats(&self) -> &EmbedStats {
         &self.stats
@@ -253,10 +301,7 @@ impl Document {
     #[cfg(feature = "pdf")]
     #[cfg_attr(docsrs, doc(cfg(feature = "pdf")))]
     pub fn to_pdf(&self) -> Result<Vec<u8>> {
-        self.with_compiled(|compiled| {
-            typst_pdf::pdf(compiled, &typst_pdf::PdfOptions::default())
-                .map_err(|e| Error::PdfGeneration(format!("{e:?}")))
-        })
+        self.render_pdf(None)
     }
 
     /// Compile the document and generate SVG for each page.
@@ -269,7 +314,7 @@ impl Document {
     #[cfg(feature = "svg")]
     #[cfg_attr(docsrs, doc(cfg(feature = "svg")))]
     pub fn to_svg(&self) -> Result<Vec<String>> {
-        self.with_compiled(|compiled| Ok(compiled.pages.iter().map(typst_svg::svg).collect()))
+        self.render_svg(None)
     }
 
     /// Compile the document and generate PNG for each page.
@@ -285,11 +330,60 @@ impl Document {
     #[cfg(feature = "png")]
     #[cfg_attr(docsrs, doc(cfg(feature = "png")))]
     pub fn to_png(&self, dpi: f32) -> Result<Vec<Vec<u8>>> {
+        self.render_png(None, dpi)
+    }
+
+    #[cfg(feature = "pdf")]
+    fn render_pdf(&self, selected: Option<&BTreeSet<usize>>) -> Result<Vec<u8>> {
+        self.with_compiled(|compiled| {
+            let indices = validate_page_selection(selected, compiled.pages.len())?;
+            let options = match indices {
+                Some(indices) => {
+                    use std::num::NonZeroUsize;
+                    use typst::layout::PageRanges;
+
+                    let ranges = indices
+                        .iter()
+                        .map(|&i| {
+                            let n = Some(NonZeroUsize::new(i + 1).unwrap());
+                            n..=n
+                        })
+                        .collect();
+                    typst_pdf::PdfOptions {
+                        page_ranges: Some(PageRanges::new(ranges)),
+                        ..Default::default()
+                    }
+                }
+                None => typst_pdf::PdfOptions::default(),
+            };
+            typst_pdf::pdf(compiled, &options).map_err(|e| Error::PdfGeneration(format!("{e:?}")))
+        })
+    }
+
+    #[cfg(feature = "svg")]
+    fn render_svg(&self, selected: Option<&BTreeSet<usize>>) -> Result<Vec<String>> {
+        self.with_compiled(|compiled| {
+            let indices = validate_page_selection(selected, compiled.pages.len())?;
+            match indices {
+                Some(indices) => Ok(indices
+                    .iter()
+                    .map(|&i| typst_svg::svg(&compiled.pages[i]))
+                    .collect()),
+                None => Ok(compiled.pages.iter().map(typst_svg::svg).collect()),
+            }
+        })
+    }
+
+    #[cfg(feature = "png")]
+    fn render_png(&self, selected: Option<&BTreeSet<usize>>, dpi: f32) -> Result<Vec<Vec<u8>>> {
         self.with_compiled(|compiled| {
             let pixel_per_pt = dpi / 72.0;
-            compiled
-                .pages
-                .iter()
+            let indices = validate_page_selection(selected, compiled.pages.len())?;
+            let pages: Box<dyn Iterator<Item = &_>> = match &indices {
+                Some(indices) => Box::new(indices.iter().map(|&i| &compiled.pages[i])),
+                None => Box::new(compiled.pages.iter()),
+            };
+            pages
                 .map(|page| {
                     typst_render::render(page, pixel_per_pt)
                         .encode_png()
@@ -297,6 +391,77 @@ impl Document {
                 })
                 .collect()
         })
+    }
+}
+
+/// A lightweight view into a [`Document`] with a page selection filter.
+///
+/// Created by [`Document::select_pages`]. Holds a reference to the
+/// document and an owned set of page indices.
+pub struct Pages<'a> {
+    doc: &'a Document,
+    indices: BTreeSet<usize>,
+}
+
+impl Pages<'_> {
+    /// Compile the document and generate PDF for the selected pages.
+    ///
+    /// # Errors
+    /// Returns an error if compilation, PDF generation, or page selection fails.
+    #[cfg(feature = "pdf")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "pdf")))]
+    pub fn to_pdf(&self) -> Result<Vec<u8>> {
+        self.doc.render_pdf(Some(&self.indices))
+    }
+
+    /// Compile the document and generate SVG for the selected pages.
+    ///
+    /// # Errors
+    /// Returns an error if compilation or page selection fails.
+    #[cfg(feature = "svg")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "svg")))]
+    pub fn to_svg(&self) -> Result<Vec<String>> {
+        self.doc.render_svg(Some(&self.indices))
+    }
+
+    /// Compile the document and generate PNG for the selected pages.
+    ///
+    /// # Arguments
+    /// * `dpi` - Resolution in dots per inch (e.g., 72 for 1:1, 144 for Retina, 300 for print)
+    ///
+    /// # Errors
+    /// Returns an error if compilation, PNG encoding, or page selection fails.
+    #[cfg(feature = "png")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "png")))]
+    pub fn to_png(&self, dpi: f32) -> Result<Vec<Vec<u8>>> {
+        self.doc.render_png(Some(&self.indices), dpi)
+    }
+}
+
+/// Validate page selection and return indices to render.
+/// Returns `None` if no selection (= all pages).
+fn validate_page_selection(
+    selected: Option<&BTreeSet<usize>>,
+    total_pages: usize,
+) -> Result<Option<Vec<usize>>> {
+    match selected {
+        None => Ok(None),
+        Some(pages) => {
+            if pages.is_empty() {
+                return Err(Error::InvalidPageSelection(
+                    "page selection is empty".into(),
+                ));
+            }
+            if let Some(&max) = pages.last() {
+                if max >= total_pages {
+                    return Err(Error::InvalidPageSelection(format!(
+                        "page index {max} out of range (valid: 0..={})",
+                        total_pages - 1
+                    )));
+                }
+            }
+            Ok(Some(pages.iter().copied().collect()))
+        }
     }
 }
 

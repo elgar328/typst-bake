@@ -29,6 +29,10 @@ pub enum Error {
     #[error("invalid file path: {0}")]
     InvalidFilePath(String),
 
+    /// Invalid page selection (empty or out of range).
+    #[error("invalid page selection: {0}")]
+    InvalidPageSelection(String),
+
     /// Decompression of embedded content failed.
     #[error("decompression failed")]
     Decompression(#[from] std::io::Error),
