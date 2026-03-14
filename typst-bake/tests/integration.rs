@@ -99,10 +99,12 @@ fn test_output_formats_generates_all() {
     let svg_paths = [
         example_dir.join("output_1.svg"),
         example_dir.join("output_2.svg"),
+        example_dir.join("output_3.svg"),
     ];
     let png_paths = [
         example_dir.join("output_1.png"),
         example_dir.join("output_2.png"),
+        example_dir.join("output_3.png"),
     ];
 
     // 1. Delete existing files

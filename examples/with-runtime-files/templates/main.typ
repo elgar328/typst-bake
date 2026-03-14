@@ -41,7 +41,7 @@ let pdf = typst_bake::document!("main.typ")
   [
     == Result
 
-    The PDF shown on the right was downloaded at runtime from the `with-package` example output hosted on GitHub Pages, then injected into this document using `add_file()`.
+    The PDF shown on the right was downloaded at runtime and injected into this document using `add_file()`.
   ],
   box(
     stroke: 0.5pt + luma(140),

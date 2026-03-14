@@ -11,8 +11,10 @@ compression-levels.pdf=examples/compression-levels/output.pdf
 output-formats.pdf=examples/output-formats/output.pdf
 output-formats_1.svg=examples/output-formats/output_1.svg
 output-formats_2.svg=examples/output-formats/output_2.svg
+output-formats_3.svg=examples/output-formats/output_3.svg
 output-formats_1.png=examples/output-formats/output_1.png
 output-formats_2.png=examples/output-formats/output_2.png
+output-formats_3.png=examples/output-formats/output_3.png
 with-runtime-files.pdf=examples/with-runtime-files/output.pdf
 "
 

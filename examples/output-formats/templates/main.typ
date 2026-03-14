@@ -1,8 +1,14 @@
+#import "@preview/codly:1.3.0": *
+#import "@preview/codly-languages:0.1.1": *
+
 #set page(margin: 2cm)
 #set text(font: "Source Serif 4", size: 11pt)
 #show heading.where(level: 1): set text(size: 1.5em)
 #show heading.where(level: 2): set block(above: 1.5em)
 #show raw: set text(font: "JetBrains Mono", size: 9pt)
+
+#show: codly-init.with()
+#codly(languages: codly-languages)
 
 = Output Formats
 
@@ -38,6 +44,33 @@ typst-bake = { version = "0.1", default-features = false, features = ["svg"] }
 *SVG* and *PNG* return a Vec with one item per page:
 - Save each page individually (e.g., `output_1.svg`, `output_1.png`, ...)
 
+== Page Selection
+
+Use `select_pages()` to output only specific pages (0-indexed):
+
+```rust
+// Select specific pages by array
+let pdf = doc.select_pages([0, 2, 4]).to_pdf()?;
+
+// Select a range of pages
+let svgs = doc.select_pages(0..3).to_svg()?;
+```
+
+Use `page_count()` to dynamically determine how many pages exist:
+
+```rust
+let count = doc.page_count()?;
+let last_page = doc.select_pages([count - 1]).to_png(144.0)?;
+```
+
+You can reuse the same document with different selections:
+
+```rust
+let doc = typst_bake::document!("main.typ");
+let cover = doc.select_pages([0]).to_pdf()?;
+let body = doc.select_pages(1..5).to_pdf()?;
+```
+
 == PNG Resolution
 
 PNG requires a DPI (dots per inch) setting:
@@ -55,7 +88,7 @@ let pngs = doc.to_png(300.0)?;
 
 == Note
 
-Page 2 includes test patterns to verify multi-page behavior and evaluate PDF/SVG/PNG rendering differences.
+The last page includes test patterns to evaluate PDF/SVG/PNG rendering differences.
 
 #pagebreak()
 
