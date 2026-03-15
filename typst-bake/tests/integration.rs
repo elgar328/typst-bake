@@ -154,3 +154,11 @@ fn test_output_formats_generates_all() {
         );
     }
 }
+
+#[test]
+fn test_page_selection() {
+    run_example_and_verify_pdf(
+        "test-page-selection",
+        "examples/test-page-selection/output.pdf",
+    );
+}

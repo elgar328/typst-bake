@@ -351,6 +351,9 @@ impl Document {
                         .collect();
                     typst_pdf::PdfOptions {
                         page_ranges: Some(PageRanges::new(ranges)),
+                        // Tagged PDF is incompatible with page ranges
+                        // (typst-pdf #7743), so disable it when selecting pages.
+                        tagged: false,
                         ..Default::default()
                     }
                 }

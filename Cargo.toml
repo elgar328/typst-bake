@@ -11,6 +11,7 @@ members = [
     "examples/compression-levels",
     "examples/test-nested-entry",
     "examples/with-runtime-files",
+    "examples/test-page-selection",
 ]
 resolver = "2"
 
