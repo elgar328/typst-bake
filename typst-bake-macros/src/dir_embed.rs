@@ -89,9 +89,9 @@ where
                     continue;
                 }
 
-                let Ok(file_bytes) = fs::read(&path) else {
-                    continue;
-                };
+                let file_bytes = fs::read(&path).unwrap_or_else(|e| {
+                    panic!("Failed to read file {}: {e}", path.display());
+                });
 
                 let original_len = file_bytes.len();
                 let blob_info = self.cache.compress(&file_bytes);

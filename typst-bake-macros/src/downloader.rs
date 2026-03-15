@@ -133,7 +133,7 @@ pub fn resolve_packages(
         // 3. Download from Universe (only for downloadable namespaces)
         if pkg.is_downloadable() {
             eprintln!("  Downloading: {pkg}");
-            if let Err(e) = download_and_extract(&pkg.download_url(), &cache_path) {
+            if let Err(e) = download_and_extract(&pkg.download_url(), &cache_path, refresh) {
                 eprintln!("  ✗ Failed: {pkg}: {e}");
                 failed_packages.push(format!("{pkg}: download failed: {e}"));
                 continue;
@@ -178,7 +178,11 @@ pub fn resolve_packages(
 ///
 /// Uses a per-package file lock to prevent race conditions when multiple
 /// processes (e.g. parallel cargo builds) try to download the same package.
-fn download_and_extract(url: &str, dest: &Path) -> Result<(), Box<dyn std::error::Error>> {
+fn download_and_extract(
+    url: &str,
+    dest: &Path,
+    refresh: bool,
+) -> Result<(), Box<dyn std::error::Error>> {
     // Ensure parent directory exists for the lock file
     if let Some(parent) = dest.parent() {
         fs::create_dir_all(parent)?;
@@ -193,7 +197,7 @@ fn download_and_extract(url: &str, dest: &Path) -> Result<(), Box<dyn std::error
     let _guard = lock.write()?;
 
     // After acquiring lock: check if another process already completed
-    if dest.exists() {
+    if dest.exists() && !refresh {
         return Ok(());
     }
 

@@ -447,6 +447,9 @@ fn validate_page_selection(
     selected: Option<&BTreeSet<usize>>,
     total_pages: usize,
 ) -> Result<Option<Vec<usize>>> {
+    if total_pages == 0 {
+        return Err(Error::InvalidPageSelection("document has no pages".into()));
+    }
     match selected {
         None => Ok(None),
         Some(pages) => {

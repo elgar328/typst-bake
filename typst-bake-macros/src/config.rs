@@ -111,7 +111,6 @@ pub fn get_fonts_dir() -> Result<PathBuf, String> {
         "Fonts directory not configured.\n\n\
             Add to your Cargo.toml:\n\n\
             [package.metadata.typst-bake]\n\
-            template-dir = \"./templates\"\n\
             fonts-dir = \"./fonts\"\n\n\
             Or set environment variable:\n\
             export TYPST_BAKE_FONTS_DIR=./fonts",
@@ -119,10 +118,10 @@ pub fn get_fonts_dir() -> Result<PathBuf, String> {
     )?;
 
     // Check for at least one font file
-    let has_fonts = fs::read_dir(&path)
-        .map_err(|e| format!("Failed to read fonts directory: {e}"))?
+    let has_fonts = walkdir::WalkDir::new(&path)
+        .into_iter()
         .filter_map(Result::ok)
-        .any(|entry| is_font_file(&entry.path()));
+        .any(|entry| is_font_file(entry.path()));
 
     if !has_fonts {
         return Err(format!(
