@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.9] - 2026-03-16
+
+### Added
+
+- Runtime file injection API: `add_file()` and `has_file()` methods for adding files at runtime
+- Page selection API: `select_pages()` and `page_count()` methods for selective page output
+- `with-runtime-files` example
+- `test-page-selection` example
+
+### Fixed
+
+- Recursive font file detection in fonts directory (was only checking top level)
+- Panic with error message on file read failure instead of silently skipping
+- `TYPST_BAKE_PKG_NOCACHE` now actually triggers re-download (was silently skipped)
+- Guard against underflow in page selection validation for zero-page documents
+- Remove incorrect `template-dir` hint from fonts-dir error message
+
 ## [0.1.8] - 2026-03-13
 
 ### Fixed
@@ -142,6 +159,7 @@ Initial release of typst-bake - a library to bake Typst templates, fonts, and pa
 - **Optimized Binary Size** - Resources compressed with zstd, decompressed lazily at runtime
 - **Smart Recompilation** - File changes detected automatically by Cargo
 
+[0.1.9]: https://github.com/elgar328/typst-bake/compare/v0.1.8...v0.1.9
 [0.1.8]: https://github.com/elgar328/typst-bake/compare/v0.1.7...v0.1.8
 [0.1.7]: https://github.com/elgar328/typst-bake/compare/v0.1.6...v0.1.7
 [0.1.6]: https://github.com/elgar328/typst-bake/compare/v0.1.5...v0.1.6
