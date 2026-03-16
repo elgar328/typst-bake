@@ -12,38 +12,42 @@
 //! - **`png`** - Enable PNG rasterization via [`Document::to_png`]
 //! - **`full`** - Enable all output formats
 //!
+//! PDF is enabled by default. To use only SVG: `default-features = false, features = ["svg"]`.
+//!
 //! ## Features
 //!
-//! - **Multiple Output Formats** - Generate PDF, SVG, or PNG from the same template
-//! - **File Embedding** - All files in `template-dir` are embedded and accessible from `.typ` files
-//! - **Font Embedding** - Fonts (TTF, OTF, TTC) in `fonts-dir` are automatically bundled
-//! - **Package Bundling** - Scans for package imports and recursively resolves all dependencies
-//! - **Optimized Binary Size** - Resources are compressed with zstd and decompressed lazily at runtime
+//! - **Simple API** - Set `template-dir` and `fonts-dir` in `Cargo.toml`, then generate documents with just `document!("main.typ").to_pdf()`
+//! - **Multi-Format Output** - Generate PDF, SVG, or PNG with optional [page selection](`Document::select_pages`)
+//! - **Self-Contained Binary** - Templates, fonts, and packages are all embedded into the binary at compile time. No external files or internet connection needed at runtime
+//! - **Automatic Package Resolution** - Just use `#import "@preview/..."` as in Typst. Packages are resolved automatically using Typst's own cache and data directories
 //! - **Runtime Inputs** - Pass dynamic data from Rust structs to Typst via [`IntoValue`] / [`IntoDict`] derive macros
-//! - **Page Selection** - Select specific pages for output via [`Document::select_pages`]
+//! - **Runtime Files** - Inject files at runtime with [`Document::add_file`] for dynamically generated content or downloaded resources
+//! - **Optimized Binary Size** - Embedded resources are deduplicated and compressed automatically
 //!
 //! ## Quick Start
 //!
 //! Add to your `Cargo.toml`:
 //! ```toml
+//! [dependencies]
+//! typst-bake = "0.1"
+//!
 //! [package.metadata.typst-bake]
 //! template-dir = "./templates"
 //! fonts-dir = "./fonts"
-//!
-//! [dependencies]
-//! typst-bake = "0.1"
 //! ```
 //!
 //! Then use the [`document!`] macro:
 //! ```rust,ignore
-//! // Generate PDF
-//! let pdf = typst_bake::document!("main.typ").to_pdf()?;
+//! let doc = typst_bake::document!("main.typ");
 //!
-//! // Generate SVG (one per page)
-//! let svgs = typst_bake::document!("main.typ").to_svg()?;
+//! let pdf = doc.to_pdf()?;
+//! std::fs::write("output.pdf", &pdf)?;
 //!
-//! // Generate PNG at 144 DPI (Retina)
-//! let pngs = typst_bake::document!("main.typ").to_png(144.0)?;
+//! let svgs = doc.to_svg()?;
+//! std::fs::write("page1.svg", &svgs[0])?;
+//!
+//! let pngs = doc.to_png(144.0)?; // 144 DPI
+//! std::fs::write("page1.png", &pngs[0])?;
 //! ```
 
 mod build;
@@ -64,14 +68,20 @@ pub use stats::{
 /// # Usage
 ///
 /// ```rust,ignore
-/// // Generate PDF
-/// let pdf = typst_bake::document!("main.typ").to_pdf()?;
+/// let doc = typst_bake::document!("main.typ");
 ///
-/// // Generate SVG (one per page)
-/// let svgs = typst_bake::document!("main.typ").to_svg()?;
+/// // Output formats
+/// let pdf = doc.to_pdf()?;
+/// let svgs = doc.to_svg()?;
+/// let pngs = doc.to_png(144.0)?; // 144 DPI
 ///
-/// // Generate PNG at 144 DPI (Retina)
-/// let pngs = typst_bake::document!("main.typ").to_png(144.0)?;
+/// // Page selection (0-indexed)
+/// let cover_pdf = doc.select_pages([0]).to_pdf()?;
+/// let body_pdf = doc.select_pages(1..5).to_pdf()?;
+///
+/// // Page count
+/// let total = doc.page_count()?;
+/// let last_page = doc.select_pages([total - 1]).to_png(72.0)?;
 /// ```
 ///
 /// # Configuration

@@ -205,9 +205,9 @@ impl Document {
     ///
     /// # Example
     /// ```rust,ignore
-    /// let doc = typst_bake::document!("main.typ").with_inputs(data);
+    /// let doc = typst_bake::document!("main.typ");
     /// let count = doc.page_count()?;
-    /// let thumbnail = doc.select_pages([0]).to_png(72.0)?;
+    /// let last_page = doc.select_pages([count - 1]).to_pdf()?;
     /// ```
     pub fn page_count(&self) -> Result<usize> {
         self.with_compiled(|compiled| Ok(compiled.pages.len()))

@@ -16,8 +16,10 @@
 //!
 //! ```toml
 //! [package]
-//! name = "my-project"
 //! build = "build.rs"
+//!
+//! [build-dependencies]
+//! typst-bake = "0.1"
 //! ```
 
 use std::env;
@@ -62,7 +64,17 @@ fn resolve_path_string(manifest_dir: &Path, path: &str) -> String {
 ///
 /// # Example
 ///
-/// Create a `build.rs` file in your project root:
+/// Add to your `Cargo.toml`:
+///
+/// ```toml
+/// [package]
+/// build = "build.rs"
+///
+/// [build-dependencies]
+/// typst-bake = "0.1"
+/// ```
+///
+/// Then create a `build.rs` file in your project root:
 ///
 /// ```rust,ignore
 /// fn main() {
