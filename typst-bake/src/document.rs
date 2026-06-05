@@ -301,7 +301,20 @@ impl Document {
     #[cfg(feature = "pdf")]
     #[cfg_attr(docsrs, doc(cfg(feature = "pdf")))]
     pub fn to_pdf(&self) -> Result<Vec<u8>> {
-        self.render_pdf(None)
+        self.render_pdf(None, None)
+    }
+
+    /// Compile the document and generate PDF with PDF options.
+    ///
+    /// # Returns
+    /// PDF data as bytes.
+    ///
+    /// # Errors
+    /// Returns an error if compilation or PDF generation fails.
+    #[cfg(feature = "pdf")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "pdf")))]
+    pub fn to_pdf_with_options(&self, options: typst_pdf::PdfOptions) -> Result<Vec<u8>> {
+        self.render_pdf(None, Some(options))
     }
 
     /// Compile the document and generate SVG for each page.
@@ -334,7 +347,11 @@ impl Document {
     }
 
     #[cfg(feature = "pdf")]
-    fn render_pdf(&self, selected: Option<&BTreeSet<usize>>) -> Result<Vec<u8>> {
+    fn render_pdf(
+        &self,
+        selected: Option<&BTreeSet<usize>>,
+        options: Option<typst_pdf::PdfOptions>,
+    ) -> Result<Vec<u8>> {
         self.with_compiled(|compiled| {
             let indices = validate_page_selection(selected, compiled.pages.len())?;
             let options = match indices {
@@ -354,10 +371,10 @@ impl Document {
                         // Tagged PDF is incompatible with page ranges
                         // (typst-pdf #7743), so disable it when selecting pages.
                         tagged: false,
-                        ..Default::default()
+                        ..options.unwrap_or_default()
                     }
                 }
-                None => typst_pdf::PdfOptions::default(),
+                None => options.unwrap_or_default(),
             };
             typst_pdf::pdf(compiled, &options).map_err(|e| Error::PdfGeneration(format!("{e:?}")))
         })
@@ -414,7 +431,15 @@ impl Pages<'_> {
     #[cfg(feature = "pdf")]
     #[cfg_attr(docsrs, doc(cfg(feature = "pdf")))]
     pub fn to_pdf(&self) -> Result<Vec<u8>> {
-        self.doc.render_pdf(Some(&self.indices))
+        self.doc.render_pdf(Some(&self.indices), None)
+    }
+
+    /// Compile the document and generate PDF for the selected pages with PDF options.
+    ///
+    /// # Errors
+    /// Returns an error if compilation, PDF generation, or page selection fails.
+    pub fn to_pdf_with_options(&self, options: typst_pdf::PdfOptions) -> Result<Vec<u8>> {
+        self.doc.render_pdf(Some(&self.indices), Some(options))
     }
 
     /// Compile the document and generate SVG for the selected pages.
