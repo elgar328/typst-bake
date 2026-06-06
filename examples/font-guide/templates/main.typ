@@ -6,23 +6,31 @@
 
 = Font Guide
 
-`typst-bake` requires at least one font in `fonts-dir`. Without fonts, Typst produces invisible text, so a compile-time error is triggered if no fonts are found.
+`typst-bake` embeds fonts from `fonts-dir` and requires at least one. Without any font, Typst renders invisible text, so a compile-time error is raised when none are found. Only TTF, OTF, and TTC files are embedded; other files in `fonts-dir` are ignored.
 
-While all files in `template-dir` are embedded, only supported font formats (TTF, OTF, TTC) are embedded from `fonts-dir`. Other files are ignored.
+Fonts are selected in your template with `set` and `show` rules. The lines below configure this document. These are just examples—use any fonts you place in your `fonts-dir`.
 
-This document uses `Source Serif 4` for headings and body text.
+```typ
+#set text(font: "Source Serif 4")
+#show math.equation: set text(font: "STIX Two Math")
+#show raw: set text(font: "JetBrains Mono")
+```
 
-== Math Example
+== Body Text
 
-For equations or graphs, a math font is required. Without one, rendering will fail. This example uses `STIX Two Math`.
+Configured with `text(font: ...)`. This document uses `Source Serif 4`.
+
+== Math
+
+Equations and plots need a math font, or rendering fails. This document uses `STIX Two Math`.
 
 Navier-Stokes equations:
 $ nabla dot bold(u) = 0 $
 $ rho ((partial bold(u)) / (partial t) + (bold(u) dot nabla) bold(u)) = -nabla p + mu nabla^2 bold(u) + bold(f) $
 
-== Code Example
+== Code
 
-For code blocks, using a monospace font is recommended. Without one, code may render with improper spacing. This example uses `JetBrains Mono`.
+Code blocks read best in a monospace font. Without one, code may render with improper spacing. This document uses `JetBrains Mono`.
 
 ```rust
 fn main() -> Result<(), Box<dyn std::error::Error>> {
