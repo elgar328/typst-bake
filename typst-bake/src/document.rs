@@ -1,6 +1,8 @@
 //! Self-contained document for Typst template rendering.
 
 use crate::error::{Error, Result};
+#[cfg(feature = "pdf")]
+use crate::pdf_config::PdfConfig;
 use crate::resolver::{normalize_file_path, EmbeddedResolver};
 use crate::stats::EmbedStats;
 use crate::util::decompress;
@@ -24,6 +26,11 @@ pub struct Document {
     runtime_files: Mutex<HashMap<String, Vec<u8>>>,
     stats: EmbedStats,
     compiled_cache: Mutex<Option<PagedDocument>>,
+    /// PDF export options. Set by [`Document::with_pdf_config`]. A plain field (no
+    /// `Mutex`): the builder takes `self` by value to write it, and rendering reads it
+    /// through `&self`. Affects PDF export only, so it never invalidates `compiled_cache`.
+    #[cfg(feature = "pdf")]
+    pdf_config: PdfConfig,
 }
 
 impl Document {
@@ -46,6 +53,8 @@ impl Document {
             runtime_files: Mutex::new(HashMap::new()),
             stats,
             compiled_cache: Mutex::new(None),
+            #[cfg(feature = "pdf")]
+            pdf_config: PdfConfig::default(),
         }
     }
 
@@ -144,6 +153,40 @@ impl Document {
         self.lock_runtime_files().insert(normalized, data.into());
         *self.lock_cache() = None;
         Ok(self)
+    }
+
+    /// Set PDF export options.
+    ///
+    /// Configures PDF-only settings such as tagging, conformance standard, document
+    /// identifier, and creation timestamp. See [`PdfConfig`]. These options affect
+    /// [`to_pdf`](Self::to_pdf) only; SVG/PNG output ignores them.
+    ///
+    /// This does not invalidate the compiled cache (options apply at the PDF export
+    /// stage, not during compilation). Invalid configurations are reported when
+    /// [`to_pdf`](Self::to_pdf) is called, not here; the default config never errors.
+    ///
+    /// # Example
+    /// ```rust,ignore
+    /// use typst_bake::{PdfConfig, PdfStandard};
+    ///
+    /// // Disable tagging to shrink the PDF (bookmarks are preserved).
+    /// let pdf = typst_bake::document!("main.typ")
+    ///     .with_pdf_config(PdfConfig {
+    ///         tagged: false,
+    ///         standard: PdfStandard::A2b,
+    ///         ..Default::default()
+    ///     })
+    ///     .to_pdf()?;
+    /// ```
+    ///
+    /// Note: a page selection (via [`select_pages`](Self::select_pages)) always forces
+    /// tagging off and drops bookmarks for excluded pages; prefer `tagged: false` on the
+    /// full document if you only want to disable tagging.
+    #[cfg(feature = "pdf")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "pdf")))]
+    pub fn with_pdf_config(mut self, config: PdfConfig) -> Self {
+        self.pdf_config = config;
+        self
     }
 
     /// Check if a file exists at the given path.
@@ -336,29 +379,60 @@ impl Document {
     #[cfg(feature = "pdf")]
     fn render_pdf(&self, selected: Option<&BTreeSet<usize>>) -> Result<Vec<u8>> {
         self.with_compiled(|compiled| {
-            let indices = validate_page_selection(selected, compiled.pages.len())?;
-            let options = match indices {
-                Some(indices) => {
-                    use std::num::NonZeroUsize;
-                    use typst::layout::PageRanges;
+            // Base options come from the stored config (incl. `tagged`, standard, ident,
+            // timestamp). `options` borrows `self.pdf_config.ident`; later reads of
+            // `self.pdf_config.standard` (Copy) are additional shared borrows, which is
+            // fine. We are inside the `compiled_cache` guard, but `pdf_config` is a
+            // distinct field accessed only by shared borrow — so this is sound. Nobody
+            // must take `&mut self.pdf_config` here.
+            let mut options = self.pdf_config.to_typst()?;
 
-                    let ranges = indices
-                        .iter()
-                        .map(|&i| {
-                            let n = Some(NonZeroUsize::new(i + 1).unwrap());
-                            n..=n
-                        })
-                        .collect();
-                    typst_pdf::PdfOptions {
-                        page_ranges: Some(PageRanges::new(ranges)),
-                        // Tagged PDF is incompatible with page ranges
-                        // (typst-pdf #7743), so disable it when selecting pages.
-                        tagged: false,
-                        ..Default::default()
-                    }
+            let indices = validate_page_selection(selected, compiled.pages.len())?;
+            if let Some(indices) = indices {
+                use std::num::NonZeroUsize;
+                use typst::layout::PageRanges;
+
+                let ranges = indices
+                    .iter()
+                    .map(|&i| {
+                        let n = Some(NonZeroUsize::new(i + 1).unwrap());
+                        n..=n
+                    })
+                    .collect();
+                options.page_ranges = Some(PageRanges::new(ranges));
+
+                // --- Single safety net: page selection forces tagging off ---
+                //
+                // Page selection sets `page_ranges`, which is incompatible with tagged
+                // PDF. typst-pdf does NOT error on `tagged: true` + `page_ranges`; it
+                // silently emits a structure tree referencing ALL pages while only a
+                // subset is exported, yielding a malformed/misaligned tag tree. See:
+                //   - typst/typst#7743 (tagged PDF incompatible with page ranges)
+                // So we defensively force tagging off here, overriding `PdfConfig.tagged`
+                // — but ONLY on the page-selection path. Full-document `tagged: false` is
+                // handled by `to_typst` and is unaffected.
+                //
+                // Bookmarks: the document outline (/Outlines) is independent of tagging
+                // (typst-pdf sets the outline unconditionally; the tag tree only when
+                // enabled), so disabling tagging keeps bookmarks. Bookmarks pointing at
+                // EXCLUDED pages are still dropped here — that loss is caused by
+                // `page_ranges`, not by tagging.
+                //
+                // Accessible standards (PDF/A-*a, PDF/UA-1) mandate tagging, so they
+                // cannot coexist with page selection; reject them explicitly rather than
+                // emit a non-conformant PDF.
+                if self.pdf_config.standard.requires_tagging() {
+                    return Err(Error::InvalidPdfConfig(format!(
+                        "page selection is incompatible with {:?} (requires tagging)",
+                        self.pdf_config.standard
+                    )));
                 }
-                None => typst_pdf::PdfOptions::default(),
-            };
+                options.tagged = false;
+            }
+
+            // Invariant backstop: tagged PDF + page ranges must never escape together.
+            debug_assert!(!(options.tagged && options.page_ranges.is_some()));
+
             typst_pdf::pdf(compiled, &options).map_err(|e| Error::PdfGeneration(format!("{e:?}")))
         })
     }

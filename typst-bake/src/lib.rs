@@ -53,6 +53,8 @@
 mod build;
 mod document;
 mod error;
+#[cfg(feature = "pdf")]
+mod pdf_config;
 mod resolver;
 mod stats;
 mod util;
@@ -60,6 +62,9 @@ mod util;
 pub use build::rebuild_if_changed;
 pub use document::{Document, Pages};
 pub use error::{Error, Result};
+#[cfg(feature = "pdf")]
+#[cfg_attr(docsrs, doc(cfg(feature = "pdf")))]
+pub use pdf_config::{PdfConfig, PdfStandard, PdfTimestamp};
 pub use stats::{
     CategoryStats, DedupStats, EmbedStats, HasCompressionRatio, PackageInfo, PackageStats,
 };

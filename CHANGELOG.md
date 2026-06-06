@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- PDF export options via `Document::with_pdf_config()` and the `PdfConfig`, `PdfStandard`,
+  and `PdfTimestamp` types: disable tagging to reduce file size (bookmarks preserved),
+  enforce a PDF/A or PDF/UA conformance standard, and set the document identifier and
+  creation timestamp. Motivated by #11 (thanks @awhow).
+
 ## [0.1.9] - 2026-03-16
 
 ### Added

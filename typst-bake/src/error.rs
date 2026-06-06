@@ -33,6 +33,10 @@ pub enum Error {
     #[error("invalid page selection: {0}")]
     InvalidPageSelection(String),
 
+    /// Invalid PDF configuration (e.g. a standard/tagging conflict or bad timestamp).
+    #[error("invalid PDF config: {0}")]
+    InvalidPdfConfig(String),
+
     /// Decompression of embedded content failed.
     #[error("decompression failed")]
     Decompression(#[from] std::io::Error),
