@@ -46,10 +46,10 @@ thiserror = "2"
 
 # Utilities
 include_dir = "0.7"
-ureq = "3.1"
+ureq = "3.3"
 zip = { version = "8", default-features = false, features = ["deflate"] }
 binstall-tar = "0.4"
-toml = "1.0"
+toml = "1.1"
 walkdir = "2"
 dirs = "6"
 fd-lock = "4.0"
