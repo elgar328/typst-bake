@@ -7,12 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.10] - 2026-06-07
+
 ### Added
 
 - PDF export options via `Document::with_pdf_config()` and the `PdfConfig`, `PdfStandard`,
-  and `PdfTimestamp` types: disable tagging to reduce file size (bookmarks preserved),
-  enforce a PDF/A or PDF/UA conformance standard, and set the document identifier and
-  creation timestamp. Motivated by #11 (thanks @awhow).
+  and `PdfTimestamp` types: control PDF tagging, PDF/A or PDF/UA conformance, the document
+  identifier, and the creation timestamp. Motivated by #11 (thanks @awhow).
+
+### Changed
+
+- Update dependencies: `toml` 1.1, `ureq` 3.3
+- Improved documentation and examples: font setup guide shows the recommended font
+  configuration, and the `output-formats` example demonstrates `with_pdf_config()`
 
 ## [0.1.9] - 2026-03-16
 
@@ -166,6 +173,7 @@ Initial release of typst-bake - a library to bake Typst templates, fonts, and pa
 - **Optimized Binary Size** - Resources compressed with zstd, decompressed lazily at runtime
 - **Smart Recompilation** - File changes detected automatically by Cargo
 
+[0.1.10]: https://github.com/elgar328/typst-bake/compare/v0.1.9...v0.1.10
 [0.1.9]: https://github.com/elgar328/typst-bake/compare/v0.1.8...v0.1.9
 [0.1.8]: https://github.com/elgar328/typst-bake/compare/v0.1.7...v0.1.8
 [0.1.7]: https://github.com/elgar328/typst-bake/compare/v0.1.6...v0.1.7
