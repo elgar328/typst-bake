@@ -86,6 +86,41 @@ let pngs = doc.to_png(144.0)?;
 let pngs = doc.to_png(300.0)?;
 ```
 
+== PDF Export Options
+
+`with_pdf_config()` sets PDF-only export options — they apply to `to_pdf()`
+while SVG and PNG ignore them:
+
+```rust
+let pdf = document!("main.typ")
+    .with_pdf_config(PdfConfig {
+        tagged: false,             // smaller file; bookmarks/outline preserved
+        standard: PdfStandard::A2b,
+        timestamp: Some(PdfTimestamp::now_utc()),
+        ..Default::default()
+    })
+    .to_pdf()?;
+```
+
+#table(
+  columns: (auto, 1fr),
+  align: (left + horizon, left + top),
+  stroke: 0.5pt + luma(200),
+  inset: (x: 8pt, y: 6pt),
+  table.header([*Option*], [*Description*]),
+  [`tagged`],
+  [Accessibility tag tree (default `true`, since Typst 0.14). Set `false` for a
+   smaller file; the outline (bookmarks) is preserved either way.],
+  [`standard`],
+  [Enforce a PDF/A or PDF/UA profile. Accessible profiles
+   (`A1a`/`A2a`/`A3a`, `Ua1`) require tagging; every PDF/A profile needs a date.],
+  [`ident`],
+  [A stable document identifier (`None` lets Typst derive one).],
+  [`timestamp`],
+  [Creation date — build with `now_utc()`, `now_local(offset)`,
+   `utc(y, m, d, h, min, s)`, or `local(..)`.],
+)
+
 == Note
 
 The last page includes test patterns to evaluate PDF/SVG/PNG rendering differences.

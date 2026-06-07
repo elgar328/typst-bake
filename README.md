@@ -106,15 +106,15 @@ For a complete walkthrough, see the [Quick Start Guide (PDF)](https://elgar328.g
 | with-runtime-files | Runtime file injection with add_file() | `cargo run -p example-with-runtime-files` | [PDF](https://elgar328.github.io/typst-bake/with-runtime-files.pdf) |
 | with-package | Automatic package bundling | `cargo run -p example-with-package` | [PDF](https://elgar328.github.io/typst-bake/with-package.pdf) |
 | compression-levels | Custom compression level with zstd benchmark | `cargo run -p example-compression-levels` | [PDF](https://elgar328.github.io/typst-bake/compression-levels.pdf) |
-| output-formats | Multi-format output with page selection | `cargo run -p example-output-formats` | See below |
+| output-formats | Multi-format output, page selection, and PDF options | `cargo run -p example-output-formats` | See below |
 
 ### output-formats Example Outputs
 
 | Format | Files |
 |--------|-------|
-| PDF | [output.pdf](https://elgar328.github.io/typst-bake/output-formats.pdf) (88KB) |
-| SVG | [output_1.svg](https://elgar328.github.io/typst-bake/output-formats_1.svg) (395KB), [output_2.svg](https://elgar328.github.io/typst-bake/output-formats_2.svg) (131KB), [output_3.svg](https://elgar328.github.io/typst-bake/output-formats_3.svg) (700KB) |
-| PNG | [output_1.png](https://elgar328.github.io/typst-bake/output-formats_1.png) (500KB), [output_2.png](https://elgar328.github.io/typst-bake/output-formats_2.png) (157KB), [output_3.png](https://elgar328.github.io/typst-bake/output-formats_3.png) (694KB) |
+| PDF | [output.pdf](https://elgar328.github.io/typst-bake/output-formats.pdf) (53KB) |
+| SVG | [output_1.svg](https://elgar328.github.io/typst-bake/output-formats_1.svg) (395KB), [output_2.svg](https://elgar328.github.io/typst-bake/output-formats_2.svg) (322KB), [output_3.svg](https://elgar328.github.io/typst-bake/output-formats_3.svg) (700KB) |
+| PNG | [output_1.png](https://elgar328.github.io/typst-bake/output-formats_1.png) (500KB), [output_2.png](https://elgar328.github.io/typst-bake/output-formats_2.png) (447KB), [output_3.png](https://elgar328.github.io/typst-bake/output-formats_3.png) (694KB) |
 
 ## Comparison with typst-as-lib
 

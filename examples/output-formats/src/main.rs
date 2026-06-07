@@ -1,7 +1,17 @@
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let doc = typst_bake::document!("main.typ");
+    use typst_bake::{PdfConfig, PdfStandard, PdfTimestamp};
 
-    // PDF - single file for all pages
+    // Apply PDF export options: untagged (smaller file, bookmarks preserved) and
+    // conforming to PDF/A-2b. PDF/A requires a document date; a fixed date keeps
+    // this example's output reproducible across builds.
+    let doc = typst_bake::document!("main.typ").with_pdf_config(PdfConfig {
+        tagged: false,
+        standard: PdfStandard::A2b,
+        timestamp: Some(PdfTimestamp::utc(2026, 1, 1, 0, 0, 0).expect("valid date")),
+        ..Default::default()
+    });
+
+    // PDF - single file for all pages (with the options above)
     let pdf = doc.to_pdf()?;
     save_file(&pdf, "output.pdf")?;
 
