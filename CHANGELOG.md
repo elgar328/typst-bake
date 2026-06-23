@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.11] - 2026-06-24
+
 ### Added
 
 - Compilation errors now expose the source location (file, line, column), hints, and the
@@ -184,6 +186,7 @@ Initial release of typst-bake - a library to bake Typst templates, fonts, and pa
 - **Optimized Binary Size** - Resources compressed with zstd, decompressed lazily at runtime
 - **Smart Recompilation** - File changes detected automatically by Cargo
 
+[0.1.11]: https://github.com/elgar328/typst-bake/compare/v0.1.10...v0.1.11
 [0.1.10]: https://github.com/elgar328/typst-bake/compare/v0.1.9...v0.1.10
 [0.1.9]: https://github.com/elgar328/typst-bake/compare/v0.1.8...v0.1.9
 [0.1.8]: https://github.com/elgar328/typst-bake/compare/v0.1.7...v0.1.8
