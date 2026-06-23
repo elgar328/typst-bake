@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Compilation errors now expose the source location (file, line, column), hints, and the
+  call/import trace of each diagnostic. Motivated by #13 (thanks @HectorCF16).
+
+### Changed
+
+- **Breaking:** `Error::Compilation` now wraps a `Vec<Diagnostic>` instead of a `String`.
+  The new public `Diagnostic` and `SourceLocation` types carry the resolved location; the
+  `Display` output gains `file:line:column: error: ...` formatting.
+
 ## [0.1.10] - 2026-06-07
 
 ### Added

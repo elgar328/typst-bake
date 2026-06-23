@@ -37,19 +37,7 @@ impl EmbeddedResolver {
 
     /// Get the file path string from a `FileId`.
     fn get_path(&self, id: FileId) -> String {
-        if let Some(pkg) = id.package() {
-            // Package file: namespace/name/version/vpath
-            format!(
-                "{}/{}/{}/{}",
-                pkg.namespace,
-                pkg.name,
-                pkg.version,
-                normalize_path(id.vpath().as_rootless_path())
-            )
-        } else {
-            // Template file: just vpath
-            normalize_path(id.vpath().as_rootless_path())
-        }
+        file_id_to_path(id)
     }
 
     /// Insert a runtime file (uncompressed).
@@ -94,6 +82,24 @@ impl FileResolver for EmbeddedResolver {
 /// Convert a Path to a forward-slash string.
 fn normalize_path(path: &std::path::Path) -> String {
     path.display().to_string().replace('\\', "/")
+}
+
+/// Map a `FileId` to its path string used for lookup and diagnostics.
+///
+/// Package files become `namespace/name/version/vpath`; template files use the
+/// normalized virtual path.
+pub(crate) fn file_id_to_path(id: FileId) -> String {
+    if let Some(pkg) = id.package() {
+        format!(
+            "{}/{}/{}/{}",
+            pkg.namespace,
+            pkg.name,
+            pkg.version,
+            normalize_path(id.vpath().as_rootless_path())
+        )
+    } else {
+        normalize_path(id.vpath().as_rootless_path())
+    }
 }
 
 /// Normalize a string file path: strip leading `./` and convert `\` to `/`.

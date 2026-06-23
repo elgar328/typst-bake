@@ -61,7 +61,7 @@ mod util;
 
 pub use build::rebuild_if_changed;
 pub use document::{Document, Pages};
-pub use error::{Error, Result};
+pub use error::{Diagnostic, Error, Result, SourceLocation};
 #[cfg(feature = "pdf")]
 #[cfg_attr(docsrs, doc(cfg(feature = "pdf")))]
 pub use pdf_config::{PdfConfig, PdfStandard, PdfTimestamp};

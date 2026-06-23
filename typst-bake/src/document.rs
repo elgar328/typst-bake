@@ -1,17 +1,20 @@
 //! Self-contained document for Typst template rendering.
 
-use crate::error::{Error, Result};
+use crate::error::{Diagnostic, Error, Result, SourceLocation};
 #[cfg(feature = "pdf")]
 use crate::pdf_config::PdfConfig;
-use crate::resolver::{normalize_file_path, EmbeddedResolver};
+use crate::resolver::{file_id_to_path, normalize_file_path, EmbeddedResolver};
 use crate::stats::EmbedStats;
 use crate::util::decompress;
 use include_dir::{Dir, File};
 use std::collections::{BTreeSet, HashMap};
 use std::sync::{Mutex, MutexGuard};
+use typst::diag::SourceDiagnostic;
 use typst::foundations::Dict;
 use typst::layout::PagedDocument;
-use typst_as_lib::{TypstAsLibError, TypstEngine};
+use typst::syntax::{FileId, Span};
+use typst::{World, WorldExt};
+use typst_as_lib::{TypstEngine, TypstWorld};
 
 /// A fully self-contained document ready for rendering.
 ///
@@ -297,23 +300,36 @@ impl Document {
         // Clone inputs (preserve for retry on failure)
         let inputs = self.lock_inputs().clone();
 
-        let warned_result = if let Some(inputs) = inputs {
-            engine.compile_with_input::<_, PagedDocument>(inputs)
-        } else {
-            engine.compile::<PagedDocument>()
-        };
+        // Drive the world directly (mirrors typst-as-lib's internal `do_compile`) so the
+        // `World` stays in scope to resolve diagnostic spans into source locations.
+        let mut world_builder = engine.world_builder();
+        if let Some(inputs) = inputs {
+            world_builder = world_builder.with_inputs(inputs);
+        }
+        // A build failure is an input-injection error, not a source diagnostic; preserve its
+        // message in a location-less diagnostic.
+        let world = world_builder.build().map_err(|e| {
+            Error::Compilation(vec![Diagnostic {
+                location: None,
+                message: e.to_string(),
+                hints: Vec::new(),
+                trace: Vec::new(),
+            }])
+        })?;
 
-        // Handle the Warned wrapper and extract result
-        let compiled = warned_result.output.map_err(|e| {
-            let msg = match e {
-                TypstAsLibError::TypstSource(diagnostics) => diagnostics
+        let warned = typst::compile::<PagedDocument>(&world);
+        // Replicate the engine's default eviction policy (`Some(0)`); `world_builder` does not
+        // evict automatically. The comemo cache is global, so don't enlarge this blindly.
+        typst::comemo::evict(0);
+
+        let main = world.main();
+        let compiled = warned.output.map_err(|diagnostics| {
+            Error::Compilation(
+                diagnostics
                     .iter()
-                    .map(|d| d.message.as_str())
-                    .collect::<Vec<_>>()
-                    .join("\n"),
-                other => other.to_string(),
-            };
-            Error::Compilation(msg)
+                    .map(|d| diagnostic_from(&world, self.entry, main, d))
+                    .collect(),
+            )
         })?;
 
         *self.lock_cache() = Some(compiled);
@@ -545,6 +561,52 @@ fn validate_page_selection(
     }
 }
 
+/// Resolve a span into a [`SourceLocation`] using the compilation world.
+///
+/// The entry file's `FileId` is mapped back to the user-facing entry path so it
+/// matches exactly what was requested (including nested entries).
+fn span_to_location(
+    world: &TypstWorld,
+    entry: &str,
+    main: FileId,
+    span: Span,
+) -> Option<SourceLocation> {
+    let id = span.id()?;
+    let range = world.range(span)?;
+    let source = world.source(id).ok()?;
+    let (line, column) = source.lines().byte_to_line_column(range.start)?;
+    let file = if id == main {
+        entry.to_string()
+    } else {
+        file_id_to_path(id)
+    };
+    Some(SourceLocation {
+        file,
+        line: line + 1,
+        column: column + 1,
+    })
+}
+
+/// Convert a Typst [`SourceDiagnostic`] into a typst-bake [`Diagnostic`] with
+/// resolved source locations.
+fn diagnostic_from(
+    world: &TypstWorld,
+    entry: &str,
+    main: FileId,
+    diagnostic: &SourceDiagnostic,
+) -> Diagnostic {
+    Diagnostic {
+        location: span_to_location(world, entry, main, diagnostic.span),
+        message: diagnostic.message.to_string(),
+        hints: diagnostic.hints.iter().map(|h| h.to_string()).collect(),
+        trace: diagnostic
+            .trace
+            .iter()
+            .filter_map(|t| span_to_location(world, entry, main, t.span))
+            .collect(),
+    }
+}
+
 /// Find a file in a `Dir` tree by a potentially nested path (e.g. "dir/main.typ").
 fn find_entry<'a>(dir: &'a Dir<'a>, path: &str) -> Option<&'a File<'a>> {
     let normalized = path.trim_start_matches("./").replace('\\', "/");
@@ -569,4 +631,81 @@ fn find_entry<'a>(dir: &'a Dir<'a>, path: &str) -> Option<&'a File<'a>> {
     target_dir
         .files()
         .find(|f| f.path().file_name().and_then(|n| n.to_str()) == Some(file_name))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Compile a self-contained broken source and resolve its diagnostics. No
+    /// embedded resolver or fonts are needed for an eval-time error.
+    fn compile_error(entry: &'static str, src: &'static str) -> Vec<Diagnostic> {
+        let engine = TypstEngine::builder().main_file((entry, src)).build();
+        let world = engine.world_builder().build().expect("world builds");
+        let warned = typst::compile::<PagedDocument>(&world);
+        typst::comemo::evict(0);
+        let main = world.main();
+        let diagnostics = warned.output.expect_err("source should fail to compile");
+        diagnostics
+            .iter()
+            .map(|d| diagnostic_from(&world, entry, main, d))
+            .collect()
+    }
+
+    #[test]
+    fn compilation_error_exposes_source_location() {
+        // `bad_call` is an unknown variable; the error span points at it on line 2.
+        let diagnostics = compile_error("test.typ", "Hello\n#bad_call()\n");
+        assert!(!diagnostics.is_empty());
+        let loc = diagnostics[0]
+            .location
+            .as_ref()
+            .expect("diagnostic carries a source location");
+        // The entry file path matches exactly what was requested.
+        assert_eq!(loc.file, "test.typ");
+        assert_eq!(loc.line, 2);
+        assert!(loc.column >= 1);
+        assert!(!diagnostics[0].message.is_empty());
+    }
+
+    #[test]
+    fn nested_entry_path_is_preserved() {
+        let diagnostics = compile_error("reports/report.typ", "#oops\n");
+        let loc = diagnostics[0].location.as_ref().expect("has location");
+        assert_eq!(loc.file, "reports/report.typ");
+        assert_eq!(loc.line, 1);
+    }
+
+    #[test]
+    fn diagnostic_display_with_location_hints_and_trace() {
+        let diagnostic = Diagnostic {
+            location: Some(SourceLocation {
+                file: "report.typ".to_string(),
+                line: 42,
+                column: 12,
+            }),
+            message: "boom".to_string(),
+            hints: vec!["try wrapping it".to_string()],
+            trace: vec![SourceLocation {
+                file: "main.typ".to_string(),
+                line: 5,
+                column: 1,
+            }],
+        };
+        assert_eq!(
+            diagnostic.to_string(),
+            "report.typ:42:12: error: boom\n  hint: try wrapping it\n  called from: main.typ:5:1"
+        );
+    }
+
+    #[test]
+    fn diagnostic_display_without_location() {
+        let diagnostic = Diagnostic {
+            location: None,
+            message: "boom".to_string(),
+            hints: Vec::new(),
+            trace: Vec::new(),
+        };
+        assert_eq!(diagnostic.to_string(), "error: boom");
+    }
 }
