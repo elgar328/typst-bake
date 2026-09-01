@@ -31,8 +31,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     // Typst warnings are never printed by typst-bake; read them and report them
-    // yourself. This needs the document bound to a variable, which is why the
-    // `document!(..).to_pdf()?` shorthand is not used above.
+    // yourself. This requires the document to still be in scope, so it does not
+    // work with the `document!(..).to_pdf()?` shorthand.
     for warning in doc.warnings()? {
         eprintln!("{warning}");
     }

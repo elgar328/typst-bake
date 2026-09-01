@@ -32,6 +32,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Update `typst` to 0.15 and `typst-as-lib` to 0.16. **Templates are now compiled by typst
   0.15**, so language and rendering changes in that release can affect your output. The
   `path` element was removed in favour of `curve`, and typst 0.15 emits more compact SVG.
+- Update dependencies: `syn` 3, `ureq` 3.4
 
 ## [0.1.11] - 2026-06-24
 

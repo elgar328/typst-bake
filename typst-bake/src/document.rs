@@ -16,10 +16,6 @@ use typst::{World, WorldExt};
 use typst_as_lib::{TypstEngine, TypstWorld};
 use typst_layout::PagedDocument;
 
-/// A fully self-contained document ready for rendering.
-///
-/// Created by the [`document!`](crate::document!) macro with embedded templates, fonts,
-/// and packages. All resources are compressed with zstd and decompressed lazily at runtime.
 /// A compiled document together with the warnings typst produced for it.
 ///
 /// Kept as one unit so that invalidating the cache always drops both.
@@ -28,6 +24,10 @@ struct Compiled {
     warnings: Vec<Diagnostic>,
 }
 
+/// A fully self-contained document ready for rendering.
+///
+/// Created by the [`document!`](crate::document!) macro with embedded templates, fonts,
+/// and packages. All resources are compressed with zstd and decompressed lazily at runtime.
 pub struct Document {
     templates: &'static Dir<'static>,
     packages: &'static Dir<'static>,
