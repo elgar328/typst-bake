@@ -8,6 +8,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         tagged: false,
         standard: PdfStandard::A2b,
         timestamp: Some(PdfTimestamp::utc(2026, 1, 1, 0, 0, 0).expect("valid date")),
+        // Identify this application in the PDF `/Creator` metadata instead of
+        // leaving typst's default "Typst x.y.z".
+        creator: Some("typst-bake output-formats example".into()),
         ..Default::default()
     });
 
@@ -25,6 +28,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let pngs = doc.to_png(144.0)?;
     for (i, png) in pngs.iter().enumerate() {
         save_file(png, &format!("output_{}.png", i + 1))?;
+    }
+
+    // Typst warnings are never printed by typst-bake; read them and report them
+    // yourself. This needs the document bound to a variable, which is why the
+    // `document!(..).to_pdf()?` shorthand is not used above.
+    for warning in doc.warnings()? {
+        eprintln!("{warning}");
     }
 
     Ok(())
