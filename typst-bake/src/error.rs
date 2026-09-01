@@ -24,27 +24,75 @@ impl fmt::Display for SourceLocation {
     }
 }
 
+/// Whether a diagnostic is a fatal error or a non-fatal warning.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Severity {
+    /// A fatal error; compilation did not produce a document.
+    Error,
+    /// A non-fatal warning; compilation still succeeded.
+    Warning,
+}
+
+impl fmt::Display for Severity {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Error => f.write_str("error"),
+            Self::Warning => f.write_str("warning"),
+        }
+    }
+}
+
+/// A hint attached to a [`Diagnostic`].
+///
+/// Most hints are general advice and carry no location. Some instead point at a
+/// *secondary* piece of code related to the diagnostic — for those, `location` is
+/// set to where that code lives.
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[non_exhaustive]
+pub struct Hint {
+    /// The hint message.
+    pub message: String,
+    /// Where the hint points, when it refers to a secondary piece of code.
+    pub location: Option<SourceLocation>,
+}
+
+impl fmt::Display for Hint {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match &self.location {
+            Some(loc) => write!(f, "{loc}: {}", self.message),
+            None => f.write_str(&self.message),
+        }
+    }
+}
+
 /// A single Typst compilation diagnostic with resolved source location.
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[non_exhaustive]
 pub struct Diagnostic {
-    /// Where the error occurred, if it points into a source file.
+    /// Whether this is an error or a warning.
+    pub severity: Severity,
+    /// Where the diagnostic occurred, if it points into a source file.
     pub location: Option<SourceLocation>,
     /// The diagnostic message.
     pub message: String,
     /// Additional hints the compiler provided.
-    pub hints: Vec<String>,
-    /// The chain of call/import sites leading to the error (may be empty).
+    pub hints: Vec<Hint>,
+    /// The chain of call/import sites leading to the diagnostic (may be empty).
     pub trace: Vec<SourceLocation>,
 }
 
 impl fmt::Display for Diagnostic {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let severity = self.severity;
         match &self.location {
-            Some(loc) => write!(f, "{loc}: error: {}", self.message)?,
-            None => write!(f, "error: {}", self.message)?,
+            Some(loc) => write!(f, "{loc}: {severity}: {}", self.message)?,
+            None => write!(f, "{severity}: {}", self.message)?,
         }
         for hint in &self.hints {
-            write!(f, "\n  hint: {hint}")?;
+            match &hint.location {
+                Some(loc) => write!(f, "\n  hint at {loc}: {}", hint.message)?,
+                None => write!(f, "\n  hint: {}", hint.message)?,
+            }
         }
         for site in &self.trace {
             write!(f, "\n  called from: {site}")?;

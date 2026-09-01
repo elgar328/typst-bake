@@ -1,6 +1,6 @@
 //! Self-contained document for Typst template rendering.
 
-use crate::error::{Diagnostic, Error, Result, SourceLocation};
+use crate::error::{Diagnostic, Error, Hint, Result, Severity, SourceLocation};
 #[cfg(feature = "pdf")]
 use crate::pdf_config::PdfConfig;
 use crate::resolver::{EmbeddedResolver, file_id_to_path, normalize_file_path};
@@ -20,6 +20,14 @@ use typst_layout::PagedDocument;
 ///
 /// Created by the [`document!`](crate::document!) macro with embedded templates, fonts,
 /// and packages. All resources are compressed with zstd and decompressed lazily at runtime.
+/// A compiled document together with the warnings typst produced for it.
+///
+/// Kept as one unit so that invalidating the cache always drops both.
+struct Compiled {
+    doc: PagedDocument,
+    warnings: Vec<Diagnostic>,
+}
+
 pub struct Document {
     templates: &'static Dir<'static>,
     packages: &'static Dir<'static>,
@@ -28,7 +36,7 @@ pub struct Document {
     inputs: Mutex<Option<Dict>>,
     runtime_files: Mutex<HashMap<String, Vec<u8>>>,
     stats: EmbedStats,
-    compiled_cache: Mutex<Option<PagedDocument>>,
+    compiled_cache: Mutex<Option<Compiled>>,
     /// PDF export options. Set by [`Document::with_pdf_config`]. A plain field (no
     /// `Mutex`): the builder takes `self` by value to write it, and rendering reads it
     /// through `&self`. Affects PDF export only, so it never invalidates `compiled_cache`.
@@ -69,7 +77,7 @@ impl Document {
         self.runtime_files.lock().expect("lock poisoned")
     }
 
-    fn lock_cache(&self) -> MutexGuard<'_, Option<PagedDocument>> {
+    fn lock_cache(&self) -> MutexGuard<'_, Option<Compiled>> {
         self.compiled_cache.lock().expect("lock poisoned")
     }
 
@@ -259,6 +267,33 @@ impl Document {
         self.with_compiled(|compiled| Ok(compiled.pages().len()))
     }
 
+    /// Get the warnings Typst produced while compiling the document.
+    ///
+    /// Compiles the document if not already compiled. Returns an empty vector when
+    /// the document compiled cleanly, and `Err(Error::Compilation(..))` if it failed
+    /// to compile at all.
+    ///
+    /// Warnings are never printed by this crate; read them here and report them
+    /// however you like.
+    ///
+    /// # Example
+    /// ```rust,ignore
+    /// // Bind the document: `document!(..).to_pdf()?` drops it before you can ask.
+    /// let doc = typst_bake::document!("main.typ");
+    /// let pdf = doc.to_pdf()?;
+    /// for warning in doc.warnings()? {
+    ///     eprintln!("{warning}");
+    /// }
+    /// ```
+    pub fn warnings(&self) -> Result<Vec<Diagnostic>> {
+        self.compile_cached()?;
+        let cache = self.lock_cache();
+        let compiled = cache
+            .as_ref()
+            .expect("compiled_cache must be Some after successful compile_cached()");
+        Ok(compiled.warnings.clone())
+    }
+
     /// Get compression statistics for embedded content.
     pub fn stats(&self) -> &EmbedStats {
         &self.stats
@@ -310,6 +345,7 @@ impl Document {
         // message in a location-less diagnostic.
         let world = world_builder.build().map_err(|e| {
             Error::Compilation(vec![Diagnostic {
+                severity: Severity::Error,
                 location: None,
                 message: e.to_string(),
                 hints: Vec::new(),
@@ -323,7 +359,7 @@ impl Document {
         typst::comemo::evict(0);
 
         let main = world.main();
-        let compiled = warned.output.map_err(|diagnostics| {
+        let doc = warned.output.map_err(|diagnostics| {
             Error::Compilation(
                 diagnostics
                     .iter()
@@ -332,7 +368,14 @@ impl Document {
             )
         })?;
 
-        *self.lock_cache() = Some(compiled);
+        // Resolve now: `world` is local, and spans cannot be resolved without it.
+        let warnings = warned
+            .warnings
+            .iter()
+            .map(|d| diagnostic_from(&world, self.entry, main, d))
+            .collect();
+
+        *self.lock_cache() = Some(Compiled { doc, warnings });
 
         Ok(())
     }
@@ -347,7 +390,7 @@ impl Document {
         let compiled = cache
             .as_ref()
             .expect("compiled_cache must be Some after successful compile_cached()");
-        f(compiled)
+        f(&compiled.doc)
     }
 
     /// Compile the document and generate PDF.
@@ -604,9 +647,20 @@ fn diagnostic_from(
     diagnostic: &SourceDiagnostic,
 ) -> Diagnostic {
     Diagnostic {
+        severity: match diagnostic.severity {
+            typst::diag::Severity::Error => Severity::Error,
+            typst::diag::Severity::Warning => Severity::Warning,
+        },
         location: span_to_location(world, entry, main, diagnostic.span),
         message: diagnostic.message.to_string(),
-        hints: diagnostic.hints.iter().map(|h| h.v.to_string()).collect(),
+        hints: diagnostic
+            .hints
+            .iter()
+            .map(|h| Hint {
+                message: h.v.to_string(),
+                location: span_to_location(world, entry, main, h.span),
+            })
+            .collect(),
         trace: diagnostic
             .trace
             .iter()
@@ -687,13 +741,17 @@ mod tests {
     #[test]
     fn diagnostic_display_with_location_hints_and_trace() {
         let diagnostic = Diagnostic {
+            severity: Severity::Error,
             location: Some(SourceLocation {
                 file: "report.typ".to_string(),
                 line: 42,
                 column: 12,
             }),
             message: "boom".to_string(),
-            hints: vec!["try wrapping it".to_string()],
+            hints: vec![Hint {
+                message: "try wrapping it".to_string(),
+                location: None,
+            }],
             trace: vec![SourceLocation {
                 file: "main.typ".to_string(),
                 line: 5,
@@ -709,11 +767,99 @@ mod tests {
     #[test]
     fn diagnostic_display_without_location() {
         let diagnostic = Diagnostic {
+            severity: Severity::Error,
             location: None,
             message: "boom".to_string(),
             hints: Vec::new(),
             trace: Vec::new(),
         };
         assert_eq!(diagnostic.to_string(), "error: boom");
+    }
+
+    #[test]
+    fn diagnostic_display_uses_warning_severity() {
+        let diagnostic = Diagnostic {
+            severity: Severity::Warning,
+            location: Some(SourceLocation {
+                file: "main.typ".to_string(),
+                line: 12,
+                column: 3,
+            }),
+            message: "heading did not stabilize".to_string(),
+            hints: Vec::new(),
+            trace: Vec::new(),
+        };
+        assert_eq!(
+            diagnostic.to_string(),
+            "main.typ:12:3: warning: heading did not stabilize"
+        );
+    }
+
+    #[test]
+    fn located_hint_is_rendered_with_its_position() {
+        let diagnostic = Diagnostic {
+            severity: Severity::Error,
+            location: None,
+            message: "boom".to_string(),
+            hints: vec![
+                Hint {
+                    message: "general advice".to_string(),
+                    location: None,
+                },
+                Hint {
+                    message: "defined here".to_string(),
+                    location: Some(SourceLocation {
+                        file: "styles.typ".to_string(),
+                        line: 8,
+                        column: 20,
+                    }),
+                },
+            ],
+            trace: Vec::new(),
+        };
+        assert_eq!(
+            diagnostic.to_string(),
+            "error: boom\n  hint: general advice\n  hint at styles.typ:8:20: defined here"
+        );
+    }
+
+    /// Compile a source that yields warnings but still succeeds, and resolve them.
+    fn compile_warnings(entry: &'static str, src: &'static str) -> Vec<Diagnostic> {
+        let engine = TypstEngine::builder().main_file((entry, src)).build();
+        let world = engine.world_builder().build().expect("world builds");
+        let warned = typst::compile::<PagedDocument>(&world);
+        typst::comemo::evict(0);
+        let main = world.main();
+        assert!(warned.output.is_ok(), "source should compile");
+        warned
+            .warnings
+            .iter()
+            .map(|d| diagnostic_from(&world, entry, main, d))
+            .collect()
+    }
+
+    #[test]
+    fn warnings_are_resolved_with_severity_location_and_hints() {
+        // `show page` warns (with a hint) but still compiles.
+        let diagnostics = compile_warnings("test.typ", "#show page: it => it\nHello\n");
+        assert!(
+            !diagnostics.is_empty(),
+            "source should produce at least one warning"
+        );
+
+        let warning = &diagnostics[0];
+        assert_eq!(warning.severity, Severity::Warning);
+        assert!(warning.message.contains("show page"));
+
+        let loc = warning
+            .location
+            .as_ref()
+            .expect("warning carries a source location");
+        assert_eq!(loc.file, "test.typ");
+        assert_eq!(loc.line, 1);
+
+        // Hints survive the conversion and render through `Display`.
+        assert!(!warning.hints.is_empty(), "warning carries a hint");
+        assert!(warning.to_string().contains("\n  hint: "));
     }
 }
