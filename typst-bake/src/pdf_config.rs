@@ -303,6 +303,11 @@ pub struct PdfConfig {
     /// is `auto`. Required for any PDF/A standard (which mandates a document date) unless
     /// the template sets the date itself.
     pub timestamp: Option<PdfTimestamp>,
+    /// The producing application, written to the PDF `/Creator` metadata field.
+    ///
+    /// `None` (the default) keeps typst's own `"Typst x.y.z"` string. Set this to
+    /// identify your own application instead.
+    pub creator: Option<String>,
 }
 
 impl Default for PdfConfig {
@@ -314,6 +319,7 @@ impl Default for PdfConfig {
             tagged: true,
             ident: None,
             timestamp: None,
+            creator: None,
         }
     }
 }
@@ -366,7 +372,11 @@ impl PdfConfig {
 
         Ok(typst_pdf::PdfOptions {
             ident: self.ident.clone().map(Smart::Custom).unwrap_or(Smart::Auto),
-            creator: Smart::Auto,
+            creator: self
+                .creator
+                .clone()
+                .map(|c| Smart::Custom(Some(c)))
+                .unwrap_or(Smart::Auto),
             pretty: false,
             timestamp,
             page_ranges: None,
@@ -386,8 +396,23 @@ mod tests {
         let opts = cfg.to_typst().unwrap();
         assert!(opts.tagged);
         assert!(matches!(opts.ident, typst::foundations::Smart::Auto));
+        // `Auto` leaves typst's own "Typst x.y.z" creator string in place.
+        assert!(matches!(opts.creator, typst::foundations::Smart::Auto));
         assert!(opts.timestamp.is_none());
         assert!(opts.page_ranges.is_none());
+    }
+
+    #[test]
+    fn custom_creator_is_forwarded() {
+        let cfg = PdfConfig {
+            creator: Some("My Invoice App 1.0".into()),
+            ..Default::default()
+        };
+        let opts = cfg.to_typst().unwrap();
+        match opts.creator {
+            typst::foundations::Smart::Custom(Some(c)) => assert_eq!(c, "My Invoice App 1.0"),
+            other => panic!("expected a custom creator, got {other:?}"),
+        }
     }
 
     #[test]
