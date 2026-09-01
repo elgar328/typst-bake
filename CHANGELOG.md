@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `Document::warnings()` exposes the warnings Typst produces for a document that compiles
+  successfully. Previously these were collected and silently discarded, so there was no way
+  to learn about problems in a template.
+- `Severity` and `Hint` types. A `Hint` carries an optional `location`, so hints that point at
+  a secondary piece of code now report where that code is.
+- `PdfConfig::creator` sets the PDF `/Creator` metadata. Defaults to `None`, which keeps
+  typst's own `Typst x.y.z` string.
+
+### Changed
+
+- **Breaking:** `Diagnostic` gains a `severity` field and `Diagnostic::hints` is now
+  `Vec<Hint>` instead of `Vec<String>`. Formatting a diagnostic or a hint is unaffected
+  (`Hint` implements `Display`); code that reads hint strings directly needs
+  `hint.message` instead of `hint`.
+- **Breaking:** `Diagnostic` and `Hint` are `#[non_exhaustive]`, so future fields can be
+  added without another breaking release.
+- **Breaking:** `PdfConfig` gains a `creator` field. Constructing it with
+  `..Default::default()` (as the documentation recommends) is unaffected.
+- **Breaking:** The minimum supported Rust version is now 1.92, and the crates use edition
+  2024. Both are required by typst 0.15.
+- Update `typst` to 0.15 and `typst-as-lib` to 0.16. **Templates are now compiled by typst
+  0.15**, so language and rendering changes in that release can affect your output. The
+  `path` element was removed in favour of `curve`, and typst 0.15 emits more compact SVG.
+
 ## [0.1.11] - 2026-06-24
 
 ### Added

@@ -22,6 +22,8 @@
 //! - **Automatic Package Resolution** - Just use `#import "@preview/..."` as in Typst. Packages are resolved automatically using Typst's own cache and data directories
 //! - **Runtime Inputs** - Pass dynamic data from Rust structs to Typst via [`IntoValue`] / [`IntoDict`] derive macros
 //! - **Runtime Files** - Inject files at runtime with [`Document::add_file`] for dynamically generated content or downloaded resources
+//! - **Structured Diagnostics** - Compilation errors and [warnings](`Document::warnings`) carry
+//!   file, line, and column via [`Diagnostic`], plus [hints](`Hint`) and the call trace
 //! - **Optimized Binary Size** - Embedded resources are deduplicated and compressed automatically
 //!
 //! ## Quick Start
@@ -29,7 +31,7 @@
 //! Add to your `Cargo.toml`:
 //! ```toml
 //! [dependencies]
-//! typst-bake = "0.1"
+//! typst-bake = "0.2"
 //!
 //! [package.metadata.typst-bake]
 //! template-dir = "./templates"

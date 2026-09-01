@@ -17,6 +17,7 @@ Bake Typst templates, fonts, and packages into your Rust binary — use [Typst](
 - **Automatic Package Resolution** - Just use `#import "@preview/..."` as in Typst. Packages are resolved automatically using Typst's own cache and data directories
 - **Runtime Inputs** - Pass dynamic data from Rust structs to Typst via `IntoValue` / `IntoDict` derive macros
 - **Runtime Files** - Inject files at runtime with `add_file()` for dynamically generated content or downloaded resources
+- **Structured Diagnostics** - Compilation errors and warnings carry file, line, and column, plus hints and the call trace
 - **Optimized Binary Size** - Embedded resources are deduplicated and compressed automatically
 
 ## Installation
@@ -25,7 +26,7 @@ Add to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-typst-bake = "0.1"
+typst-bake = "0.2"
 
 [package.metadata.typst-bake]
 template-dir = "./templates"  # Path to your .typ files and assets
@@ -55,7 +56,7 @@ If you want to fully detect even the rare case where you only add or remove file
 build = "build.rs"
 
 [build-dependencies]
-typst-bake = "0.1"
+typst-bake = "0.2"
 ```
 
 ```rust
@@ -88,6 +89,35 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 ```
 
 For a complete walkthrough, see the [Quick Start Guide (PDF)](https://elgar328.github.io/typst-bake/quick-start.pdf). Also check out the PDF outputs from other examples below—each document explains its usage in detail.
+
+## Diagnostics
+
+Compilation failures return `Error::Compilation` with a `Vec<Diagnostic>`. Each `Diagnostic`
+carries a `severity`, the `location` (file, line, column), any `hints`, and the call/`#import`
+trace, so `{}` formatting already gives you something useful:
+
+```text
+reports/event_report/report.typ:42:12: error: expected named or keyed pair, found function call
+  called from: main.typ:20:9
+```
+
+Typst also emits **warnings** for documents that compile successfully. These are not printed
+by this crate — read them with `warnings()` and report them however you like:
+
+```rust,ignore
+// Bind the document: `document!(..).to_pdf()?` drops it before you can ask for warnings.
+let doc = typst_bake::document!("main.typ");
+let pdf = doc.to_pdf()?;
+
+for warning in doc.warnings()? {
+    eprintln!("{warning}");
+    // main.typ:12:3: warning: `show page` is not supported and has no effect
+    //   hint: customize pages with `set page(..)` instead
+}
+```
+
+The fields are public, so you can also read `diagnostic.location`, `.severity`, and `.hints`
+directly and format them yourself.
 
 ## How it Works
 
