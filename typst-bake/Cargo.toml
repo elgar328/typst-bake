@@ -27,7 +27,6 @@ typst.workspace = true
 typst-pdf = { workspace = true, optional = true }
 typst-svg = { workspace = true, optional = true }
 typst-render = { workspace = true, optional = true }
-# `PagedDocument` lives in `typst-layout` and is not re-exported by `typst`.
 typst-layout.workspace = true
 typst-as-lib.workspace = true
 include_dir.workspace = true
