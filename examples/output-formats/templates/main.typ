@@ -174,12 +174,18 @@ The last page includes test patterns to evaluate PDF/SVG/PNG rendering differenc
 
       place(dx: 2pt, dy: y-top - 4pt, text(size: 7pt)[#str(w)])
 
-      place(path(
+      // `path` was removed in Typst 0.15; `curve` replaces it. Note that `path`
+      // took control points relative to their vertex, while `curve.cubic` takes
+      // absolute ones.
+      place(curve(
         stroke: w * 1pt,
         fill: none,
-        closed: false,
-        ((label-w, y-top), (0pt, 0pt), (x-right - label-w, 0pt)),
-        ((x-right, y-bottom), (0pt, -curve-height / 2), (0pt, 0pt)),
+        curve.move((label-w, y-top)),
+        curve.cubic(
+          (x-right, y-top),
+          (x-right, y-bottom - curve-height / 2),
+          (x-right, y-bottom),
+        ),
       ))
     }
   ]

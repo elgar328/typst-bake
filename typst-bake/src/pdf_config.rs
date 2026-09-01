@@ -318,11 +318,24 @@ impl Default for PdfConfig {
     }
 }
 
+/// Render a typst `HintedString` as a single message.
+///
+/// `HintedString` dropped its `Display` impl in typst 0.15, so join the message with
+/// its hints by hand.
+fn hinted_to_string(error: &typst::diag::HintedString) -> String {
+    let mut out = error.message().to_string();
+    for hint in error.hints() {
+        out.push_str("; hint: ");
+        out.push_str(hint);
+    }
+    out
+}
+
 impl PdfConfig {
-    /// Convert to typst PDF options. Borrows `self` for the `ident` string.
+    /// Convert to typst PDF options.
     ///
     /// `page_ranges` is always `None` here; page selection is applied by the renderer.
-    pub(crate) fn to_typst(&self) -> Result<typst_pdf::PdfOptions<'_>> {
+    pub(crate) fn to_typst(&self) -> Result<typst_pdf::PdfOptions> {
         use typst::foundations::Smart;
 
         // An accessible standard requires tagging; `tagged: false` would be rejected by
@@ -341,7 +354,7 @@ impl PdfConfig {
         }
 
         let standards = typst_pdf::PdfStandards::new(&[self.standard.to_typst()])
-            .map_err(|e| Error::InvalidPdfConfig(e.to_string()))?;
+            .map_err(|e| Error::InvalidPdfConfig(hinted_to_string(&e)))?;
 
         let timestamp = match self.timestamp {
             Some(ts) => Some(
@@ -352,11 +365,9 @@ impl PdfConfig {
         };
 
         Ok(typst_pdf::PdfOptions {
-            ident: self
-                .ident
-                .as_deref()
-                .map(Smart::Custom)
-                .unwrap_or(Smart::Auto),
+            ident: self.ident.clone().map(Smart::Custom).unwrap_or(Smart::Auto),
+            creator: Smart::Auto,
+            pretty: false,
             timestamp,
             page_ranges: None,
             standards,

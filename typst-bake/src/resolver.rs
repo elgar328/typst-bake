@@ -8,7 +8,7 @@ use std::borrow::Cow;
 use std::collections::HashMap;
 use typst::diag::{FileError, FileResult};
 use typst::foundations::Bytes;
-use typst::syntax::{FileId, Source};
+use typst::syntax::{FileId, Source, VirtualRoot};
 
 pub use typst_as_lib::file_resolver::FileResolver;
 
@@ -87,18 +87,14 @@ fn normalize_path(path: &std::path::Path) -> String {
 /// Map a `FileId` to its path string used for lookup and diagnostics.
 ///
 /// Package files become `namespace/name/version/vpath`; template files use the
-/// normalized virtual path.
+/// virtual path without its leading slash.
 pub(crate) fn file_id_to_path(id: FileId) -> String {
-    if let Some(pkg) = id.package() {
-        format!(
-            "{}/{}/{}/{}",
-            pkg.namespace,
-            pkg.name,
-            pkg.version,
-            normalize_path(id.vpath().as_rootless_path())
-        )
-    } else {
-        normalize_path(id.vpath().as_rootless_path())
+    let vpath = id.vpath().get_without_slash();
+    match id.root() {
+        VirtualRoot::Package(pkg) => {
+            format!("{}/{}/{}/{}", pkg.namespace, pkg.name, pkg.version, vpath)
+        }
+        VirtualRoot::Project => vpath.to_owned(),
     }
 }
 
@@ -135,7 +131,7 @@ fn collect_files(
 
 /// Create a "not found" error.
 fn not_found(id: FileId) -> FileError {
-    FileError::NotFound(id.vpath().as_rootless_path().into())
+    FileError::NotFound(id.vpath().get_without_slash().into())
 }
 
 /// Convert bytes to Source, handling UTF-8 BOM.

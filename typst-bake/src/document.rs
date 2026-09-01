@@ -11,10 +11,10 @@ use std::collections::{BTreeSet, HashMap};
 use std::sync::{Mutex, MutexGuard};
 use typst::diag::SourceDiagnostic;
 use typst::foundations::Dict;
-use typst::layout::PagedDocument;
-use typst::syntax::{FileId, Span};
+use typst::syntax::{DiagSpan, FileId};
 use typst::{World, WorldExt};
 use typst_as_lib::{TypstEngine, TypstWorld};
+use typst_layout::PagedDocument;
 
 /// A fully self-contained document ready for rendering.
 ///
@@ -256,7 +256,7 @@ impl Document {
     /// let last_page = doc.select_pages([count - 1]).to_pdf()?;
     /// ```
     pub fn page_count(&self) -> Result<usize> {
-        self.with_compiled(|compiled| Ok(compiled.pages.len()))
+        self.with_compiled(|compiled| Ok(compiled.pages().len()))
     }
 
     /// Get compression statistics for embedded content.
@@ -396,14 +396,10 @@ impl Document {
     fn render_pdf(&self, selected: Option<&BTreeSet<usize>>) -> Result<Vec<u8>> {
         self.with_compiled(|compiled| {
             // Base options come from the stored config (incl. `tagged`, standard, ident,
-            // timestamp). `options` borrows `self.pdf_config.ident`; later reads of
-            // `self.pdf_config.standard` (Copy) are additional shared borrows, which is
-            // fine. We are inside the `compiled_cache` guard, but `pdf_config` is a
-            // distinct field accessed only by shared borrow — so this is sound. Nobody
-            // must take `&mut self.pdf_config` here.
+            // timestamp, creator).
             let mut options = self.pdf_config.to_typst()?;
 
-            let indices = validate_page_selection(selected, compiled.pages.len())?;
+            let indices = validate_page_selection(selected, compiled.pages().len())?;
             if let Some(indices) = indices {
                 use std::num::NonZeroUsize;
                 use typst::layout::PageRanges;
@@ -456,13 +452,19 @@ impl Document {
     #[cfg(feature = "svg")]
     fn render_svg(&self, selected: Option<&BTreeSet<usize>>) -> Result<Vec<String>> {
         self.with_compiled(|compiled| {
-            let indices = validate_page_selection(selected, compiled.pages.len())?;
+            // Defaults match 0.14 behaviour: no bleed, no pretty-printing.
+            let options = typst_svg::SvgOptions::default();
+            let indices = validate_page_selection(selected, compiled.pages().len())?;
             match indices {
                 Some(indices) => Ok(indices
                     .iter()
-                    .map(|&i| typst_svg::svg(&compiled.pages[i]))
+                    .map(|&i| typst_svg::svg(&compiled.pages()[i], &options))
                     .collect()),
-                None => Ok(compiled.pages.iter().map(typst_svg::svg).collect()),
+                None => Ok(compiled
+                    .pages()
+                    .iter()
+                    .map(|page| typst_svg::svg(page, &options))
+                    .collect()),
             }
         })
     }
@@ -470,15 +472,20 @@ impl Document {
     #[cfg(feature = "png")]
     fn render_png(&self, selected: Option<&BTreeSet<usize>>, dpi: f32) -> Result<Vec<Vec<u8>>> {
         self.with_compiled(|compiled| {
-            let pixel_per_pt = dpi / 72.0;
-            let indices = validate_page_selection(selected, compiled.pages.len())?;
+            // `RenderOptions::default()` uses 2.0 pixels per point, so always set it
+            // explicitly from the requested DPI.
+            let options = typst_render::RenderOptions {
+                pixel_per_pt: typst::utils::Scalar::new(f64::from(dpi) / 72.0),
+                ..Default::default()
+            };
+            let indices = validate_page_selection(selected, compiled.pages().len())?;
             let pages: Box<dyn Iterator<Item = &_>> = match &indices {
-                Some(indices) => Box::new(indices.iter().map(|&i| &compiled.pages[i])),
-                None => Box::new(compiled.pages.iter()),
+                Some(indices) => Box::new(indices.iter().map(|&i| &compiled.pages()[i])),
+                None => Box::new(compiled.pages().iter()),
             };
             pages
                 .map(|page| {
-                    typst_render::render(page, pixel_per_pt)
+                    typst_render::render(page, &options)
                         .encode_png()
                         .map_err(|e| Error::PngEncoding(e.to_string()))
                 })
@@ -569,8 +576,9 @@ fn span_to_location(
     world: &TypstWorld,
     entry: &str,
     main: FileId,
-    span: Span,
+    span: impl Into<DiagSpan>,
 ) -> Option<SourceLocation> {
+    let span = span.into();
     let id = span.id()?;
     let range = world.range(span)?;
     let source = world.source(id).ok()?;
@@ -598,7 +606,7 @@ fn diagnostic_from(
     Diagnostic {
         location: span_to_location(world, entry, main, diagnostic.span),
         message: diagnostic.message.to_string(),
-        hints: diagnostic.hints.iter().map(|h| h.to_string()).collect(),
+        hints: diagnostic.hints.iter().map(|h| h.v.to_string()).collect(),
         trace: diagnostic
             .trace
             .iter()
