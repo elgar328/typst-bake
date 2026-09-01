@@ -174,15 +174,15 @@ fn get_cpu_name() -> String {
     }
     #[cfg(target_os = "linux")]
     {
-        if let Ok(cpuinfo) = std::fs::read_to_string("/proc/cpuinfo") {
-            if let Some(line) = cpuinfo.lines().find(|l| l.starts_with("model name")) {
-                return line
-                    .split(':')
-                    .nth(1)
-                    .unwrap_or("unknown")
-                    .trim()
-                    .to_string();
-            }
+        if let Ok(cpuinfo) = std::fs::read_to_string("/proc/cpuinfo")
+            && let Some(line) = cpuinfo.lines().find(|l| l.starts_with("model name"))
+        {
+            return line
+                .split(':')
+                .nth(1)
+                .unwrap_or("unknown")
+                .trim()
+                .to_string();
         }
     }
     "unknown".to_string()
