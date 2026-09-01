@@ -1,7 +1,8 @@
 [package]
 name = "typst-bake"
 version.workspace = true
-edition = "2021"
+edition.workspace = true
+rust-version.workspace = true
 description = "Bake Typst templates, fonts, and packages into your Rust binary — use Typst as a self-contained, embedded library"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/elgar328/typst-bake"

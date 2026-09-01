@@ -48,7 +48,7 @@ pub fn derive_into_dict(item: DeriveInput) -> Result<TokenStream> {
 fn gather_input(item: &DeriveInput) -> Result<(&syn::Ident, Vec<TokenStream>)> {
     let ty = &item.ident;
 
-    let Data::Struct(ref data) = &item.data else {
+    let Data::Struct(data) = &item.data else {
         return Err(syn::Error::new_spanned(item, "only structs are supported"));
     };
 

@@ -3,7 +3,7 @@
 use crate::error::{Diagnostic, Error, Result, SourceLocation};
 #[cfg(feature = "pdf")]
 use crate::pdf_config::PdfConfig;
-use crate::resolver::{file_id_to_path, normalize_file_path, EmbeddedResolver};
+use crate::resolver::{EmbeddedResolver, file_id_to_path, normalize_file_path};
 use crate::stats::EmbedStats;
 use crate::util::decompress;
 use include_dir::{Dir, File};
@@ -555,13 +555,13 @@ fn validate_page_selection(
                     "page selection is empty".into(),
                 ));
             }
-            if let Some(&max) = pages.last() {
-                if max >= total_pages {
-                    return Err(Error::InvalidPageSelection(format!(
-                        "page index {max} out of range (valid: 0..={})",
-                        total_pages - 1
-                    )));
-                }
+            if let Some(&max) = pages.last()
+                && max >= total_pages
+            {
+                return Err(Error::InvalidPageSelection(format!(
+                    "page index {max} out of range (valid: 0..={})",
+                    total_pages - 1
+                )));
             }
             Ok(Some(pages.iter().copied().collect()))
         }

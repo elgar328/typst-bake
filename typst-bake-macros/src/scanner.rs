@@ -3,8 +3,8 @@
 use std::collections::HashSet;
 use std::fs;
 use std::path::{Path, PathBuf};
-use typst_syntax::ast::{Expr, Markup};
 use typst_syntax::Source;
+use typst_syntax::ast::{Expr, Markup};
 use walkdir::WalkDir;
 
 const PACKAGES_BASE_URL: &str = "https://packages.typst.org";

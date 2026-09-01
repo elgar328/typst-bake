@@ -16,7 +16,7 @@ use std::path::{Path, PathBuf};
 
 use proc_macro::TokenStream;
 use quote::quote;
-use syn::{parse_macro_input, LitStr};
+use syn::{LitStr, parse_macro_input};
 
 use compression_cache::CompressionCache;
 use dir_embed::DirEmbedResult;

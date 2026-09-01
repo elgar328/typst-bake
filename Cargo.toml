@@ -17,6 +17,9 @@ resolver = "2"
 
 [workspace.package]
 version = "0.2.0-dev"
+edition = "2024"
+# Floor set by typst 0.15, which declares `rust-version = "1.92"`.
+rust-version = "1.92"
 
 [workspace.dependencies]
 # Internal crates

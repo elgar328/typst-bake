@@ -1,6 +1,6 @@
 //! Package download and cache management.
 
-use crate::scanner::{extract_packages, PackageSpec, ResolvedPackage};
+use crate::scanner::{PackageSpec, ResolvedPackage, extract_packages};
 use std::collections::{HashSet, VecDeque};
 use std::fs;
 use std::io::Read;
