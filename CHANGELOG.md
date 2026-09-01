@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.2.0] - 2026-09-01
 
 ### Added
 
@@ -213,6 +213,7 @@ Initial release of typst-bake - a library to bake Typst templates, fonts, and pa
 - **Optimized Binary Size** - Resources compressed with zstd, decompressed lazily at runtime
 - **Smart Recompilation** - File changes detected automatically by Cargo
 
+[0.2.0]: https://github.com/elgar328/typst-bake/compare/v0.1.11...v0.2.0
 [0.1.11]: https://github.com/elgar328/typst-bake/compare/v0.1.10...v0.1.11
 [0.1.10]: https://github.com/elgar328/typst-bake/compare/v0.1.9...v0.1.10
 [0.1.9]: https://github.com/elgar328/typst-bake/compare/v0.1.8...v0.1.9
