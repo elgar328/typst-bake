@@ -11,8 +11,8 @@
 //! - **`svg`** - Enable SVG generation via [`Document::to_svg`]
 //! - **`png`** - Enable PNG rasterization via [`Document::to_png`]
 //! - **`full`** - Enable all output formats
-//! - **`js-clock`** - Read the current time from JavaScript on `wasm32-unknown-unknown`
-//!   (via wasm-bindgen)
+//! - **`js-clock`** (default) - Read the current time from JavaScript on
+//!   `wasm32-unknown-unknown` (via wasm-bindgen)
 //!
 //! PDF is enabled by default. To use only SVG: `default-features = false, features = ["svg"]`.
 //!

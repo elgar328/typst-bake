@@ -117,8 +117,8 @@ let pdf = document!("main.typ")
   [`ident`],
   [A stable document identifier (`None` lets Typst derive one).],
   [`timestamp`],
-  [Creation date — build with `now()` (local offset), `now_utc()`,
-   `from_unix(secs)`, `utc(y, m, d, h, min, s)`, or `local(..)`.],
+  [Creation date — `now()` or `from_unix(secs)`, optionally followed by
+   `.with_offset_minutes(..)`.],
 )
 
 == Note

@@ -42,17 +42,19 @@ jobs:
 
       - uses: swatinem/rust-cache@v2
 
-      # All features include `js-clock`; `full` alone is the default build without a clock.
+      # Default features include `js-clock`; without them the build has no clock.
       - name: Clippy (wasm)
         run: |
           cargo clippy -p typst-bake --target wasm32-unknown-unknown --all-features -- -D warnings
-          cargo clippy -p typst-bake --target wasm32-unknown-unknown --features full -- -D warnings
+          cargo clippy -p typst-bake --target wasm32-unknown-unknown --no-default-features --features full -- -D warnings
 
-      # Written to a file first so that a failing `cargo tree` fails the step.
-      - name: No JavaScript imports by default
+      # Written to files first so that a failing `cargo tree` fails the step.
+      - name: JavaScript imports only with js-clock
         run: |
-          cargo tree -p typst-bake --target wasm32-unknown-unknown --features full -e normal > wasm-tree.txt
-          ! grep -E 'wasm-bindgen|js-sys' wasm-tree.txt
+          cargo tree -p typst-bake --target wasm32-unknown-unknown -e normal > default-tree.txt
+          grep -q wasm-bindgen default-tree.txt
+          cargo tree -p typst-bake --target wasm32-unknown-unknown --no-default-features --features full -e normal > no-js-tree.txt
+          ! grep -E 'wasm-bindgen|js-sys' no-js-tree.txt
 
       # Building a binary links it, which is where a C dependency would fail.
       - name: Build example for wasm

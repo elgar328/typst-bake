@@ -25,10 +25,12 @@ Check that the runtime still builds for WebAssembly without a C toolchain (once:
 (
   export CC_wasm32_unknown_unknown=false AR_wasm32_unknown_unknown=false
   cargo clippy -p typst-bake --target wasm32-unknown-unknown --all-features -- -D warnings
-  cargo clippy -p typst-bake --target wasm32-unknown-unknown --features full -- -D warnings
+  cargo clippy -p typst-bake --target wasm32-unknown-unknown --no-default-features --features full -- -D warnings
   cargo build -p example-output-formats --target wasm32-unknown-unknown
+  # Must print wasm-bindgen: the default `js-clock` feature reads the time from JavaScript.
+  cargo tree -p typst-bake --target wasm32-unknown-unknown -e normal | grep -m1 wasm-bindgen
   # Must print nothing: without `js-clock` the module imports no JavaScript.
-  cargo tree -p typst-bake --target wasm32-unknown-unknown --features full -e normal | grep -E 'wasm-bindgen|js-sys'
+  cargo tree -p typst-bake --target wasm32-unknown-unknown --no-default-features --features full -e normal | grep -E 'wasm-bindgen|js-sys'
 )
 ```
 

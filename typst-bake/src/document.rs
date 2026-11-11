@@ -178,11 +178,12 @@ impl Document {
     /// UTC date of that instant, and `datetime.today(offset: 9)` the date at UTC+9.
     ///
     /// Without it, the system clock is read during compilation and `datetime.today()` returns
-    /// the local date. On `wasm32-unknown-unknown` there is no clock unless the `js-clock`
-    /// feature is enabled, so there `datetime.today()` is a compile error without this.
+    /// the local date. On `wasm32-unknown-unknown` the clock comes from JavaScript (the
+    /// default `js-clock` feature); without that feature, `datetime.today()` is a compile
+    /// error unless this is set.
     ///
     /// This does not set the PDF creation date (see `PdfConfig::timestamp`). An instant
-    /// outside the years ±9999 also makes `datetime.today()` an error.
+    /// outside the date range Typst supports also makes `datetime.today()` an error.
     ///
     /// # Example
     /// ```rust,ignore
@@ -693,14 +694,15 @@ impl<'a> BakedWorld<'a> {
 }
 
 /// The clock for `datetime.today()`: the fixed time from [`Document::with_now`], else the
-/// system clock. wasm32-unknown-unknown has none unless `js-clock` reads it from JavaScript.
+/// system clock. wasm32-unknown-unknown has none unless `js-clock` reads it from JavaScript
+/// (chrono can do that on wasm32 only).
 fn clock(now: Option<i64>) -> Option<Time> {
     match now {
         Some(secs) => Time::fixed_timestamp(secs).ok(),
         None if cfg!(all(
             target_family = "wasm",
             target_os = "unknown",
-            not(feature = "js-clock")
+            not(all(target_arch = "wasm32", feature = "js-clock"))
         )) =>
         {
             None

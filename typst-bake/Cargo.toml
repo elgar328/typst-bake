@@ -15,13 +15,14 @@ all-features = true
 rustdoc-args = ["--cfg", "docsrs"]
 
 [features]
-default = ["pdf"]
+default = ["pdf", "js-clock"]
 pdf = ["dep:typst-pdf"]
 svg = ["dep:typst-svg"]
 png = ["dep:typst-render"]
 full = ["pdf", "svg", "png"]
 # wasm32-unknown-unknown has no clock. Read it from JavaScript `Date` through wasm-bindgen, for
-# `datetime.today()` and `PdfTimestamp::now*`. No effect on other targets.
+# `datetime.today()` and `PdfTimestamp::now`. No effect on other targets. Hosts without
+# JavaScript turn it off and use `Document::with_now`.
 js-clock = ["chrono/wasmbind"]
 
 [dependencies]

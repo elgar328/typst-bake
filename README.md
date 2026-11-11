@@ -40,13 +40,13 @@ fonts-dir = "./fonts"         # Path to your font files
 | `svg` | Enable `to_svg()` |
 | `png` | Enable `to_png()` |
 | `full` | Enable all output formats |
-| `js-clock` | Read the current time from JavaScript on `wasm32-unknown-unknown` (via wasm-bindgen) |
+| `js-clock` (default) | Read the current time from JavaScript on `wasm32-unknown-unknown` (via wasm-bindgen) |
 
 PDF works out of the box. To disable PDF and use only SVG: `default-features = false, features = ["svg"]`.
 
 ### WebAssembly
 
-typst-bake builds for WebAssembly without a C toolchain. `wasm32-unknown-unknown` has no clock: set the time with `Document::with_now` and `PdfTimestamp::from_unix`, or enable `js-clock` to read it from JavaScript.
+typst-bake builds for WebAssembly without a C toolchain. On `wasm32-unknown-unknown` the current time is read from JavaScript by the default `js-clock` feature; keep it if you disable default features. For hosts without JavaScript, leave it out (e.g. `default-features = false, features = ["pdf"]`) and set the time with `Document::with_now`.
 
 ### Optional: Complete File Change Detection
 

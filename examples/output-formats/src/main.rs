@@ -7,7 +7,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let doc = typst_bake::document!("main.typ").with_pdf_config(PdfConfig {
         tagged: false,
         standard: PdfStandard::A2b,
-        timestamp: Some(PdfTimestamp::utc(2026, 1, 1, 0, 0, 0).expect("valid date")),
+        timestamp: Some(PdfTimestamp::from_unix(1_767_225_600)), // 2026-01-01T00:00:00Z
         // Identify this application in the PDF `/Creator` metadata instead of
         // leaving typst's default "Typst x.y.z".
         creator: Some("typst-bake output-formats example".into()),
