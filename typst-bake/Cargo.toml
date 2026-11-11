@@ -30,7 +30,18 @@ typst-render = { workspace = true, optional = true }
 typst-layout.workspace = true
 typst-as-lib.workspace = true
 include_dir.workspace = true
-zstd.workspace = true
 serde_json.workspace = true
 toml.workspace = true
 thiserror.workspace = true
+
+# The runtime only decompresses. WebAssembly uses a pure-Rust decoder so that building for wasm
+# needs no C toolchain for the target; native targets keep the faster C library.
+[target.'cfg(not(target_family = "wasm"))'.dependencies]
+zstd.workspace = true
+
+[target.'cfg(target_family = "wasm")'.dependencies]
+ruzstd.workspace = true
+
+[dev-dependencies]
+# Tests the wasm decoder on native targets.
+ruzstd.workspace = true

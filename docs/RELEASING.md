@@ -19,6 +19,18 @@ cargo doc --workspace --no-deps
 cargo test --workspace
 ```
 
+Check that the runtime still builds for WebAssembly without a C toolchain (once: `rustup target add wasm32-unknown-unknown`):
+
+```sh
+(
+  export CC_wasm32_unknown_unknown=false AR_wasm32_unknown_unknown=false
+  cargo clippy -p typst-bake --target wasm32-unknown-unknown --all-features -- -D warnings
+  cargo build -p example-output-formats --target wasm32-unknown-unknown
+)
+```
+
+The subshell keeps the variables, which make any C compilation for wasm fail, out of the remaining steps.
+
 ### 3. Update CHANGELOG.md
 
 - Add a new section for the release version in [Keep a Changelog](https://keepachangelog.com/) format.

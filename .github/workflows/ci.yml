@@ -26,3 +26,25 @@ jobs:
 
       - name: Run tests
         run: cargo test --workspace
+
+  wasm:
+    name: Wasm build
+    runs-on: ubuntu-latest
+    env:
+      # Fail if any dependency compiles C for wasm (host builds are unaffected).
+      CC_wasm32_unknown_unknown: "false"
+      AR_wasm32_unknown_unknown: "false"
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Add wasm target
+        run: rustup target add wasm32-unknown-unknown
+
+      - uses: swatinem/rust-cache@v2
+
+      - name: Clippy (wasm)
+        run: cargo clippy -p typst-bake --target wasm32-unknown-unknown --all-features -- -D warnings
+
+      # Building a binary links it, which is where a C dependency would fail.
+      - name: Build example for wasm
+        run: cargo build -p example-output-formats --target wasm32-unknown-unknown

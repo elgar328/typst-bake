@@ -44,6 +44,7 @@ syn = "3"
 
 # Compression
 zstd = "0.14"
+ruzstd = { version = "0.9", default-features = false, features = ["std"] }
 flate2 = "1"
 blake3 = "1"
 

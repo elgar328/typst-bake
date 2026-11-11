@@ -43,6 +43,10 @@ fonts-dir = "./fonts"         # Path to your font files
 
 PDF works out of the box. To disable PDF and use only SVG: `default-features = false, features = ["svg"]`.
 
+### WebAssembly
+
+typst-bake builds for WebAssembly without a C toolchain for the target: embedded resources are decompressed with a pure-Rust decoder there. On `wasm32-unknown-unknown`, the module needs wasm-bindgen's JavaScript glue (as provided in browsers or by the `worker` crate on Cloudflare Workers), because the current date is read through `chrono`.
+
 ### Optional: Complete File Change Detection
 
 By default, `typst-bake` detects template or font file **modifications** and triggers recompilation when you run `cargo build`. File **additions and deletions** are not detected directly, but this is rarely an issue—adding a new file usually requires modifying an existing file (like `main.typ`) to use it, which triggers recompilation anyway.
