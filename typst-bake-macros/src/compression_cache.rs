@@ -2,7 +2,6 @@
 
 use std::collections::{BTreeMap, HashSet};
 use std::fs;
-use std::io::Cursor;
 use std::path::PathBuf;
 
 /// Summary of deduplication statistics.
@@ -88,7 +87,9 @@ impl CompressionCache {
             let cache_path = cache_dir.join(&cache_filename);
             self.used_files.insert(cache_filename);
 
-            if let Ok(cached) = fs::read(&cache_path) {
+            if let Ok(cached) = fs::read(&cache_path)
+                && is_current_blob(&cached, data.len())
+            {
                 self.cache_hits += 1;
                 return cached;
             }
@@ -185,8 +186,23 @@ impl CompressionCache {
     }
 
     fn compress_raw(&self, data: &[u8]) -> Vec<u8> {
-        zstd::encode_all(Cursor::new(data), self.level).expect("zstd compression failed")
+        // With the size known, zstd scales its window and tables down to the input, which is far
+        // faster and lighter for small files than the streaming API (whose window is 8 MB at
+        // level 19 and 128 MB at level 22). The size is also recorded in the frame header, so
+        // decoders can allocate the output up front.
+        let mut blob = zstd::bulk::compress(data, self.level).expect("zstd compression failed");
+        // Allocated with `compress_bound(len)` and kept for the whole macro expansion.
+        blob.shrink_to_fit();
+        blob
     }
+}
+
+/// Whether `blob` is one complete zstd frame recording `len` as its content size.
+/// Files cached by typst-bake 0.2.0 and earlier lack the size and are recompressed.
+fn is_current_blob(blob: &[u8], len: usize) -> bool {
+    use zstd::zstd_safe::{find_frame_compressed_size, get_frame_content_size};
+    matches!(get_frame_content_size(blob), Ok(Some(n)) if n == len as u64)
+        && find_frame_compressed_size(blob) == Ok(blob.len())
 }
 
 fn format_size(bytes: usize) -> String {
@@ -196,5 +212,61 @@ fn format_size(bytes: usize) -> String {
         format!("{:.1} KB", bytes as f64 / 1024.0)
     } else {
         format!("{:.1} MB", bytes as f64 / (1024.0 * 1024.0))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const DATA: &[u8] = b"#set page(width: 10cm)\nHello, typst-bake!\n";
+
+    fn temp_cache_dir(name: &str) -> PathBuf {
+        let dir = std::env::temp_dir().join(format!(
+            "typst-bake-compression-{name}-{}",
+            std::process::id()
+        ));
+        let _ = fs::remove_dir_all(&dir);
+        dir
+    }
+
+    #[test]
+    fn blobs_record_their_size() {
+        let mut cache = CompressionCache::new(None, 19);
+        for data in [DATA, b""] {
+            let info = cache.compress(data);
+            assert!(is_current_blob(&cache.blobs[&info.hash], data.len()));
+        }
+    }
+
+    #[test]
+    fn outdated_cache_files_are_recompressed() {
+        let dir = temp_cache_dir("outdated");
+        let hash = blake3::hash(DATA).to_hex().to_string();
+        let path = dir.join(format!("{hash}_19.zst"));
+
+        // A frame without the recorded size, as written by earlier versions.
+        let mut cache = CompressionCache::new(Some(dir.clone()), 19);
+        let outdated = zstd::encode_all(DATA, 19).unwrap();
+        assert!(!is_current_blob(&outdated, DATA.len()));
+        fs::write(&path, &outdated).unwrap();
+        cache.compress(DATA);
+        assert_eq!((cache.cache_hits, cache.misses), (0, 1));
+        let rewritten = fs::read(&path).unwrap();
+
+        // The rewritten file is used by the next build.
+        let mut cache = CompressionCache::new(Some(dir.clone()), 19);
+        cache.compress(DATA);
+        let _ = fs::remove_dir_all(&dir);
+        assert_eq!((cache.cache_hits, cache.misses), (1, 0));
+        assert!(is_current_blob(&rewritten, DATA.len()));
+    }
+
+    #[test]
+    fn truncated_blobs_are_rejected() {
+        let blob = zstd::bulk::compress(DATA, 19).unwrap();
+        assert!(is_current_blob(&blob, DATA.len()));
+        assert!(!is_current_blob(&blob[..blob.len() - 1], DATA.len()));
+        assert!(!is_current_blob(&blob, DATA.len() + 1));
     }
 }

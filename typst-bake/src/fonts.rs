@@ -223,7 +223,7 @@ mod tests {
                         info: leak_str(serde_json::to_string(font.info()).unwrap()),
                     })
                     .collect();
-                EmbeddedFont::new(leak(zstd::encode_all(&raw[..], 3).unwrap()), leak(faces))
+                EmbeddedFont::new(leak(zstd::bulk::compress(&raw, 3).unwrap()), leak(faces))
             })
             .collect();
         leak(fonts)

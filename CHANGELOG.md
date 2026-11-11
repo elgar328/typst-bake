@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Font metadata is computed at build time, and a font is decompressed only when a document first uses it. Previously every embedded font was decompressed and parsed each time a `Document` compiled, which cost tens of milliseconds with large (e.g. CJK) fonts. Decoded fonts are kept for the life of the process and shared by every `Document` from the same `document!` call.
 - `typst-bake-macros` now depends on `typst-library`, which is compiled once more for the build host, so clean builds (including `cargo check` and rust-analyzer) take somewhat longer.
 - On WebAssembly targets embedded resources are decompressed with the pure-Rust `ruzstd`, so building for wasm no longer needs a C toolchain that targets wasm. Native targets keep the C `zstd` library.
+- Resources are compressed with their size known, which is faster and uses far less memory for small files (126 package files at level 22: 524 ms and 742 MB peak before, 107 ms and 10 MB now), and the recorded size lets decompression allocate the output up front. Existing compression caches are refreshed on the next build.
 - Update dependencies: `typst-as-lib` 0.17, `zstd` 0.14, `zip` 9, `dirs` 7
 
 ### Fixed
