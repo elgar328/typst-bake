@@ -20,57 +20,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- `Document::warnings()` exposes the warnings Typst produces for a document that compiles
-  successfully. Previously these were collected and silently discarded, so there was no way
-  to learn about problems in a template.
-- `Severity` and `Hint` types. A `Hint` carries an optional `location`, so hints that point at
-  a secondary piece of code now report where that code is.
-- `PdfConfig::creator` sets the PDF `/Creator` metadata. Defaults to `None`, which keeps
-  typst's own `Typst x.y.z` string.
+- `Document::warnings()` exposes the warnings Typst produces for a document that compiles successfully. Previously these were collected and silently discarded, so there was no way to learn about problems in a template.
+- `Severity` and `Hint` types. A `Hint` carries an optional `location`, so hints that point at a secondary piece of code now report where that code is.
+- `PdfConfig::creator` sets the PDF `/Creator` metadata. Defaults to `None`, which keeps typst's own `Typst x.y.z` string.
 
 ### Changed
 
-- **Breaking:** `Diagnostic` gains a `severity` field and `Diagnostic::hints` is now
-  `Vec<Hint>` instead of `Vec<String>`. Formatting a diagnostic or a hint is unaffected
-  (`Hint` implements `Display`); code that reads hint strings directly needs
-  `hint.message` instead of `hint`.
-- **Breaking:** `Diagnostic` and `Hint` are `#[non_exhaustive]`, so future fields can be
-  added without another breaking release.
-- **Breaking:** `PdfConfig` gains a `creator` field. Constructing it with
-  `..Default::default()` (as the documentation recommends) is unaffected.
-- **Breaking:** The minimum supported Rust version is now 1.92, and the crates use edition
-  2024. Both are required by typst 0.15.
-- Update `typst` to 0.15 and `typst-as-lib` to 0.16. **Templates are now compiled by typst
-  0.15**, so language and rendering changes in that release can affect your output. The
-  `path` element was removed in favour of `curve`, and typst 0.15 emits more compact SVG.
+- **Breaking:** `Diagnostic` gains a `severity` field and `Diagnostic::hints` is now `Vec<Hint>` instead of `Vec<String>`. Formatting a diagnostic or a hint is unaffected (`Hint` implements `Display`); code that reads hint strings directly needs `hint.message` instead of `hint`.
+- **Breaking:** `Diagnostic` and `Hint` are `#[non_exhaustive]`, so future fields can be added without another breaking release.
+- **Breaking:** `PdfConfig` gains a `creator` field. Constructing it with `..Default::default()` (as the documentation recommends) is unaffected.
+- **Breaking:** The minimum supported Rust version is now 1.92, and the crates use edition 2024. Both are required by typst 0.15.
+- Update `typst` to 0.15 and `typst-as-lib` to 0.16. **Templates are now compiled by typst 0.15**, so language and rendering changes in that release can affect your output. The `path` element was removed in favour of `curve`, and typst 0.15 emits more compact SVG.
 - Update dependencies: `syn` 3, `ureq` 3.4
 
 ## [0.1.11] - 2026-06-24
 
 ### Added
 
-- Compilation errors now expose the source location (file, line, column), hints, and the
-  call/import trace of each diagnostic. Motivated by #13 (thanks @HectorCF16).
+- Compilation errors now expose the source location (file, line, column), hints, and the call/import trace of each diagnostic. Motivated by #13 (thanks @HectorCF16).
 
 ### Changed
 
-- **Breaking:** `Error::Compilation` now wraps a `Vec<Diagnostic>` instead of a `String`.
-  The new public `Diagnostic` and `SourceLocation` types carry the resolved location; the
-  `Display` output gains `file:line:column: error: ...` formatting.
+- **Breaking:** `Error::Compilation` now wraps a `Vec<Diagnostic>` instead of a `String`. The new public `Diagnostic` and `SourceLocation` types carry the resolved location; the `Display` output gains `file:line:column: error: ...` formatting.
 
 ## [0.1.10] - 2026-06-07
 
 ### Added
 
-- PDF export options via `Document::with_pdf_config()` and the `PdfConfig`, `PdfStandard`,
-  and `PdfTimestamp` types: control PDF tagging, PDF/A or PDF/UA conformance, the document
-  identifier, and the creation timestamp. Motivated by #11 (thanks @awhow).
+- PDF export options via `Document::with_pdf_config()` and the `PdfConfig`, `PdfStandard`, and `PdfTimestamp` types: control PDF tagging, PDF/A or PDF/UA conformance, the document identifier, and the creation timestamp. Motivated by #11 (thanks @awhow).
 
 ### Changed
 
 - Update dependencies: `toml` 1.1, `ureq` 3.3
-- Improved documentation and examples: font setup guide shows the recommended font
-  configuration, and the `output-formats` example demonstrates `with_pdf_config()`
+- Improved documentation and examples: font setup guide shows the recommended font configuration, and the `output-formats` example demonstrates `with_pdf_config()`
 
 ## [0.1.9] - 2026-03-16
 
