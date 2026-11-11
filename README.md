@@ -40,12 +40,13 @@ fonts-dir = "./fonts"         # Path to your font files
 | `svg` | Enable `to_svg()` |
 | `png` | Enable `to_png()` |
 | `full` | Enable all output formats |
+| `js-clock` | Read the current time from JavaScript on `wasm32-unknown-unknown` (via wasm-bindgen) |
 
 PDF works out of the box. To disable PDF and use only SVG: `default-features = false, features = ["svg"]`.
 
 ### WebAssembly
 
-typst-bake builds for WebAssembly without a C toolchain for the target: embedded resources are decompressed with a pure-Rust decoder there. On `wasm32-unknown-unknown`, the module needs wasm-bindgen's JavaScript glue (as provided in browsers or by the `worker` crate on Cloudflare Workers), because the current date is read through `chrono`.
+typst-bake builds for WebAssembly without a C toolchain. `wasm32-unknown-unknown` has no clock: set the time with `Document::with_now` and `PdfTimestamp::from_unix`, or enable `js-clock` to read it from JavaScript.
 
 ### Optional: Complete File Change Detection
 
@@ -153,7 +154,7 @@ directly and format them yourself.
 
 **[typst-as-lib](https://github.com/Relacibo/typst-as-lib)** is a lightweight and flexible wrapper that makes it easy to use the Typst compiler as a Rust library. It supports various combinations of runtime filesystem access, package downloads from the internet, caching, and more.
 
-**typst-bake** uses typst-as-lib internally, adding a layer focused on creating self-contained binaries. This focused scope enables a simple, easy-to-use API. It embeds all resources (templates, fonts, packages) into the binary at compile time, so the resulting executable works anywhere without external files or network access. For packages, the entire process—scanning, downloading, compressing, and embedding—is fully automatic.
+**typst-bake** focuses on creating self-contained binaries. This focused scope enables a simple, easy-to-use API. It embeds all resources (templates, fonts, packages) into the binary at compile time, so the resulting executable works anywhere without external files or network access. For packages, the entire process—scanning, downloading, compressing, and embedding—is fully automatic.
 
 ### Key Differences
 
@@ -168,7 +169,7 @@ directly and format them yourself.
 ### Which should you use?
 
 - If you want all resources embedded in your binary for a fully self-contained executable → use **typst-bake**
-- If you prefer runtime flexibility (e.g., downloading packages on demand to reduce binary size) → use **typst-as-lib** directly
+- If you prefer runtime flexibility (e.g., downloading packages on demand to reduce binary size) → use **typst-as-lib**
 
 ## License
 

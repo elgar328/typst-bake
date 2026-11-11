@@ -4,13 +4,10 @@
 
 use crate::util::decompress;
 use include_dir::Dir;
-use std::borrow::Cow;
 use std::collections::HashMap;
 use typst::diag::{FileError, FileResult};
 use typst::foundations::Bytes;
 use typst::syntax::{FileId, Source, VirtualRoot};
-
-pub use typst_as_lib::file_resolver::FileResolver;
 
 /// Resolver for embedded templates and packages.
 ///
@@ -64,18 +61,15 @@ impl EmbeddedResolver {
             FileError::Other(Some(format!("Decompression failed for {path}: {e}").into()))
         })
     }
-}
 
-impl FileResolver for EmbeddedResolver {
-    fn resolve_binary(&self, id: FileId) -> FileResult<Cow<'_, Bytes>> {
-        let data = self.decompress_file(id)?;
-        Ok(Cow::Owned(Bytes::new(data)))
+    /// The file with the given id as raw bytes.
+    pub(crate) fn file(&self, id: FileId) -> FileResult<Bytes> {
+        Ok(Bytes::new(self.decompress_file(id)?))
     }
 
-    fn resolve_source(&self, id: FileId) -> FileResult<Cow<'_, Source>> {
-        let bytes = self.decompress_file(id)?;
-        let source = bytes_to_source(id, &bytes)?;
-        Ok(Cow::Owned(source))
+    /// The file with the given id as a Typst source.
+    pub(crate) fn source(&self, id: FileId) -> FileResult<Source> {
+        bytes_to_source(id, &self.decompress_file(id)?)
     }
 }
 

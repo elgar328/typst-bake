@@ -110,9 +110,13 @@ impl PdfStandard {
 /// only when the template's document date is `auto`; a `#set document(date: ..)` in the
 /// template takes precedence.
 ///
-/// For the common case of "now in UTC", use [`PdfTimestamp::now_utc`]. To attach a
-/// timezone offset, supply it explicitly with [`PdfTimestamp::now_local`] or
-/// [`PdfTimestamp::local`] — local timezone auto-detection is not supported.
+/// - The current time: [`PdfTimestamp::now`] (with the local UTC offset, as the Typst CLI
+///   writes it), [`PdfTimestamp::now_utc`], or [`PdfTimestamp::now_local`] (a given offset).
+/// - A given time: [`PdfTimestamp::from_unix`], [`PdfTimestamp::utc`], or
+///   [`PdfTimestamp::local`].
+///
+/// On `wasm32-unknown-unknown` there is no clock, so the `now*` constructors are only
+/// available with the `js-clock` feature, which reads the time from JavaScript.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct PdfTimestamp {
     year: i32,
@@ -130,22 +134,40 @@ fn valid_offset(minutes: i32) -> bool {
     (-(23 * 60 + 59)..=(23 * 60 + 59)).contains(&minutes)
 }
 
+// The constructors that read the clock. wasm32-unknown-unknown has none unless `js-clock`
+// reads it from JavaScript; there `SystemTime::now` panics.
+#[cfg(not(all(
+    target_family = "wasm",
+    target_os = "unknown",
+    not(feature = "js-clock")
+)))]
+#[cfg_attr(
+    docsrs,
+    doc(cfg(not(all(
+        target_family = "wasm",
+        target_os = "unknown",
+        not(feature = "js-clock")
+    ))))
+)]
 impl PdfTimestamp {
+    /// The current time with the local UTC offset, as the Typst CLI writes it.
+    ///
+    /// Panics only if the clock is past the year 9999. If it predates the Unix epoch, the
+    /// time saturates to `1970-01-01T00:00:00Z`.
+    pub fn now() -> Self {
+        let secs = Self::now_unix_secs();
+        let offset_minutes = chrono::DateTime::from_timestamp(secs, 0)
+            .map(|t| t.with_timezone(&chrono::Local).offset().local_minus_utc() / 60)
+            .unwrap_or(0);
+        Self::at_offset(secs, Some(offset_minutes)).expect("the current time is in range")
+    }
+
     /// The current time in UTC.
     ///
-    /// This is the common case. It never panics: if the system clock predates the Unix
-    /// epoch, it saturates to `1970-01-01T00:00:00Z`.
+    /// Panics only if the clock is past the year 9999. If it predates the Unix epoch, the
+    /// time saturates to `1970-01-01T00:00:00Z`.
     pub fn now_utc() -> Self {
-        let (year, month, day, hour, minute, second) = civil_from_unix(now_unix_secs());
-        Self {
-            year,
-            month,
-            day,
-            hour,
-            minute,
-            second,
-            offset_minutes: None,
-        }
+        Self::at_offset(Self::now_unix_secs(), None).expect("the current time is in range")
     }
 
     /// The current time expressed as wall-clock time at the given UTC offset (in minutes).
@@ -153,20 +175,44 @@ impl PdfTimestamp {
     /// For example, `now_local(540)` yields the current time in UTC+09:00 (KST).
     /// Returns `None` if the offset is outside ±(23h, 59m).
     pub fn now_local(offset_minutes: i32) -> Option<Self> {
-        if !valid_offset(offset_minutes) {
-            return None;
+        Self::at_offset(Self::now_unix_secs(), Some(offset_minutes))
+    }
+
+    /// Read the current Unix time in seconds, saturating to 0 if the clock predates the
+    /// epoch.
+    fn now_unix_secs() -> i64 {
+        if cfg!(all(target_family = "wasm", target_os = "unknown")) {
+            // JavaScript `Date`, through chrono's `wasmbind` (enabled by `js-clock`).
+            chrono::Utc::now().timestamp().max(0)
+        } else {
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|d| d.as_secs() as i64)
+                .unwrap_or(0)
         }
+    }
+}
+
+impl PdfTimestamp {
+    /// A Unix timestamp (seconds since 1970-01-01T00:00:00Z) as a UTC date and time.
+    ///
+    /// Works on every target, including `wasm32-unknown-unknown` without a clock. Returns
+    /// `None` outside the years ±9999.
+    pub fn from_unix(unix_secs: i64) -> Option<Self> {
+        Self::at_offset(unix_secs, None)
+    }
+
+    /// A Unix timestamp as wall-clock time at the given UTC offset (in minutes), or as UTC
+    /// for `None`.
+    fn at_offset(unix_secs: i64, offset_minutes: Option<i32>) -> Option<Self> {
+        let shift = i64::from(offset_minutes.unwrap_or(0)) * 60;
         let (year, month, day, hour, minute, second) =
-            civil_from_unix(now_unix_secs() + offset_minutes as i64 * 60);
-        Some(Self {
-            year,
-            month,
-            day,
-            hour,
-            minute,
-            second,
-            offset_minutes: Some(offset_minutes),
-        })
+            civil_from_unix(unix_secs.checked_add(shift)?);
+        let year = i32::try_from(year).ok()?;
+        match offset_minutes {
+            None => Self::utc(year, month, day, hour, minute, second),
+            Some(offset) => Self::local(year, month, day, hour, minute, second, offset),
+        }
     }
 
     /// A specific UTC date and time.
@@ -232,19 +278,13 @@ impl PdfTimestamp {
     }
 }
 
-/// Read the current Unix time in seconds, saturating to 0 if the clock predates the epoch.
-fn now_unix_secs() -> i64 {
-    std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map(|d| d.as_secs() as i64)
-        .unwrap_or(0)
-}
-
 /// Convert Unix time (seconds) to `(year, month, day, hour, minute, second)` in UTC.
 ///
 /// Uses Howard Hinnant's `civil_from_days` algorithm. Euclidean division/remainder are
 /// used so pre-epoch (negative) inputs are handled correctly.
-fn civil_from_unix(secs: i64) -> (i32, u8, u8, u8, u8, u8) {
+///
+/// The year is returned as `i64`: far-off timestamps do not fit an `i32`.
+fn civil_from_unix(secs: i64) -> (i64, u8, u8, u8, u8, u8) {
     let days = secs.div_euclid(86_400);
     let rem = secs.rem_euclid(86_400);
     let hour = (rem / 3_600) as u8;
@@ -261,7 +301,7 @@ fn civil_from_unix(secs: i64) -> (i32, u8, u8, u8, u8, u8) {
     let mp = (5 * doy + 2) / 153; // [0, 11]
     let day = (doy - (153 * mp + 2) / 5 + 1) as u8; // [1, 31]
     let month = (if mp < 10 { mp + 3 } else { mp - 9 }) as u8; // [1, 12]
-    let year = (y + if month <= 2 { 1 } else { 0 }) as i32;
+    let year = y + if month <= 2 { 1 } else { 0 };
 
     (year, month, day, hour, minute, second)
 }
@@ -276,7 +316,7 @@ fn civil_from_unix(secs: i64) -> (i32, u8, u8, u8, u8, u8) {
 ///     tagged: false, // smaller PDF; bookmarks/outline are preserved
 ///     standard: PdfStandard::A2b,
 ///     ident: Some("invoice-2026-001".into()),
-///     timestamp: Some(PdfTimestamp::now_utc()),
+///     timestamp: Some(PdfTimestamp::now()),
 ///     ..Default::default()
 /// };
 /// assert!(!config.tagged);
@@ -482,6 +522,57 @@ mod tests {
         let diff = (local_minutes - utc_minutes).rem_euclid(24 * 60);
         // Allow a 1-minute slack for the (tiny) time between the two clock reads.
         assert!(diff == 60 || diff == 59 || diff == 61, "diff was {diff}");
+    }
+
+    #[test]
+    fn from_unix_is_utc() {
+        assert_eq!(
+            PdfTimestamp::from_unix(0),
+            PdfTimestamp::utc(1970, 1, 1, 0, 0, 0)
+        );
+        assert_eq!(
+            PdfTimestamp::from_unix(1_780_747_200),
+            PdfTimestamp::utc(2026, 6, 6, 12, 0, 0)
+        );
+        // The years ±9999 are the supported range.
+        assert_eq!(
+            PdfTimestamp::from_unix(253_402_300_799),
+            PdfTimestamp::utc(9999, 12, 31, 23, 59, 59)
+        );
+        assert_eq!(PdfTimestamp::from_unix(253_402_300_800), None);
+        assert_eq!(
+            PdfTimestamp::from_unix(-377_705_116_800),
+            PdfTimestamp::utc(-9999, 1, 1, 0, 0, 0)
+        );
+        assert_eq!(PdfTimestamp::from_unix(-377_705_116_801), None);
+        assert_eq!(PdfTimestamp::from_unix(i64::MAX), None);
+        // The year of this instant is 2026 + 2^28 * 400, which wraps to exactly 2026 as an i32.
+        assert_eq!(PdfTimestamp::from_unix(3_388_401_921_816_792_000), None);
+    }
+
+    #[test]
+    fn at_offset_shifts_the_wall_clock() {
+        // 2026-06-06T12:00:00Z
+        let t = 1_780_747_200;
+        assert_eq!(
+            PdfTimestamp::at_offset(t, Some(330)),
+            PdfTimestamp::local(2026, 6, 6, 17, 30, 0, 330)
+        );
+        assert_eq!(
+            PdfTimestamp::at_offset(t, Some(-210)),
+            PdfTimestamp::local(2026, 6, 6, 8, 30, 0, -210)
+        );
+        // Crosses into the next day.
+        assert_eq!(
+            PdfTimestamp::at_offset(t, Some(13 * 60)),
+            PdfTimestamp::local(2026, 6, 7, 1, 0, 0, 13 * 60)
+        );
+        assert_eq!(PdfTimestamp::at_offset(t, Some(24 * 60)), None);
+    }
+
+    #[test]
+    fn now_converts() {
+        assert!(PdfTimestamp::now().to_typst().is_some());
     }
 
     #[test]

@@ -7,16 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `Document::with_now` fixes the time that `datetime.today()` uses.
+- `PdfTimestamp::now` (the current time with the local UTC offset, as the Typst CLI writes it) and `PdfTimestamp::from_unix`.
+- `js-clock` feature: on `wasm32-unknown-unknown`, read the current time from JavaScript.
+
 ### Changed
+
+- **Breaking:** On `wasm32-unknown-unknown` typst-bake no longer imports JavaScript, so no wasm-bindgen glue is needed, and it has no clock: `datetime.today()` fails unless `Document::with_now` is set, and `PdfTimestamp::now`, `now_utc`, and `now_local` are unavailable (they panicked there). Enable the new `js-clock` feature to read the time from JavaScript instead.
+- typst-bake no longer depends on `typst-as-lib` and implements Typst's `World` itself.
+- `datetime.today()` without an offset returns the local date, like the Typst CLI. It was the UTC date.
 
 - Font metadata is computed at build time, and a font is decompressed only when a document first uses it. Previously every embedded font was decompressed and parsed each time a `Document` compiled, which cost tens of milliseconds with large (e.g. CJK) fonts. Decoded fonts are kept for the life of the process and shared by every `Document` from the same `document!` call.
 - `typst-bake-macros` now depends on `typst-library`, which is compiled once more for the build host, so clean builds (including `cargo check` and rust-analyzer) take somewhat longer.
 - On WebAssembly targets embedded resources are decompressed with the pure-Rust `ruzstd`, so building for wasm no longer needs a C toolchain that targets wasm. Native targets keep the C `zstd` library.
 - Resources are compressed with their size known, which is faster and uses far less memory for small files (126 package files at level 22: 524 ms and 742 MB peak before, 107 ms and 10 MB now), and the recorded size lets decompression allocate the output up front. Existing compression caches are refreshed on the next build.
-- Update dependencies: `typst-as-lib` 0.17, `zstd` 0.14, `zip` 9, `dirs` 7
+- Update dependencies: `zstd` 0.14, `zip` 9, `dirs` 7
 
 ### Fixed
 
+- Offsets passed to `datetime.today()` that are not whole hours are applied exactly. They were truncated to hours.
+- `std.sys.inputs` holds the inputs, like `sys.inputs`. It was an empty dictionary.
 - Fonts in sub-directories of `fonts-dir` are now available to documents. They were embedded into the binary but never registered. Because they now take part in font selection, output can change for projects that kept fonts in sub-directories.
 
 ## [0.2.0] - 2026-09-01

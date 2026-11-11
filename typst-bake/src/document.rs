@@ -12,11 +12,11 @@ use std::collections::{BTreeSet, HashMap};
 use std::sync::{Mutex, MutexGuard};
 use typst::diag::{FileResult, SourceDiagnostic};
 use typst::foundations::{Bytes, Datetime, Dict, Duration};
-use typst::syntax::{DiagSpan, FileId, Source};
+use typst::syntax::{DiagSpan, FileId, RootedPath, Source, VirtualPath, VirtualRoot};
 use typst::text::{Font, FontBook};
 use typst::utils::LazyHash;
-use typst::{Library, World, WorldExt};
-use typst_as_lib::{TypstEngine, TypstWorld};
+use typst::{Library, LibraryExt, World, WorldExt};
+use typst_kit::datetime::Time;
 use typst_layout::PagedDocument;
 
 /// A compiled document together with the warnings typst produced for it.
@@ -40,6 +40,8 @@ pub struct Document {
     runtime_files: Mutex<HashMap<String, Vec<u8>>>,
     stats: EmbedStats,
     compiled_cache: Mutex<Option<Compiled>>,
+    /// The fixed current time (Unix seconds) set by [`Document::with_now`].
+    now: Option<i64>,
     /// PDF export options. Set by [`Document::with_pdf_config`]. A plain field (no
     /// `Mutex`): the builder takes `self` by value to write it, and rendering reads it
     /// through `&self`. Affects PDF export only, so it never invalidates `compiled_cache`.
@@ -67,6 +69,7 @@ impl Document {
             runtime_files: Mutex::new(HashMap::new()),
             stats,
             compiled_cache: Mutex::new(None),
+            now: None,
             #[cfg(feature = "pdf")]
             pdf_config: PdfConfig::default(),
         }
@@ -167,6 +170,31 @@ impl Document {
         self.lock_runtime_files().insert(normalized, data.into());
         *self.lock_cache() = None;
         Ok(self)
+    }
+
+    /// Fix the current time that templates see through `datetime.today()`.
+    ///
+    /// `unix_secs` is seconds since 1970-01-01T00:00:00Z. `datetime.today()` then returns the
+    /// UTC date of that instant, and `datetime.today(offset: 9)` the date at UTC+9.
+    ///
+    /// Without it, the system clock is read during compilation and `datetime.today()` returns
+    /// the local date. On `wasm32-unknown-unknown` there is no clock unless the `js-clock`
+    /// feature is enabled, so there `datetime.today()` is a compile error without this.
+    ///
+    /// This does not set the PDF creation date (see `PdfConfig::timestamp`). An instant
+    /// outside the years ±9999 also makes `datetime.today()` an error.
+    ///
+    /// # Example
+    /// ```rust,ignore
+    /// // 2026-11-11T00:00:00Z
+    /// let pdf = typst_bake::document!("main.typ")
+    ///     .with_now(1_794_355_200)
+    ///     .to_pdf()?;
+    /// ```
+    pub fn with_now(mut self, unix_secs: i64) -> Self {
+        self.now = Some(unix_secs);
+        *self.lock_cache() = None;
+        self
     }
 
     /// Set PDF export options.
@@ -313,50 +341,36 @@ impl Document {
             find_entry(self.templates, self.entry).ok_or(Error::EntryNotFound(self.entry))?;
 
         let main_bytes = decompress(main_file.contents())?;
-        let main_content = std::str::from_utf8(&main_bytes).map_err(|_| Error::InvalidUtf8)?;
+        let main_content = String::from_utf8(main_bytes).map_err(|_| Error::InvalidUtf8)?;
 
-        let mut resolver = EmbeddedResolver::new(self.templates, self.packages);
+        // A path typst cannot represent cannot name the entry either.
+        let main_id = VirtualPath::new(self.entry)
+            .map(|vpath| RootedPath::new(VirtualRoot::Project, vpath).intern())
+            .map_err(|_| Error::EntryNotFound(self.entry))?;
+
+        let mut files = EmbeddedResolver::new(self.templates, self.packages);
         for (path, data) in self.lock_runtime_files().iter() {
-            resolver.insert_runtime_file(path.clone(), data.clone());
+            files.insert_runtime_file(path.clone(), data.clone());
         }
 
-        // Fonts come from the process-wide store, not the engine: its book is prebuilt
-        // and each font is decompressed only when typst first uses it.
+        // Fonts come from the process-wide store: its book is prebuilt and each font is
+        // decompressed only when typst first uses it.
         let fonts = self.fonts.store();
-
-        let engine = TypstEngine::builder()
-            .main_file((self.entry, main_content))
-            .add_file_resolver(resolver)
-            .build();
 
         // Clone inputs (preserve for retry on failure)
         let inputs = self.lock_inputs().clone();
 
-        // Drive the world directly (mirrors typst-as-lib's internal `do_compile`) so the
-        // `World` stays in scope to resolve diagnostic spans into source locations.
-        let mut world_builder = engine.world_builder();
-        if let Some(inputs) = inputs {
-            world_builder = world_builder.with_inputs(inputs);
-        }
-        // A build failure is an input-injection error, not a source diagnostic; preserve its
-        // message in a location-less diagnostic.
-        let world = world_builder.build().map_err(|e| {
-            Error::Compilation(vec![Diagnostic {
-                severity: Severity::Error,
-                location: None,
-                message: e.to_string(),
-                hints: Vec::new(),
-                trace: Vec::new(),
-            }])
-        })?;
-        let baked = BakedWorld {
-            inner: world,
+        let baked = BakedWorld::new(
+            Source::new(main_id, main_content),
+            files,
             fonts,
-        };
+            inputs,
+            clock(self.now),
+        );
 
         let warned = typst::compile::<PagedDocument>(&baked);
-        // Replicate the engine's default eviction policy (`Some(0)`); `world_builder` does not
-        // evict automatically. The comemo cache is global, so don't enlarge this blindly.
+        // Drop memoized results right away. The comemo cache is global, so keeping entries
+        // would hold memory across documents; don't enlarge this blindly.
         typst::comemo::evict(0);
 
         // A font that failed to decompress is the root cause of whatever typst reported.
@@ -364,7 +378,7 @@ impl Document {
             return Err(error);
         }
 
-        let world = &baked.inner;
+        let world = &baked;
         let main = world.main();
         let doc = warned.output.map_err(|diagnostics| {
             Error::Compilation(
@@ -623,7 +637,7 @@ fn validate_page_selection(
 /// The entry file's `FileId` is mapped back to the user-facing entry path so it
 /// matches exactly what was requested (including nested entries).
 fn span_to_location(
-    world: &TypstWorld,
+    world: &BakedWorld,
     entry: &str,
     main: FileId,
     span: impl Into<DiagSpan>,
@@ -645,18 +659,60 @@ fn span_to_location(
     })
 }
 
-/// The engine's world with fonts served from the embedded [`FontStore`].
-///
-/// typst-as-lib only accepts fully loaded fonts, so the engine is built without any
-/// and this wrapper answers the font queries instead.
+/// The world typst compiles against: embedded templates and packages, runtime files,
+/// lazily decoded fonts, and the current date.
 struct BakedWorld<'a> {
-    inner: TypstWorld<'a>,
+    library: LazyHash<Library>,
+    main: Source,
+    files: EmbeddedResolver,
     fonts: &'a FontStore,
+    /// `None`: no clock, so `datetime.today()` fails (only if a template calls it).
+    time: Option<Time>,
+}
+
+impl<'a> BakedWorld<'a> {
+    fn new(
+        main: Source,
+        files: EmbeddedResolver,
+        fonts: &'a FontStore,
+        inputs: Option<Dict>,
+        time: Option<Time>,
+    ) -> Self {
+        let mut library = Library::builder();
+        if let Some(inputs) = inputs {
+            library = library.with_inputs(inputs);
+        }
+        Self {
+            library: LazyHash::new(library.build()),
+            main,
+            files,
+            fonts,
+            time,
+        }
+    }
+}
+
+/// The clock for `datetime.today()`: the fixed time from [`Document::with_now`], else the
+/// system clock. wasm32-unknown-unknown has none unless `js-clock` reads it from JavaScript.
+fn clock(now: Option<i64>) -> Option<Time> {
+    match now {
+        Some(secs) => Time::fixed_timestamp(secs).ok(),
+        None if cfg!(all(
+            target_family = "wasm",
+            target_os = "unknown",
+            not(feature = "js-clock")
+        )) =>
+        {
+            None
+        }
+        // Read lazily, at most once per compilation: local date, exact offsets.
+        None => Some(Time::system()),
+    }
 }
 
 impl World for BakedWorld<'_> {
     fn library(&self) -> &LazyHash<Library> {
-        self.inner.library()
+        &self.library
     }
 
     fn book(&self) -> &LazyHash<FontBook> {
@@ -664,15 +720,19 @@ impl World for BakedWorld<'_> {
     }
 
     fn main(&self) -> FileId {
-        self.inner.main()
+        self.main.id()
     }
 
     fn source(&self, id: FileId) -> FileResult<Source> {
-        self.inner.source(id)
+        if id == self.main.id() {
+            Ok(self.main.clone())
+        } else {
+            self.files.source(id)
+        }
     }
 
     fn file(&self, id: FileId) -> FileResult<Bytes> {
-        self.inner.file(id)
+        self.files.file(id)
     }
 
     fn font(&self, index: usize) -> Option<Font> {
@@ -680,14 +740,14 @@ impl World for BakedWorld<'_> {
     }
 
     fn today(&self, offset: Option<Duration>) -> Option<Datetime> {
-        self.inner.today(offset)
+        self.time.as_ref()?.today(offset)
     }
 }
 
 /// Convert a Typst [`SourceDiagnostic`] into a typst-bake [`Diagnostic`] with
 /// resolved source locations.
 fn diagnostic_from(
-    world: &TypstWorld,
+    world: &BakedWorld,
     entry: &str,
     main: FileId,
     diagnostic: &SourceDiagnostic,
@@ -745,11 +805,145 @@ fn find_entry<'a>(dir: &'a Dir<'a>, path: &str) -> Option<&'a File<'a>> {
 mod tests {
     use super::*;
 
+    static EMPTY: Dir<'static> = Dir::new("", &[]);
+    static NO_FONTS: FontSet = FontSet::new(&[]);
+
+    /// 2026-11-11T20:30:00Z.
+    const EVENING_OF_NOV_11: i64 = 1_794_429_000;
+
+    /// A world with `src` as its main file and no other files or fonts.
+    fn test_world(
+        entry: &str,
+        src: &str,
+        inputs: Option<Dict>,
+        time: Option<Time>,
+    ) -> BakedWorld<'static> {
+        let vpath = VirtualPath::new(entry).expect("valid path");
+        let id = RootedPath::new(VirtualRoot::Project, vpath).intern();
+        BakedWorld::new(
+            Source::new(id, src.to_owned()),
+            EmbeddedResolver::new(&EMPTY, &EMPTY),
+            NO_FONTS.store(),
+            inputs,
+            time,
+        )
+    }
+
+    /// Compile `world`, returning the error messages if it fails.
+    fn compile(world: &BakedWorld) -> std::result::Result<(), Vec<String>> {
+        let warned = typst::compile::<PagedDocument>(world);
+        typst::comemo::evict(0);
+        warned
+            .output
+            .map(|_| ())
+            .map_err(|errors| errors.iter().map(|e| e.message.to_string()).collect())
+    }
+
+    #[test]
+    fn today_uses_the_fixed_time() {
+        let src = "\
+#let day(d) = datetime(year: 2026, month: 11, day: d)
+#assert.eq(datetime.today(), day(11))
+#assert.eq(datetime.today(offset: 3), day(11))
+#assert.eq(datetime.today(offset: 4), day(12))
+#assert.eq(datetime.today(offset: duration(hours: 3, minutes: 30)), day(12))
+";
+        let world = test_world("main.typ", src, None, clock(Some(EVENING_OF_NOV_11)));
+        compile(&world).expect("dates match");
+    }
+
+    #[test]
+    fn a_fixed_time_past_year_9999_has_no_date() {
+        // 9999-12-31T23:59:59Z still has a date; one second later does not.
+        let src = "#assert.eq(datetime.today(), datetime(year: 9999, month: 12, day: 31))";
+        let world = test_world("main.typ", src, None, clock(Some(253_402_300_799)));
+        compile(&world).expect("last representable date");
+
+        let world = test_world(
+            "main.typ",
+            "#datetime.today()",
+            None,
+            clock(Some(253_402_300_800)),
+        );
+        let errors = compile(&world).expect_err("past year 9999");
+        assert!(errors[0].contains("current date"), "{errors:?}");
+    }
+
+    #[test]
+    fn without_a_clock_today_fails_only_when_used() {
+        let world = test_world("main.typ", "Hello", None, None);
+        compile(&world).expect("no clock needed");
+
+        let world = test_world("main.typ", "#datetime.today()", None, None);
+        let errors = compile(&world).expect_err("no clock");
+        assert!(errors[0].contains("current date"), "{errors:?}");
+    }
+
+    #[test]
+    fn inputs_reach_sys_inputs() {
+        let src = "\
+#assert.eq(sys.inputs.title, \"x\")
+#assert.eq(std.sys.inputs.title, \"x\")
+";
+        let mut inputs = Dict::new();
+        inputs.insert(
+            "title".into(),
+            typst::foundations::IntoValue::into_value("x"),
+        );
+        let world = test_world("main.typ", src, Some(inputs), None);
+        compile(&world).expect("inputs are visible");
+    }
+
+    /// A `Document` whose only template is `main.typ` with the given source.
+    fn test_document(src: &str) -> Document {
+        use crate::stats::{CategoryStats, DedupStats, PackageStats};
+        use include_dir::DirEntry;
+
+        let blob = zstd::bulk::compress(src.as_bytes(), 3).expect("compress");
+        let entries = vec![DirEntry::File(File::new("main.typ", blob.leak()))];
+        let templates: &'static Dir<'static> = Box::leak(Box::new(Dir::new("", entries.leak())));
+        let empty = CategoryStats {
+            original_size: 0,
+            compressed_size: 0,
+            file_count: 0,
+        };
+        let stats = EmbedStats {
+            templates: empty,
+            packages: PackageStats {
+                packages: Vec::new(),
+                original_size: 0,
+                compressed_size: 0,
+            },
+            fonts: empty,
+            dedup: DedupStats {
+                total_files: 0,
+                unique_blobs: 0,
+                duplicate_count: 0,
+                saved_bytes: 0,
+            },
+            compression_level: 3,
+        };
+        Document::__new(templates, &EMPTY, &NO_FONTS, "main.typ", stats)
+    }
+
+    #[test]
+    fn with_now_resets_the_cache() {
+        let doc =
+            test_document("#assert.eq(datetime.today(), datetime(year: 2026, month: 11, day: 11))")
+                .with_now(EVENING_OF_NOV_11);
+        doc.warnings().expect("compiles on the 11th");
+
+        let doc = doc.with_now(EVENING_OF_NOV_11 + 86_400);
+        assert!(
+            matches!(doc.warnings(), Err(Error::Compilation(_))),
+            "a cached result was reused"
+        );
+    }
+
     /// Compile a self-contained broken source and resolve its diagnostics. No
     /// embedded resolver or fonts are needed for an eval-time error.
     fn compile_error(entry: &'static str, src: &'static str) -> Vec<Diagnostic> {
-        let engine = TypstEngine::builder().main_file((entry, src)).build();
-        let world = engine.world_builder().build().expect("world builds");
+        let world = test_world(entry, src, None, None);
         let warned = typst::compile::<PagedDocument>(&world);
         typst::comemo::evict(0);
         let main = world.main();
@@ -871,8 +1065,7 @@ mod tests {
 
     /// Compile a source that yields warnings but still succeeds, and resolve them.
     fn compile_warnings(entry: &'static str, src: &'static str) -> Vec<Diagnostic> {
-        let engine = TypstEngine::builder().main_file((entry, src)).build();
-        let world = engine.world_builder().build().expect("world builds");
+        let world = test_world(entry, src, None, None);
         let warned = typst::compile::<PagedDocument>(&world);
         typst::comemo::evict(0);
         let main = world.main();

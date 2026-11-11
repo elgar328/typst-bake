@@ -96,7 +96,7 @@ let pdf = document!("main.typ")
     .with_pdf_config(PdfConfig {
         tagged: false,             // smaller file; bookmarks/outline preserved
         standard: PdfStandard::A2b,
-        timestamp: Some(PdfTimestamp::now_utc()),
+        timestamp: Some(PdfTimestamp::now()),
         ..Default::default()
     })
     .to_pdf()?;
@@ -117,8 +117,8 @@ let pdf = document!("main.typ")
   [`ident`],
   [A stable document identifier (`None` lets Typst derive one).],
   [`timestamp`],
-  [Creation date — build with `now_utc()`, `now_local(offset)`,
-   `utc(y, m, d, h, min, s)`, or `local(..)`.],
+  [Creation date — build with `now()` (local offset), `now_utc()`,
+   `from_unix(secs)`, `utc(y, m, d, h, min, s)`, or `local(..)`.],
 )
 
 == Note
