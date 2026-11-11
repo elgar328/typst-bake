@@ -31,5 +31,6 @@ typst-layout.workspace = true
 typst-as-lib.workspace = true
 include_dir.workspace = true
 zstd.workspace = true
+serde_json.workspace = true
 toml.workspace = true
 thiserror.workspace = true

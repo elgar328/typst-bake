@@ -6,7 +6,7 @@
 
 = Font Guide
 
-`typst-bake` embeds fonts from `fonts-dir` and requires at least one. Without any font, Typst renders invisible text, so a compile-time error is raised when none are found. Only TTF, OTF, and TTC files are embedded; other files in `fonts-dir` are ignored.
+`typst-bake` embeds fonts from `fonts-dir` and requires at least one. Without any font, Typst renders invisible text, so a compile-time error is raised when none are found. Only TTF, OTF, and TTC files are embedded, including those in sub-directories; other files in `fonts-dir` are ignored.
 
 Fonts are selected in your template with `set` and `show` rules. The lines below configure this document. These are just examples—use any fonts you place in your `fonts-dir`.
 

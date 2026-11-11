@@ -14,8 +14,8 @@ fn workspace_root() -> PathBuf {
         .to_path_buf()
 }
 
-/// Run example and verify PDF generation
-fn run_example_and_verify_pdf(example_name: &str, pdf_rel_path: &str) {
+/// Run example, verify PDF generation, and return the PDF bytes
+fn run_example_and_verify_pdf(example_name: &str, pdf_rel_path: &str) -> Vec<u8> {
     let workspace = workspace_root();
     let pdf_path = workspace.join(pdf_rel_path);
 
@@ -41,6 +41,7 @@ fn run_example_and_verify_pdf(example_name: &str, pdf_rel_path: &str) {
     let pdf = std::fs::read(&pdf_path).expect("Failed to read PDF");
     assert!(!pdf.is_empty(), "PDF is empty");
     assert!(pdf.starts_with(b"%PDF"), "Invalid PDF header");
+    pdf
 }
 
 #[test]
@@ -55,7 +56,21 @@ fn test_with_files_generates_pdf() {
 
 #[test]
 fn test_font_guide_generates_pdf() {
-    run_example_and_verify_pdf("example-font-guide", "examples/font-guide/output.pdf");
+    let pdf = run_example_and_verify_pdf("example-font-guide", "examples/font-guide/output.pdf");
+
+    // Every embedded font must actually be used, including the one in `fonts/math/`.
+    // A font typst cannot load leaves no `/BaseFont` entry behind.
+    for font in [
+        "SourceSerif4-Regular",
+        "SourceSerif4-Bold",
+        "JetBrainsMono-Regular",
+        "STIXTwoMath-Regular",
+    ] {
+        assert!(
+            pdf.windows(font.len()).any(|w| w == font.as_bytes()),
+            "font {font} is missing from the PDF"
+        );
+    }
 }
 
 #[test]

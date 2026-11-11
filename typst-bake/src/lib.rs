@@ -53,6 +53,7 @@
 mod build;
 mod document;
 mod error;
+mod fonts;
 #[cfg(feature = "pdf")]
 mod pdf_config;
 mod resolver;
@@ -102,8 +103,12 @@ pub use stats::{
 ///
 /// - **Templates**: All files in `template-dir` are embedded and accessible from `.typ` files.
 ///   Paths resolve relative to the referring `.typ` file.
-/// - **Fonts**: Only supported font formats (TTF, OTF, TTC) are embedded. At least one font
-///   is required; without fonts, Typst produces invisible text.
+/// - **Fonts**: Only supported font formats (TTF, OTF, TTC) are embedded, including those in
+///   sub-directories. At least one font is required; without fonts, Typst produces invisible
+///   text. A font is decompressed the first time a document uses it and then kept for the
+///   life of the process, shared by every document from the same `document!` call. Each call
+///   site holds its own copy, so wrap `document!` in a function if you render it from several
+///   places.
 /// - **Packages**: Using packages requires no manual setup. Just use `#import "@preview/..."`
 ///   or `#import "@local/..."` as you normally would in Typst. The macro scans for package
 ///   imports and recursively resolves all dependencies at compile time. Shares Typst's own
@@ -180,6 +185,7 @@ pub use include_dir;
 #[doc(hidden)]
 pub mod __internal {
     pub use super::document::Document;
+    pub use super::fonts::{EmbeddedFace, EmbeddedFont, FontSet};
     pub use include_dir::Dir;
     // Re-export include_dir crate for direct struct construction
     pub use include_dir;

@@ -33,6 +33,9 @@ typst-render = "0.15"
 typst-syntax = "0.15"
 typst-layout = "0.15"
 typst-as-lib = "0.16"
+# Font metadata is serialized by the macros with this crate and read back by `typst` at
+# runtime, so it must stay on the same minor line as `typst` (a unit test checks Cargo.lock).
+typst-library = "0.15"
 
 # Proc macro
 proc-macro2 = "1"
@@ -43,6 +46,9 @@ syn = "3"
 zstd = "0.13"
 flate2 = "1"
 blake3 = "1"
+
+# Serialization
+serde_json = "1"
 
 # Error handling
 thiserror = "2"

@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+
+- Font metadata is computed at build time, and a font is decompressed only when a document first uses it. Previously every embedded font was decompressed and parsed each time a `Document` compiled, which cost tens of milliseconds with large (e.g. CJK) fonts. Decoded fonts are kept for the life of the process and shared by every `Document` from the same `document!` call.
+- `typst-bake-macros` now depends on `typst-library`, which is compiled once more for the build host, so clean builds (including `cargo check` and rust-analyzer) take somewhat longer.
+
+### Fixed
+
+- Fonts in sub-directories of `fonts-dir` are now available to documents. They were embedded into the binary but never registered. Because they now take part in font selection, output can change for projects that kept fonts in sub-directories.
+
 ## [0.2.0] - 2026-09-01
 
 ### Added

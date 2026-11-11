@@ -9,6 +9,7 @@ mod config;
 mod derive_intoval;
 mod dir_embed;
 mod downloader;
+mod font_embed;
 mod scanner;
 
 use std::collections::BTreeMap;
@@ -20,6 +21,7 @@ use syn::{LitStr, parse_macro_input};
 
 use compression_cache::CompressionCache;
 use dir_embed::DirEmbedResult;
+use font_embed::FontEmbedResult;
 
 use scanner::ResolvedPackage;
 
@@ -162,7 +164,7 @@ fn embed_packages(
 fn generate_output(
     entry_value: &str,
     templates_result: &DirEmbedResult,
-    fonts_result: &DirEmbedResult,
+    fonts_result: &FontEmbedResult,
     packages: &EmbeddedPackages,
     cache: &mut CompressionCache,
     compression_level: i32,
@@ -178,7 +180,7 @@ fn generate_output(
     let dedup_statics = cache.dedup_statics();
 
     let templates_code = templates_result.to_dir_code("");
-    let fonts_code = fonts_result.to_dir_code("");
+    let font_entries = &fonts_result.fonts;
     let namespace_entries = &packages.namespace_entries;
     let packages_code = quote! {
         ::typst_bake::__internal::include_dir::Dir::new("", &[#(#namespace_entries),*])
@@ -222,7 +224,8 @@ fn generate_output(
 
             static TEMPLATES: Dir<'static> = #templates_code;
             static PACKAGES: Dir<'static> = #packages_code;
-            static FONTS: Dir<'static> = #fonts_code;
+            static FONTS: ::typst_bake::__internal::FontSet =
+                ::typst_bake::__internal::FontSet::new(&[#(#font_entries),*]);
 
             let stats = ::typst_bake::EmbedStats {
                 templates: ::typst_bake::CategoryStats {
@@ -276,7 +279,7 @@ pub fn document(input: TokenStream) -> TokenStream {
     let mut cache = CompressionCache::new(compression_cache_dir, compression_level);
 
     let templates_result = dir_embed::embed_dir(&template_dir, &mut cache);
-    let fonts_result = dir_embed::embed_fonts_dir(&fonts_dir, &mut cache);
+    let fonts_result = font_embed::embed_fonts(&fonts_dir, &mut cache);
 
     let embedded_packages = embed_packages(&resolved_packages, &mut cache);
 

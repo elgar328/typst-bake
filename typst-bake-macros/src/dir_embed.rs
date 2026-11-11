@@ -1,7 +1,7 @@
 //! Directory embedding with zstd compression.
 
 use crate::compression_cache::CompressionCache;
-use crate::config::{is_font_file, is_hidden};
+use crate::config::is_hidden;
 use proc_macro2::TokenStream;
 use quote::quote;
 use std::fs;
@@ -31,23 +31,18 @@ impl DirEmbedResult {
 }
 
 /// Context for recursive directory scanning, bundling mutable state and config.
-struct ScanContext<'a, F> {
+struct ScanContext<'a> {
     base: &'a Path,
-    file_filter: F,
     original_size: usize,
     compressed_size: usize,
     file_count: usize,
     cache: &'a mut CompressionCache,
 }
 
-impl<'a, F> ScanContext<'a, F>
-where
-    F: Fn(&Path) -> bool + Copy,
-{
-    fn new(base: &'a Path, file_filter: F, cache: &'a mut CompressionCache) -> Self {
+impl<'a> ScanContext<'a> {
+    fn new(base: &'a Path, cache: &'a mut CompressionCache) -> Self {
         Self {
             base,
-            file_filter,
             original_size: 0,
             compressed_size: 0,
             file_count: 0,
@@ -85,10 +80,6 @@ where
             };
 
             if path.is_file() {
-                if !(self.file_filter)(&path) {
-                    continue;
-                }
-
                 let file_bytes = fs::read(&path).unwrap_or_else(|e| {
                     panic!("Failed to read file {}: {e}", path.display());
                 });
@@ -103,12 +94,7 @@ where
 
                 let blob_ident = quote::format_ident!("BLOB_{}", blob_info.hash);
 
-                // Get absolute path for Cargo file tracking
-                let abs_path = path
-                    .canonicalize()
-                    .unwrap_or_else(|_| path.to_path_buf())
-                    .to_string_lossy()
-                    .replace('\\', "/");
+                let abs_path = tracking_path(&path);
 
                 entries.push(quote! {
                     ::typst_bake::__internal::include_dir::DirEntry::File(
@@ -149,27 +135,21 @@ where
     }
 }
 
-fn embed_with_filter(
-    dir_path: &Path,
-    filter: impl Fn(&Path) -> bool + Copy,
-    cache: &mut CompressionCache,
-) -> DirEmbedResult {
+/// Generate code that creates a Dir struct from a directory path.
+/// Files are compressed with zstd using the configured compression level and cache.
+pub fn embed_dir(dir_path: &Path, cache: &mut CompressionCache) -> DirEmbedResult {
     if !dir_path.exists() {
         return DirEmbedResult::default();
     }
-    let mut ctx = ScanContext::new(dir_path, filter, cache);
+    let mut ctx = ScanContext::new(dir_path, cache);
     let entries = ctx.scan_entries(dir_path);
     ctx.into_result(entries)
 }
 
-/// Generate code that creates a Dir struct from a directory path.
-/// Files are compressed with zstd using the configured compression level and cache.
-pub fn embed_dir(dir_path: &Path, cache: &mut CompressionCache) -> DirEmbedResult {
-    embed_with_filter(dir_path, |_| true, cache)
-}
-
-/// Generate code that embeds only font files from a directory.
-/// Supported formats: .ttf, .otf, .ttc.
-pub fn embed_fonts_dir(dir_path: &Path, cache: &mut CompressionCache) -> DirEmbedResult {
-    embed_with_filter(dir_path, is_font_file, cache)
+/// Absolute, forward-slash path of `path`, for `include_bytes!` change tracking.
+pub fn tracking_path(path: &Path) -> String {
+    path.canonicalize()
+        .unwrap_or_else(|_| path.to_path_buf())
+        .to_string_lossy()
+        .replace('\\', "/")
 }

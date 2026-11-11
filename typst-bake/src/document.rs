@@ -1,6 +1,7 @@
 //! Self-contained document for Typst template rendering.
 
 use crate::error::{Diagnostic, Error, Hint, Result, Severity, SourceLocation};
+use crate::fonts::{FontSet, FontStore};
 #[cfg(feature = "pdf")]
 use crate::pdf_config::PdfConfig;
 use crate::resolver::{EmbeddedResolver, file_id_to_path, normalize_file_path};
@@ -9,10 +10,12 @@ use crate::util::decompress;
 use include_dir::{Dir, File};
 use std::collections::{BTreeSet, HashMap};
 use std::sync::{Mutex, MutexGuard};
-use typst::diag::SourceDiagnostic;
-use typst::foundations::Dict;
-use typst::syntax::{DiagSpan, FileId};
-use typst::{World, WorldExt};
+use typst::diag::{FileResult, SourceDiagnostic};
+use typst::foundations::{Bytes, Datetime, Dict, Duration};
+use typst::syntax::{DiagSpan, FileId, Source};
+use typst::text::{Font, FontBook};
+use typst::utils::LazyHash;
+use typst::{Library, World, WorldExt};
 use typst_as_lib::{TypstEngine, TypstWorld};
 use typst_layout::PagedDocument;
 
@@ -31,7 +34,7 @@ struct Compiled {
 pub struct Document {
     templates: &'static Dir<'static>,
     packages: &'static Dir<'static>,
-    fonts: &'static Dir<'static>,
+    fonts: &'static FontSet,
     entry: &'static str,
     inputs: Mutex<Option<Dict>>,
     runtime_files: Mutex<HashMap<String, Vec<u8>>>,
@@ -51,7 +54,7 @@ impl Document {
     pub fn __new(
         templates: &'static Dir<'static>,
         packages: &'static Dir<'static>,
-        fonts: &'static Dir<'static>,
+        fonts: &'static FontSet,
         entry: &'static str,
         stats: EmbedStats,
     ) -> Self {
@@ -317,19 +320,13 @@ impl Document {
             resolver.insert_runtime_file(path.clone(), data.clone());
         }
 
-        // Collect and decompress fonts from the embedded fonts directory
-        let font_data: Vec<Vec<u8>> = self
-            .fonts
-            .files()
-            .map(|f| decompress(f.contents()).map_err(Error::from))
-            .collect::<Result<Vec<_>>>()?;
-
-        let font_refs: Vec<&[u8]> = font_data.iter().map(Vec::as_slice).collect();
+        // Fonts come from the process-wide store, not the engine: its book is prebuilt
+        // and each font is decompressed only when typst first uses it.
+        let fonts = self.fonts.store();
 
         let engine = TypstEngine::builder()
             .main_file((self.entry, main_content))
             .add_file_resolver(resolver)
-            .fonts(font_refs)
             .build();
 
         // Clone inputs (preserve for retry on failure)
@@ -352,18 +349,28 @@ impl Document {
                 trace: Vec::new(),
             }])
         })?;
+        let baked = BakedWorld {
+            inner: world,
+            fonts,
+        };
 
-        let warned = typst::compile::<PagedDocument>(&world);
+        let warned = typst::compile::<PagedDocument>(&baked);
         // Replicate the engine's default eviction policy (`Some(0)`); `world_builder` does not
         // evict automatically. The comemo cache is global, so don't enlarge this blindly.
         typst::comemo::evict(0);
 
+        // A font that failed to decompress is the root cause of whatever typst reported.
+        if let Some(error) = fonts.decode_error() {
+            return Err(error);
+        }
+
+        let world = &baked.inner;
         let main = world.main();
         let doc = warned.output.map_err(|diagnostics| {
             Error::Compilation(
                 diagnostics
                     .iter()
-                    .map(|d| diagnostic_from(&world, self.entry, main, d))
+                    .map(|d| diagnostic_from(world, self.entry, main, d))
                     .collect(),
             )
         })?;
@@ -372,7 +379,7 @@ impl Document {
         let warnings = warned
             .warnings
             .iter()
-            .map(|d| diagnostic_from(&world, self.entry, main, d))
+            .map(|d| diagnostic_from(world, self.entry, main, d))
             .collect();
 
         *self.lock_cache() = Some(Compiled { doc, warnings });
@@ -636,6 +643,45 @@ fn span_to_location(
         line: line + 1,
         column: column + 1,
     })
+}
+
+/// The engine's world with fonts served from the embedded [`FontStore`].
+///
+/// typst-as-lib only accepts fully loaded fonts, so the engine is built without any
+/// and this wrapper answers the font queries instead.
+struct BakedWorld<'a> {
+    inner: TypstWorld<'a>,
+    fonts: &'a FontStore,
+}
+
+impl World for BakedWorld<'_> {
+    fn library(&self) -> &LazyHash<Library> {
+        self.inner.library()
+    }
+
+    fn book(&self) -> &LazyHash<FontBook> {
+        self.fonts.book()
+    }
+
+    fn main(&self) -> FileId {
+        self.inner.main()
+    }
+
+    fn source(&self, id: FileId) -> FileResult<Source> {
+        self.inner.source(id)
+    }
+
+    fn file(&self, id: FileId) -> FileResult<Bytes> {
+        self.inner.file(id)
+    }
+
+    fn font(&self, index: usize) -> Option<Font> {
+        self.fonts.font(index)
+    }
+
+    fn today(&self, offset: Option<Duration>) -> Option<Datetime> {
+        self.inner.today(offset)
+    }
 }
 
 /// Convert a Typst [`SourceDiagnostic`] into a typst-bake [`Diagnostic`] with
