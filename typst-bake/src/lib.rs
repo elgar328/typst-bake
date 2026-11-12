@@ -21,6 +21,7 @@
 //! - **Simple API** - Set `template-dir` and `fonts-dir` in `Cargo.toml`, then generate documents with just `document!("main.typ").to_pdf()`
 //! - **Multi-Format Output** - Generate PDF, SVG, or PNG with optional [page selection](`Document::select_pages`)
 //! - **Self-Contained Binary** - Templates, fonts, and packages are all embedded into the binary at compile time. No external files or internet connection needed at runtime
+//! - **WebAssembly Support** - Runs in the browser and other JavaScript runtimes
 //! - **Automatic Package Resolution** - Just use `#import "@preview/..."` as in Typst. Packages are resolved automatically using Typst's own cache and data directories
 //! - **Runtime Inputs** - Pass dynamic data from Rust structs to Typst via [`IntoValue`] / [`IntoDict`] derive macros
 //! - **Runtime Files** - Inject files at runtime with [`Document::add_file`] for dynamically generated content or downloaded resources
