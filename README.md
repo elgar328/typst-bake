@@ -50,9 +50,9 @@ typst-bake builds for WebAssembly without a C toolchain. On `wasm32-unknown-unkn
 
 ### Optional: Complete File Change Detection
 
-By default, `typst-bake` detects template or font file **modifications** and triggers recompilation when you run `cargo build`. File **additions and deletions** are not detected directly, but this is rarely an issue—adding a new file usually requires modifying an existing file (like `main.typ`) to use it, which triggers recompilation anyway.
+`cargo build` recompiles when a template or font file is **modified**. Added or removed files are not detected on their own, but using a new file usually means editing an existing one, which triggers a rebuild anyway.
 
-If you want to fully detect even the rare case where you only add or remove files without modifying existing ones, add a build script:
+To also detect files that are only added or removed, add a build script:
 
 ```toml
 # Cargo.toml
@@ -80,11 +80,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let pdf = doc.to_pdf()?;
     std::fs::write("output.pdf", &pdf)?;
 
-    // Generate SVG
+    // Generate SVG (needs the `svg` feature)
     let svgs = doc.to_svg()?;
     std::fs::write("page1.svg", &svgs[0])?;
 
-    // Generate PNG at 144 DPI
+    // Generate PNG at 144 DPI (needs the `png` feature)
     let pngs = doc.to_png(144.0)?;
     std::fs::write("page1.png", &pngs[0])?;
 
@@ -96,19 +96,16 @@ For a complete walkthrough, see the [Quick Start Guide (PDF)](https://elgar328.g
 
 ## Diagnostics
 
-Compilation failures return `Error::Compilation` with a `Vec<Diagnostic>`. Each `Diagnostic`
-carries a `severity`, the `location` (file, line, column), any `hints`, and the call/`#import`
-trace, so `{}` formatting already gives you something useful:
+Compilation failures return `Error::Compilation` with a `Vec<Diagnostic>`, and PDF export failures (e.g. a rule of the chosen PDF standard) return `Error::PdfGeneration` the same way. Each `Diagnostic` carries a `severity`, the `location` (file, line, column), any `hints`, and the call/`#import` trace, and its `Display` output already shows all of this:
 
 ```text
 reports/event_report/report.typ:42:12: error: expected named or keyed pair, found function call
   called from: main.typ:20:9
 ```
 
-Typst also emits **warnings** for documents that compile successfully. These are not printed
-by this crate — read them with `warnings()` and report them however you like:
+Typst also emits **warnings** for documents that compile successfully. These are not printed by this crate — read them with `warnings()` and report them however you like:
 
-```rust,ignore
+```rust
 // Bind the document: `document!(..).to_pdf()?` drops it before you can ask for warnings.
 let doc = typst_bake::document!("main.typ");
 let pdf = doc.to_pdf()?;
@@ -120,8 +117,7 @@ for warning in doc.warnings()? {
 }
 ```
 
-The fields are public, so you can also read `diagnostic.location`, `.severity`, and `.hints`
-directly and format them yourself.
+The fields are public, so you can also read `diagnostic.location`, `.severity`, and `.hints` directly and format them yourself.
 
 ## How it Works
 
@@ -146,9 +142,9 @@ directly and format them yourself.
 
 | Format | Files |
 |--------|-------|
-| PDF | [output.pdf](https://elgar328.github.io/typst-bake/output-formats.pdf) (53KB) |
-| SVG | [output_1.svg](https://elgar328.github.io/typst-bake/output-formats_1.svg) (395KB), [output_2.svg](https://elgar328.github.io/typst-bake/output-formats_2.svg) (322KB), [output_3.svg](https://elgar328.github.io/typst-bake/output-formats_3.svg) (700KB) |
-| PNG | [output_1.png](https://elgar328.github.io/typst-bake/output-formats_1.png) (500KB), [output_2.png](https://elgar328.github.io/typst-bake/output-formats_2.png) (447KB), [output_3.png](https://elgar328.github.io/typst-bake/output-formats_3.png) (694KB) |
+| PDF | [output.pdf](https://elgar328.github.io/typst-bake/output-formats.pdf) |
+| SVG | [output_1.svg](https://elgar328.github.io/typst-bake/output-formats_1.svg), [output_2.svg](https://elgar328.github.io/typst-bake/output-formats_2.svg), [output_3.svg](https://elgar328.github.io/typst-bake/output-formats_3.svg) |
+| PNG | [output_1.png](https://elgar328.github.io/typst-bake/output-formats_1.png), [output_2.png](https://elgar328.github.io/typst-bake/output-formats_2.png), [output_3.png](https://elgar328.github.io/typst-bake/output-formats_3.png) |
 
 ## Comparison with typst-as-lib
 

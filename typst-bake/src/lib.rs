@@ -7,9 +7,9 @@
 //!
 //! ## Cargo Features
 //!
-//! - **`pdf`** (default) - Enable PDF generation via [`Document::to_pdf`]
-//! - **`svg`** - Enable SVG generation via [`Document::to_svg`]
-//! - **`png`** - Enable PNG rasterization via [`Document::to_png`]
+//! - **`pdf`** (default) - Enable PDF generation via `Document::to_pdf`
+//! - **`svg`** - Enable SVG generation via `Document::to_svg`
+//! - **`png`** - Enable PNG rasterization via `Document::to_png`
 //! - **`full`** - Enable all output formats
 //! - **`js-clock`** (default) - Read the current time from JavaScript on
 //!   `wasm32-unknown-unknown` (via wasm-bindgen)
@@ -45,10 +45,10 @@
 //! let pdf = doc.to_pdf()?;
 //! std::fs::write("output.pdf", &pdf)?;
 //!
-//! let svgs = doc.to_svg()?;
+//! let svgs = doc.to_svg()?; // needs the `svg` feature
 //! std::fs::write("page1.svg", &svgs[0])?;
 //!
-//! let pngs = doc.to_png(144.0)?; // 144 DPI
+//! let pngs = doc.to_png(144.0)?; // 144 DPI, needs the `png` feature
 //! std::fs::write("page1.png", &pngs[0])?;
 //! ```
 
@@ -103,8 +103,9 @@ pub use stats::{
 ///
 /// # What Gets Embedded
 ///
-/// - **Templates**: All files in `template-dir` are embedded and accessible from `.typ` files.
-///   Paths resolve relative to the referring `.typ` file.
+/// - **Templates**: All files in `template-dir` are embedded and accessible from `.typ` files,
+///   except hidden files and directories (names starting with `.`). Paths resolve relative
+///   to the referring `.typ` file.
 /// - **Fonts**: Only supported font formats (TTF, OTF, TTC) are embedded, including those in
 ///   sub-directories. At least one font is required; without fonts, Typst produces invisible
 ///   text. A font is decompressed the first time a document uses it and then kept for the

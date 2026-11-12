@@ -58,7 +58,7 @@ pub struct PackageStats {
 /// Statistics for a single package.
 #[derive(Debug, Clone)]
 pub struct PackageInfo {
-    /// Package name with version (e.g., "gentle-clues:1.2.0").
+    /// Package specifier (e.g., "@preview/gentle-clues:1.2.0").
     pub name: String,
     /// Original uncompressed size in bytes.
     pub original_size: usize,
@@ -79,7 +79,8 @@ impl EmbedStats {
         self.templates.compressed_size + self.packages.compressed_size + self.fonts.compressed_size
     }
 
-    /// Calculate compression ratio (0.0 to 1.0, where 0.0 means no compression).
+    /// The fraction of size saved by compression: 0.0 means no savings, 0.75 means a
+    /// quarter of the original size. Negative when compression made tiny files larger.
     pub fn compression_ratio(&self) -> f64 {
         compression_ratio(self.total_original(), self.total_compressed())
     }
@@ -89,7 +90,8 @@ impl EmbedStats {
         self.total_compressed() - self.dedup.saved_bytes
     }
 
-    /// Overall reduction ratio from original to deduplicated.
+    /// The fraction of size saved by compression and deduplication together, measured
+    /// like [`EmbedStats::compression_ratio`].
     pub fn overall_ratio(&self) -> f64 {
         compression_ratio(self.total_original(), self.total_deduplicated())
     }
@@ -209,9 +211,13 @@ impl std::fmt::Display for EmbedStats {
 
 /// Trait for types that have original/compressed sizes and can compute a compression ratio.
 pub trait HasCompressionRatio {
+    /// Uncompressed size in bytes.
     fn original_size(&self) -> usize;
+    /// Compressed size in bytes.
     fn compressed_size(&self) -> usize;
 
+    /// The fraction of size saved by compression, measured like
+    /// [`EmbedStats::compression_ratio`].
     fn compression_ratio(&self) -> f64 {
         compression_ratio(self.original_size(), self.compressed_size())
     }

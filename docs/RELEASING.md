@@ -10,6 +10,8 @@ Update all three locations in `Cargo.toml`:
 - [ ] `workspace.dependencies.typst-bake.version`
 - [ ] `workspace.dependencies.typst-bake-macros.version`
 
+On a minor or major bump, also update the `typst-bake = "x.y"` snippets in README.md, `typst-bake/src/lib.rs`, and `typst-bake/src/build.rs` (`grep -rn 'typst-bake = "' README.md typst-bake/src`).
+
 ### 2. Run checks
 
 ```sh

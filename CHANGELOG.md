@@ -27,9 +27,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `typst-bake-macros` now depends on `typst-library`, which is compiled once more for the build host, so clean builds (including `cargo check` and rust-analyzer) take somewhat longer.
 - On WebAssembly targets embedded resources are decompressed with the pure-Rust `ruzstd`, so building for wasm no longer needs a C toolchain that targets wasm. Native targets keep the C `zstd` library.
 - Resources are compressed with their size known, which is faster and uses far less memory for small files (126 package files at level 22: 524 ms and 742 MB peak before, 107 ms and 10 MB now), and the recorded size lets decompression allocate the output up front. Existing compression caches are refreshed on the next build.
-- Update dependencies: `zstd` 0.14, `zip` 9, `dirs` 7
 - Hidden files in `template-dir` are no longer scanned for package imports; they were not embedded anyway.
 - A package found only by scanning another package's sources is skipped with a warning when it cannot be resolved, instead of failing the build: such imports can sit in code the package never runs, like its tests.
+- Update dependencies: `zstd` 0.14, `zip` 9, `dirs` 7.
 
 ### Fixed
 

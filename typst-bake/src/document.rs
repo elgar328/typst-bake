@@ -390,7 +390,7 @@ impl Document {
             )
         })?;
 
-        // Resolve now: `world` is local, and spans cannot be resolved without it.
+        // Resolve once here; `warnings()` may be called many times.
         let warnings = warned
             .warnings
             .iter()
@@ -527,7 +527,7 @@ impl Document {
     #[cfg(feature = "svg")]
     fn render_svg(&self, selected: Option<&BTreeSet<usize>>) -> Result<Vec<String>> {
         self.with_compiled(|Compiled { doc: compiled, .. }| {
-            // Defaults match 0.14 behaviour: no bleed, no pretty-printing.
+            // Default options: no bleed, no pretty-printing.
             let options = typst_svg::SvgOptions::default();
             let indices = validate_page_selection(selected, compiled.pages().len())?;
             match indices {

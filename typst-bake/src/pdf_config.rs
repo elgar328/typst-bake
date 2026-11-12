@@ -12,8 +12,8 @@ use crate::error::{Error, Result};
 
 /// A PDF conformance standard to enforce on export.
 ///
-/// Each variant maps 1:1 to a single typst PDF standard. typst 0.14 enforces at most
-/// one substandard at a time, so PDF/A and PDF/UA cannot be combined.
+/// Each variant maps 1:1 to a single typst PDF standard, and [`PdfConfig`] applies one
+/// standard.
 ///
 /// The accessible PDF/A levels (`A1a`, `A2a`, `A3a`) and `Ua1` require a tagged PDF;
 /// combining them with `tagged: false` or with page selection returns

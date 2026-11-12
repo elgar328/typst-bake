@@ -19,7 +19,7 @@
 //! build = "build.rs"
 //!
 //! [build-dependencies]
-//! typst-bake = "0.1"
+//! typst-bake = "0.3"
 //! ```
 
 use std::env;
@@ -71,7 +71,7 @@ fn resolve_path_string(manifest_dir: &Path, path: &str) -> String {
 /// build = "build.rs"
 ///
 /// [build-dependencies]
-/// typst-bake = "0.1"
+/// typst-bake = "0.3"
 /// ```
 ///
 /// Then create a `build.rs` file in your project root:
