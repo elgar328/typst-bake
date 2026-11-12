@@ -1,6 +1,11 @@
 //! Benchmark zstd compression across all 22 levels using the Silesia corpus.
 //!
-//! This test is marked `#[ignore]` and must be run explicitly.
+//! Decompression is measured as each kind of typst-bake build does it: native builds with
+//! the C zstd library, WebAssembly builds with the pure-Rust ruzstd decoder, which this
+//! benchmark compiles to WebAssembly (`wasm-decoder/`) and runs in Node.js (V8).
+//!
+//! This test is marked `#[ignore]` and must be run explicitly. It needs Node.js and the
+//! `wasm32-unknown-unknown` target (`rustup target add wasm32-unknown-unknown`).
 //! Use release mode for accurate measurements:
 //!
 //!     cargo test -p example-compression-levels --release --test benchmark -- --ignored --nocapture --test-threads=1
@@ -9,27 +14,54 @@
 
 use std::fs;
 use std::io::{Read, Write};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
+use std::process::Command;
 use std::time::Instant;
 
 const SILESIA_URL: &str = "https://sun.aei.polsl.pl/~sdeor/corpus/silesia.zip";
 const WARMUP: usize = 1;
+/// V8 swaps in optimized wasm code between calls, so its warmup takes two runs.
+const WASM_WARMUP: usize = 2;
 const ITERATIONS: usize = 5;
 
 #[test]
 #[ignore]
 fn benchmark_zstd_levels() {
+    let node = node_version();
+    let wasm = build_wasm_decoder();
     let data = prepare_silesia_data();
     let data_size_mb = data.len() as f64 / (1024.0 * 1024.0);
+    let blob = silesia_dir().join("blob.zst");
 
     let cpu = get_cpu_name();
+    let versions = format!(
+        "zstd {} (C), ruzstd {} on Node.js {node}",
+        zstd::zstd_safe::version_string(),
+        locked_version("ruzstd")
+    );
 
     let mut levels = Vec::new();
     let mut ratios = Vec::new();
     let mut comp_speed_medians = Vec::new();
     let mut decomp_speed_medians = Vec::new();
+    let mut wasm_speed_medians = Vec::new();
     let mut comp_speed_all = Vec::new();
     let mut decomp_speed_all = Vec::new();
+    let mut wasm_speed_all = Vec::new();
+
+    let speed = |seconds: f64| round1(data_size_mb / seconds);
+    // MB/s for each of ITERATIONS runs of `f`, sorted, so the median is in the middle.
+    let timed = |f: &mut dyn FnMut()| {
+        sorted(
+            (0..ITERATIONS)
+                .map(|_| {
+                    let start = Instant::now();
+                    f();
+                    speed(start.elapsed().as_secs_f64())
+                })
+                .collect(),
+        )
+    };
 
     for level in 1..=22 {
         eprint!("Level {level:>2}/22 ...");
@@ -38,45 +70,43 @@ fn benchmark_zstd_levels() {
         // Warmup: run WARMUP compression rounds, keeping the last result.
         let mut compressed = Vec::new();
         for _ in 0..WARMUP {
-            compressed = zstd::encode_all(data.as_slice(), level).unwrap();
+            compressed = compress(&data, level);
         }
-        let _ = zstd::decode_all(compressed.as_slice()).unwrap();
+        // The decoder must reproduce the input; this also warms it up and sizes the buffer.
+        let mut decoded = Vec::with_capacity(data.len());
+        zstd_decode(&compressed, &mut decoded);
+        assert!(decoded == data, "zstd output differs");
 
         let ratio = data.len() as f64 / compressed.len() as f64;
         ratios.push(round3(ratio));
 
-        // Compression benchmark
-        let mut comp_speeds = Vec::new();
-        for _ in 0..ITERATIONS {
-            let start = Instant::now();
-            let _ = zstd::encode_all(data.as_slice(), level).unwrap();
-            let elapsed = start.elapsed().as_secs_f64();
-            comp_speeds.push(round1(data_size_mb / elapsed));
-        }
-        comp_speeds.sort_by(|a, b| a.partial_cmp(b).unwrap());
-        let comp_median = comp_speeds[ITERATIONS / 2];
+        let comp_speeds = timed(&mut || drop(compress(&data, level)));
+        let decomp_speeds = timed(&mut || zstd_decode(&compressed, &mut decoded));
 
-        // Decompression benchmark
-        let mut decomp_speeds = Vec::new();
-        for _ in 0..ITERATIONS {
-            let start = Instant::now();
-            let _ = zstd::decode_all(compressed.as_slice()).unwrap();
-            let elapsed = start.elapsed().as_secs_f64();
-            decomp_speeds.push(round1(data_size_mb / elapsed));
-        }
-        decomp_speeds.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        fs::write(&blob, &compressed).unwrap();
+        let wasm_speeds = sorted(
+            wasm_decode_seconds(&wasm, &blob, data.len())
+                .into_iter()
+                .map(speed)
+                .collect(),
+        );
+
+        let comp_median = comp_speeds[ITERATIONS / 2];
         let decomp_median = decomp_speeds[ITERATIONS / 2];
+        let wasm_median = wasm_speeds[ITERATIONS / 2];
 
         eprintln!(
-            "  ratio={:.3}  comp={:.1} MB/s  decomp={:.1} MB/s",
-            ratio, comp_median, decomp_median
+            "  ratio={ratio:.3}  comp={comp_median:.1} MB/s  decomp={decomp_median:.1} MB/s  wasm={wasm_median:.1} MB/s"
         );
 
         comp_speed_medians.push(comp_median);
         decomp_speed_medians.push(decomp_median);
+        wasm_speed_medians.push(wasm_median);
         comp_speed_all.push(comp_speeds);
         decomp_speed_all.push(decomp_speeds);
+        wasm_speed_all.push(wasm_speeds);
     }
+    let _ = fs::remove_file(&blob);
 
     // Build typst data file content
     let mut out = String::new();
@@ -85,8 +115,7 @@ fn benchmark_zstd_levels() {
         "// Run: cargo test -p example-compression-levels --release --test benchmark -- --ignored --nocapture --test-threads=1\n"
     );
     out.push_str(&format!(
-        "// Silesia corpus ({:.1} MB), zstd 0.13, {} iterations\n",
-        data_size_mb, ITERATIONS
+        "// Silesia corpus ({data_size_mb:.1} MB), {versions}, {ITERATIONS} iterations\n",
     ));
     out.push('\n');
     out.push_str(&format!("#let levels = ({})\n", fmt_ints(&levels)));
@@ -100,6 +129,10 @@ fn benchmark_zstd_levels() {
         fmt_floats(&decomp_speed_medians, 1)
     ));
     out.push_str(&format!(
+        "#let decomp_speed_wasm = ({})\n",
+        fmt_floats(&wasm_speed_medians, 1)
+    ));
+    out.push_str(&format!(
         "#let comp_speed_all = ({})\n",
         fmt_nested_floats(&comp_speed_all, 1)
     ));
@@ -108,8 +141,11 @@ fn benchmark_zstd_levels() {
         fmt_nested_floats(&decomp_speed_all, 1)
     ));
     out.push_str(&format!(
-        "#let footer-text = \"Measured on {} --- Silesia corpus ({:.1} MB), {} iterations, zstd 0.13\"\n",
-        cpu, data_size_mb, ITERATIONS
+        "#let decomp_speed_wasm_all = ({})\n",
+        fmt_nested_floats(&wasm_speed_all, 1)
+    ));
+    out.push_str(&format!(
+        "#let footer-text = \"Measured on {cpu} --- Silesia corpus ({data_size_mb:.1} MB), {ITERATIONS} iterations, {versions}\"\n",
     ));
 
     // Write to benchmark-data.typ
@@ -119,6 +155,83 @@ fn benchmark_zstd_levels() {
         .join("benchmark-data.typ");
     fs::write(&out_path, &out).unwrap();
     eprintln!("Saved to {}", out_path.display());
+}
+
+fn sorted(mut speeds: Vec<f64>) -> Vec<f64> {
+    speeds.sort_by(|a, b| a.partial_cmp(b).unwrap());
+    speeds
+}
+
+// ---------------------------------------------------------------------------
+// Compression and decompression, as typst-bake does them
+// ---------------------------------------------------------------------------
+
+/// Compress like the `document!` macro: one frame that records its content size.
+fn compress(data: &[u8], level: i32) -> Vec<u8> {
+    zstd::bulk::compress(data, level).unwrap()
+}
+
+/// Decompress with the C zstd library, which native builds use, into `out`.
+///
+/// `out` is reused across runs, as the wasm decoder reuses its memory: a fresh 200 MB
+/// allocation each run would add page faults to this side only. (Not `zstd::decode_all`,
+/// which reserves at most 32 MB up front and would regrow its output on this corpus.)
+fn zstd_decode(compressed: &[u8], out: &mut Vec<u8>) {
+    out.clear();
+    zstd::stream::copy_decode(compressed, out).unwrap();
+}
+
+/// Build `wasm-decoder/` for WebAssembly and return the path of the module.
+fn build_wasm_decoder() -> PathBuf {
+    // Its own directory: the `cargo test` running this holds the lock on the usual one.
+    let dir = PathBuf::from(env!("CARGO_TARGET_TMPDIR")).join("wasm-bench");
+    eprintln!("Building the WebAssembly decoder...");
+    let status = Command::new(env!("CARGO"))
+        .args(["build", "--release", "--target", "wasm32-unknown-unknown"])
+        .args(["-p", "example-compression-levels-wasm"])
+        .env("CARGO_TARGET_DIR", &dir)
+        .env("CARGO_BUILD_BUILD_DIR", &dir)
+        .status()
+        .unwrap();
+    assert!(
+        status.success(),
+        "building the WebAssembly decoder failed; it needs `rustup target add wasm32-unknown-unknown`"
+    );
+    dir.join("wasm32-unknown-unknown/release/example_compression_levels_wasm.wasm")
+}
+
+/// Decompress `blob` with ruzstd in WebAssembly, in Node.js, and return the seconds of
+/// each timed run.
+fn wasm_decode_seconds(wasm: &Path, blob: &Path, size: usize) -> Vec<f64> {
+    let script = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/wasm-decode.mjs");
+    let output = Command::new("node")
+        .arg(script)
+        .arg(wasm)
+        .arg(blob)
+        .args([size, WASM_WARMUP, ITERATIONS].map(|n| n.to_string()))
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "wasm-decode.mjs failed:\n{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    String::from_utf8(output.stdout)
+        .unwrap()
+        .trim()
+        .split(',')
+        .map(|s| s.parse().unwrap())
+        .collect()
+}
+
+fn node_version() -> String {
+    let output = Command::new("node")
+        .arg("--version")
+        .output()
+        .ok()
+        .filter(|output| output.status.success())
+        .expect("the benchmark needs Node.js to measure WebAssembly decompression");
+    String::from_utf8_lossy(&output.stdout).trim().to_string()
 }
 
 // ---------------------------------------------------------------------------
@@ -162,6 +275,21 @@ fn round3(v: f64) -> f64 {
 // System info
 // ---------------------------------------------------------------------------
 
+/// The version of `name` in the workspace's `Cargo.lock`.
+fn locked_version(name: &str) -> String {
+    let lock = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../Cargo.lock");
+    let lock = fs::read_to_string(lock).unwrap_or_default();
+    let mut lines = lock.lines();
+    while let Some(line) = lines.next() {
+        if line == format!("name = \"{name}\"")
+            && let Some(version) = lines.next().and_then(|l| l.strip_prefix("version = "))
+        {
+            return version.trim_matches('"').to_string();
+        }
+    }
+    "unknown".to_string()
+}
+
 fn get_cpu_name() -> String {
     #[cfg(target_os = "macos")]
     {
@@ -192,10 +320,15 @@ fn get_cpu_name() -> String {
 // Silesia corpus download & load
 // ---------------------------------------------------------------------------
 
-fn prepare_silesia_data() -> Vec<u8> {
-    let cache_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+/// Where the corpus is cached.
+fn silesia_dir() -> PathBuf {
+    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("target")
-        .join("silesia");
+        .join("silesia")
+}
+
+fn prepare_silesia_data() -> Vec<u8> {
+    let cache_dir = silesia_dir();
     fs::create_dir_all(&cache_dir).unwrap();
 
     let zip_path = cache_dir.join("silesia.zip");

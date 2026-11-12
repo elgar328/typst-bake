@@ -9,6 +9,7 @@ members = [
     "examples/quick-start",
     "examples/output-formats",
     "examples/compression-levels",
+    "examples/compression-levels/wasm-decoder",
     "examples/test-nested-entry",
     "examples/with-runtime-files",
     "examples/test-page-selection",

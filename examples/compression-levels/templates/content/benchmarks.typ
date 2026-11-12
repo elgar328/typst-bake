@@ -8,6 +8,7 @@
 #let comp_scatter_y = comp_speed_all.flatten()
 #let decomp_scatter_x = levels.zip(decomp_speed_all).map(((l, speeds)) => speeds.map(_ => l)).flatten()
 #let decomp_scatter_y = decomp_speed_all.flatten()
+#let wasm_scatter_y = decomp_speed_wasm_all.flatten()
 
 // Auto-calculate label y-positions from data range
 #let ratio-label-y = calc.min(..ratio) + (calc.max(..ratio) - calc.min(..ratio)) * 0.5
@@ -17,11 +18,11 @@
 #align(center)[
   #lq.diagram(
     width: 80%,
-    height: 5cm,
+    height: 4.5cm,
     xlabel: [Compression Level],
     ylabel: [Compression Ratio],
 
-    lq.plot(levels, ratio, mark: "o", mark-size: 3pt),
+    lq.plot(levels, ratio, mark: "o", mark-size: 3pt, color: blue),
     lq.vlines(default-level, stroke: (dash: "dashed", paint: red, thickness: 0.8pt)),
     lq.place(default-level, ratio-label-y, align: left + top, pad(left: 3pt, text(size: 0.75em, fill: red)[Default #default-level])),
   )
@@ -32,29 +33,34 @@
 #align(center)[
   #lq.diagram(
     width: 80%,
-    height: 5cm,
+    height: 4.5cm,
     xlabel: [Compression Level],
     ylabel: [Comp. Speed (MB/s)],
     yaxis: (exponent: none),
 
     lq.plot(comp_scatter_x, comp_scatter_y, mark: "o", mark-size: 2pt, stroke: none, color: blue.lighten(60%)),
-    lq.plot(levels, comp_speed, mark: "o", mark-size: 3pt),
+    lq.plot(levels, comp_speed, mark: "o", mark-size: 3pt, color: blue),
     lq.vlines(default-level, stroke: (dash: "dashed", paint: red, thickness: 0.8pt)),
   )
 ]
 
 === Decompression Speed vs Level
 
+Native builds decompress with the C zstd library. WebAssembly builds use the pure-Rust ruzstd decoder, measured here as WebAssembly in Node.js (V8) after warmup. Both are throughput on the whole corpus.
+
 #align(center)[
   #lq.diagram(
     width: 80%,
-    height: 5cm,
+    height: 4.5cm,
     xlabel: [Compression Level],
     ylabel: [Decomp. Speed (MB/s)],
     yaxis: (exponent: none),
+    legend: (position: right + horizon),
 
     lq.plot(decomp_scatter_x, decomp_scatter_y, mark: "o", mark-size: 2pt, stroke: none, color: blue.lighten(60%)),
-    lq.plot(levels, decomp_speed, mark: "o", mark-size: 3pt),
+    lq.plot(levels, decomp_speed, mark: "o", mark-size: 3pt, color: blue, label: [zstd, native builds]),
+    lq.plot(decomp_scatter_x, wasm_scatter_y, mark: "o", mark-size: 2pt, stroke: none, color: orange.lighten(60%)),
+    lq.plot(levels, decomp_speed_wasm, mark: "o", mark-size: 3pt, color: orange, label: [ruzstd, wasm builds (Node.js)]),
     lq.vlines(default-level, stroke: (dash: "dashed", paint: red, thickness: 0.8pt)),
   )
 ]

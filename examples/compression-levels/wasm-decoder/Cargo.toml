@@ -1,0 +1,14 @@
+[package]
+name = "example-compression-levels-wasm"
+version = "0.1.0"
+edition.workspace = true
+publish = false
+description = "ruzstd decoder built for WebAssembly, timed in Node.js by the compression-levels benchmark"
+
+[lib]
+crate-type = ["cdylib"]
+test = false
+doctest = false
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+ruzstd.workspace = true

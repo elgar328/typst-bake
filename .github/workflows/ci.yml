@@ -47,6 +47,7 @@ jobs:
         run: |
           cargo clippy -p typst-bake --target wasm32-unknown-unknown --all-features -- -D warnings
           cargo clippy -p typst-bake --target wasm32-unknown-unknown --no-default-features --features full -- -D warnings
+          cargo clippy -p example-compression-levels-wasm --target wasm32-unknown-unknown -- -D warnings
 
       # Written to files first so that a failing `cargo tree` fails the step.
       - name: JavaScript imports only with js-clock
