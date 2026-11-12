@@ -9,24 +9,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- `Document::with_now` fixes the time that `datetime.today()` uses.
+- WebAssembly support: typst-bake builds for WebAssembly without a C toolchain and runs in browsers and other JavaScript runtimes. Embedded resources are decompressed there with the pure-Rust `ruzstd` decoder, several times slower than the C `zstd` library that native targets keep (see the `compression-levels` example). CI builds for `wasm32-unknown-unknown`.
+- `js-clock` feature (default): on `wasm32-unknown-unknown`, `datetime.today()` and `PdfTimestamp::now` read the current time from JavaScript `Date`.
+- `Document::with_now` fixes the time that `datetime.today()` uses. With a fixed time, `datetime.today()` without an offset returns the UTC date.
 - `PdfTimestamp::now` (the current time with the local UTC offset, as the Typst CLI writes it), `PdfTimestamp::from_unix`, and `PdfTimestamp::with_offset_minutes`.
-- `js-clock` feature (default): on `wasm32-unknown-unknown`, read the current time from JavaScript.
 - `IntoValue` and `IntoDict` can be derived for generic structs.
 
 ### Changed
 
-- **Breaking:** `PdfTimestamp` is reduced to `now`, `from_unix`, and `with_offset_minutes`, none of which can fail; a timestamp a PDF date cannot hold is reported by `to_pdf`. Replace `now_utc()` with `now()` (the same instant, written with the local offset), `now_local(m)` with `now().with_offset_minutes(m)`, and `utc(..)`/`local(..)` with `from_unix(..)` (seconds in UTC) plus `with_offset_minutes(..)`: `local(2026, 1, 1, 9, 0, 0, 540)` is `from_unix(1_767_225_600).with_offset_minutes(540)`. A fixed date can also be set in the template with `#set document(date: ..)`.
-- **Breaking:** On `wasm32-unknown-unknown` the current time now comes from the `js-clock` feature, which is on by default. Builds with `default-features = false` must add it to keep a clock; without it typst-bake imports no JavaScript, `datetime.today()` fails unless `Document::with_now` is set, and `PdfTimestamp::now` is unavailable.
+- **Breaking:** `PdfTimestamp` is reduced to `now`, `from_unix`, and `with_offset_minutes`, none of which can fail; a timestamp that a PDF date cannot represent is reported by `to_pdf`. Replace `now_utc()` with `now()` (the same instant, written with the local offset), `now_local(m)` with `now().with_offset_minutes(m)`, and `utc(..)`/`local(..)` with `from_unix(..)` (seconds in UTC) plus `with_offset_minutes(..)`: `local(2026, 1, 1, 9, 0, 0, 540)` is `from_unix(1_767_225_600).with_offset_minutes(540)`. A fixed date can also be set in the template with `#set document(date: ..)`.
+- **Breaking:** On `wasm32-unknown-unknown`, the current time comes from the `js-clock` feature, which is on by default. Before, `datetime.today()` always read it from JavaScript. Builds with `default-features = false` must add `js-clock` to keep the clock. Without it, typst-bake imports no JavaScript, `datetime.today()` fails unless `Document::with_now` is set, and `PdfTimestamp::now` is not available.
 - **Breaking:** `Error`, `Severity`, and `SourceLocation` are `#[non_exhaustive]`, so later releases can extend them.
-- **Breaking:** `Error::PdfGeneration` holds `Vec<Diagnostic>` with source locations, like `Error::Compilation`. Its message was a Rust debug dump.
+- **Breaking:** `Error::PdfGeneration` holds `Vec<Diagnostic>` with source locations, like `Error::Compilation`. It held a string of Rust debug output.
 - **Breaking:** `Error::Decompression` no longer converts from `std::io::Error`.
 - typst-bake no longer depends on `typst-as-lib` and implements Typst's `World` itself.
-- `datetime.today()` without an offset returns the local date, like the Typst CLI. It was the UTC date.
+- Without `Document::with_now`, `datetime.today()` without an offset returns the local date, like the Typst CLI. It was the UTC date.
 - Font metadata is computed at build time, and a font is decompressed only when a document first uses it. Previously every embedded font was decompressed and parsed each time a `Document` compiled, which cost tens of milliseconds with large (e.g. CJK) fonts. Decoded fonts are kept for the life of the process and shared by every `Document` from the same `document!` call.
 - `typst-bake-macros` now depends on `typst-library`, which is compiled once more for the build host, so clean builds (including `cargo check` and rust-analyzer) take somewhat longer.
-- On WebAssembly targets embedded resources are decompressed with the pure-Rust `ruzstd`, so building for wasm no longer needs a C toolchain that targets wasm. Native targets keep the C `zstd` library.
-- Resources are compressed with their size known, which is faster and uses far less memory for small files (126 package files at level 22: 524 ms and 742 MB peak before, 107 ms and 10 MB now), and the recorded size lets decompression allocate the output up front. Existing compression caches are refreshed on the next build.
+- Resources are compressed in a single call with their size known up front, which is faster and uses far less memory for small files (126 package files at level 22: 524 ms and 742 MB peak before, 107 ms and 10 MB now). Each compressed frame records that size, so decompression allocates the output once. Existing compression caches are refreshed on the next build.
 - Hidden files in `template-dir` are no longer scanned for package imports; they were not embedded anyway.
 - A package found only by scanning another package's sources is skipped with a warning when it cannot be resolved, instead of failing the build: such imports can sit in code the package never runs, like its tests.
 - Update dependencies: `zstd` 0.14, `zip` 9, `dirs` 7.
@@ -34,12 +34,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Package imports inside code blocks, functions, and conditionals, and package `include`s, are found and bundled. Only top-level imports were, so packages imported elsewhere (lilaq imports `komet` inside functions) failed at runtime.
-- A panic while rendering no longer leaves the `Document` unusable. Documents also render in parallel from several threads.
-- `to_png` returns `Error::InvalidDpi` for a DPI that is not a positive finite number or makes a page too large to render. It panicked or produced a 1×1 image.
+- A panic while rendering no longer leaves the `Document` unusable. Several threads can also render the same `Document` in parallel; before, they took turns.
+- `to_png` returns the new `Error::InvalidDpi` for a DPI that is not a positive finite number or makes a page too large to render. It panicked or produced a 1×1 image.
 - `add_file` and `has_file` normalize paths like Typst does, so `./img//a.png` names `img/a.png`. Paths with `.` or doubled slashes were stored but never found, and `img/x/../a.png` was rejected.
 - A runtime file at the entry's path replaces the entry, as documented for other files.
 - An entry file that starts with a byte order mark no longer gains an empty first page.
-- `document!` rejects at build time an entry that is a directory, a hidden file, differs in letter case, or escapes `template-dir`. These built and then always failed at runtime. Diagnostics name the entry by its normalized path (`./main.typ` is `main.typ`).
+- `document!` fails at build time when the entry is a directory or a hidden file, differs in letter case from the file on disk, or lies outside `template-dir`. Such entries built and then always failed at runtime. Diagnostics name the entry by its normalized path (`./main.typ` is `main.typ`).
 - `IntoValue`/`IntoDict` use `type` as the key of a field named `r#type`. The key was `r#type`.
 - Offsets passed to `datetime.today()` that are not whole hours are applied exactly. They were truncated to hours.
 - `std.sys.inputs` holds the inputs, like `sys.inputs`. It was an empty dictionary.
