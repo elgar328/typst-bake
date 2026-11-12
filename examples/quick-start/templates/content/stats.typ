@@ -10,7 +10,7 @@
   }
 }
 
-#let ratio(original, compressed) = {
+#let reduction(original, compressed) = {
   if original == 0 { "0%" }
   else {
     str(calc.round((1 - compressed / original) * 100, digits: 1)) + "%"
@@ -27,30 +27,30 @@ The table below shows the resources embedded to generate this document.
     align: (left, right, right, right),
     stroke: none,
     inset: (x: 8pt, y: 4pt),
-    [*Category*], [*Original*], [*Compressed*], [*Ratio*],
+    [*Category*], [*Original*], [*Compressed*], [*Reduced*],
     table.hline(stroke: 0.5pt + gray),
     [Templates (#inputs.templates_count files)],
     [#format-size(inputs.templates_original)],
     [#format-size(inputs.templates_compressed)],
-    [#ratio(inputs.templates_original, inputs.templates_compressed)],
+    [#reduction(inputs.templates_original, inputs.templates_compressed)],
     [Fonts (#inputs.fonts_count files)],
     [#format-size(inputs.fonts_original)],
     [#format-size(inputs.fonts_compressed)],
-    [#ratio(inputs.fonts_original, inputs.fonts_compressed)],
+    [#reduction(inputs.fonts_original, inputs.fonts_compressed)],
     [Packages (#inputs.packages_count)],
     [#format-size(inputs.packages_original)],
     [#format-size(inputs.packages_compressed)],
-    [#ratio(inputs.packages_original, inputs.packages_compressed)],
+    [#reduction(inputs.packages_original, inputs.packages_compressed)],
   )
 
   #grid(
     columns: (auto, 1fr),
     column-gutter: 6pt,
     row-gutter: 0.65em,
-    [*Compressed:*], [#format-size(inputs.total_original) #sym.arrow.r #format-size(inputs.total_compressed) (#ratio(inputs.total_original, inputs.total_compressed) reduced)],
+    [*Compressed:*], [#format-size(inputs.total_original) #sym.arrow.r #format-size(inputs.total_compressed) (#reduction(inputs.total_original, inputs.total_compressed) reduced)],
     ..if inputs.dedup_duplicate_count > 0 {
       ([*Deduplicated:*], [#inputs.dedup_unique_blobs unique, #inputs.dedup_duplicate_count removed (#sym.minus#format-size(inputs.dedup_saved_bytes))])
     } else { () },
-    [*Total:*], [#format-size(inputs.total_original) #sym.arrow.r #format-size(inputs.total_deduplicated) (#ratio(inputs.total_original, inputs.total_deduplicated) reduced)],
+    [*Total:*], [#format-size(inputs.total_original) #sym.arrow.r #format-size(inputs.total_deduplicated) (#reduction(inputs.total_original, inputs.total_deduplicated) reduced)],
   )
 ]
