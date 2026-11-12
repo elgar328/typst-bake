@@ -41,14 +41,14 @@ pub fn get_data_dir() -> Option<PathBuf> {
     }
 }
 
-/// Resolve dependencies from a downloaded package directory.
+/// The dependencies of a package in `pkg_dir`.
 ///
-/// Collects both explicit dependencies (from `typst.toml`) and implicit ones
-/// (from `#import` in `.typ` files).
-fn resolve_dependencies(pkg_dir: &Path) -> Vec<PackageSpec> {
-    let mut deps = Vec::new();
+/// Returns the ones its `typst.toml` declares and the ones its `.typ` files import,
+/// separately: imports can sit in code the package never runs (benchmarks, tests), so
+/// failing to resolve those is not fatal.
+fn resolve_dependencies(pkg_dir: &Path) -> (Vec<PackageSpec>, Vec<PackageSpec>) {
+    let mut declared = Vec::new();
 
-    // 1. Parse typst.toml for explicit dependencies
     let manifest = fs::read_to_string(pkg_dir.join("typst.toml"))
         .ok()
         .and_then(|c| c.parse::<toml::Table>().ok());
@@ -58,7 +58,7 @@ fn resolve_dependencies(pkg_dir: &Path) -> Vec<PackageSpec> {
         .and_then(|p| p.get("dependencies"))
         .and_then(|d| d.as_table())
     {
-        deps.extend(table.iter().filter_map(|(dep_name, dep_value)| {
+        declared.extend(table.iter().filter_map(|(dep_name, dep_value)| {
             let (dep_ns, dep_ver) = dep_value.as_str()?.split_once(':')?;
             Some(PackageSpec {
                 namespace: dep_ns.to_owned(),
@@ -68,10 +68,15 @@ fn resolve_dependencies(pkg_dir: &Path) -> Vec<PackageSpec> {
         }));
     }
 
-    // 2. Scan package's .typ files for implicit dependencies
-    deps.extend(extract_packages(pkg_dir));
+    (declared, extract_packages(pkg_dir))
+}
 
-    deps
+/// A package waiting to be resolved.
+struct Pending {
+    spec: PackageSpec,
+    /// The package whose sources import it, if that is the only reason to bundle it.
+    /// Such a package is skipped with a warning when it cannot be resolved.
+    imported_by: Option<PackageSpec>,
 }
 
 /// Resolve packages using a multi-step lookup and download if needed.
@@ -80,87 +85,64 @@ fn resolve_dependencies(pkg_dir: &Path) -> Vec<PackageSpec> {
 /// 1. Local data directory (e.g. `@local` packages)
 /// 2. Cache directory (previously downloaded)
 /// 3. Download from Typst Universe (only `@preview` packages)
+///
+/// The given packages and the dependencies packages declare must resolve. Packages
+/// found only by scanning another package's sources are bundled when they resolve and
+/// skipped with a warning otherwise.
 pub fn resolve_packages(
     packages: &[PackageSpec],
     data_dir: Option<&Path>,
     cache_dir: &Path,
     refresh: bool,
 ) -> Result<Vec<ResolvedPackage>, String> {
-    if packages.is_empty() {
-        return Ok(Vec::new());
-    }
-
-    let mut queue: VecDeque<_> = packages.iter().cloned().collect();
+    let mut queue: VecDeque<_> = packages
+        .iter()
+        .map(|spec| Pending {
+            spec: spec.clone(),
+            imported_by: None,
+        })
+        .collect();
     let mut seen: HashSet<PackageSpec> = HashSet::new();
+    let mut skipped: HashSet<PackageSpec> = HashSet::new();
     let mut resolved = Vec::new();
     let mut failed_packages = Vec::new();
 
-    while let Some(pkg) = queue.pop_front() {
-        if !seen.insert(pkg.clone()) {
+    while let Some(Pending {
+        spec: pkg,
+        imported_by,
+    }) = queue.pop_front()
+    {
+        if seen.contains(&pkg) || (imported_by.is_some() && skipped.contains(&pkg)) {
             continue;
         }
 
-        // 1. Check local data directory
-        if let Some(data) = data_dir {
-            let local_path = pkg.package_dir(data);
-            if local_path.exists() {
-                eprintln!("  Local: {pkg}");
-                for dep in resolve_dependencies(&local_path) {
-                    queue.push_back(dep);
+        let path = match locate_package(&pkg, data_dir, cache_dir, refresh) {
+            Ok(path) => path,
+            Err(reason) => {
+                if let Some(parent) = imported_by {
+                    eprintln!(
+                        "typst-bake: warning: skipping {pkg}, imported by {parent}: {reason}"
+                    );
+                    skipped.insert(pkg);
+                } else {
+                    failed_packages.push(format!("{pkg}: {reason}"));
+                    seen.insert(pkg);
                 }
-                resolved.push(ResolvedPackage {
-                    spec: pkg,
-                    path: local_path,
-                });
                 continue;
             }
-        }
+        };
 
-        // 2. Check cache directory
-        let cache_path = pkg.package_dir(cache_dir);
-        if cache_path.exists() && !refresh {
-            eprintln!("  Cached: {pkg}");
-            for dep in resolve_dependencies(&cache_path) {
-                queue.push_back(dep);
-            }
-            resolved.push(ResolvedPackage {
-                spec: pkg,
-                path: cache_path,
-            });
-            continue;
-        }
-
-        // 3. Download from Universe (only for downloadable namespaces)
-        if pkg.is_downloadable() {
-            eprintln!("  Downloading: {pkg}");
-            if let Err(e) = download_and_extract(&pkg.download_url(), &cache_path, refresh) {
-                eprintln!("  ✗ Failed: {pkg}: {e}");
-                failed_packages.push(format!("{pkg}: download failed: {e}"));
-                continue;
-            }
-            eprintln!("  ✓ {pkg}");
-            for dep in resolve_dependencies(&cache_path) {
-                queue.push_back(dep);
-            }
-            resolved.push(ResolvedPackage {
-                spec: pkg,
-                path: cache_path,
-            });
-            continue;
-        }
-
-        // 4. Not found anywhere
-        let mut searched = Vec::new();
-        if let Some(data) = data_dir {
-            searched.push(pkg.package_dir(data));
-        }
-        searched.push(cache_path);
-        let paths: String = searched
-            .iter()
-            .map(|p| format!("      {}", p.display()))
-            .collect::<Vec<_>>()
-            .join("\n");
-        failed_packages.push(format!("{pkg}: not found, searched:\n{paths}"));
+        let (declared, imported) = resolve_dependencies(&path);
+        queue.extend(declared.into_iter().map(|spec| Pending {
+            spec,
+            imported_by: None,
+        }));
+        queue.extend(imported.into_iter().map(|spec| Pending {
+            spec,
+            imported_by: Some(pkg.clone()),
+        }));
+        seen.insert(pkg.clone());
+        resolved.push(ResolvedPackage { spec: pkg, path });
     }
 
     if !failed_packages.is_empty() {
@@ -172,6 +154,58 @@ pub fn resolve_packages(
     }
 
     Ok(resolved)
+}
+
+/// Find a package in the data or cache directory, downloading it if needed.
+fn locate_package(
+    pkg: &PackageSpec,
+    data_dir: Option<&Path>,
+    cache_dir: &Path,
+    refresh: bool,
+) -> Result<PathBuf, String> {
+    // 1. Check local data directory
+    if let Some(data) = data_dir {
+        let local_path = pkg.package_dir(data);
+        if local_path.exists() {
+            eprintln!("  Local: {pkg}");
+            return Ok(local_path);
+        }
+    }
+
+    // 2. Check cache directory
+    let cache_path = pkg.package_dir(cache_dir);
+    if cache_path.exists() && !refresh {
+        eprintln!("  Cached: {pkg}");
+        return Ok(cache_path);
+    }
+
+    // 3. Download from Universe (only for downloadable namespaces)
+    if pkg.is_downloadable() {
+        eprintln!("  Downloading: {pkg}");
+        return match download_and_extract(&pkg.download_url(), &cache_path, refresh) {
+            Ok(()) => {
+                eprintln!("  ✓ {pkg}");
+                Ok(cache_path)
+            }
+            Err(e) => {
+                eprintln!("  ✗ Failed: {pkg}: {e}");
+                Err(format!("download failed: {e}"))
+            }
+        };
+    }
+
+    // 4. Not found anywhere
+    let mut searched = Vec::new();
+    if let Some(data) = data_dir {
+        searched.push(pkg.package_dir(data));
+    }
+    searched.push(cache_path);
+    let paths: String = searched
+        .iter()
+        .map(|p| format!("      {}", p.display()))
+        .collect::<Vec<_>>()
+        .join("\n");
+    Err(format!("not found, searched:\n{paths}"))
 }
 
 /// Download and extract a tar.gz archive from a URL.
@@ -257,6 +291,36 @@ fn extract_tar_gz(bytes: &[u8], dest: &Path) -> Result<(), Box<dyn std::error::E
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn spec(name: &str) -> PackageSpec {
+        PackageSpec {
+            namespace: "local".to_owned(),
+            name: name.to_owned(),
+            version: "0.1.0".to_owned(),
+        }
+    }
+
+    #[test]
+    fn unresolvable_imports_found_in_packages_are_skipped() {
+        let root = std::env::temp_dir().join(format!("typst-bake-deps-{}", std::process::id()));
+        let data = root.join("data");
+        let pkg = spec("app").package_dir(&data);
+        fs::create_dir_all(&pkg).unwrap();
+        fs::write(
+            pkg.join("lib.typ"),
+            r#"#let f() = { import "@local/missing:0.1.0" }"#,
+        )
+        .unwrap();
+
+        let resolved = resolve_packages(&[spec("app")], Some(&data), &root.join("cache"), false);
+        // Asked for directly, the same package is an error.
+        let direct = resolve_packages(&[spec("missing")], Some(&data), &root.join("cache"), false);
+        fs::remove_dir_all(&root).unwrap();
+
+        let names: Vec<_> = resolved.unwrap().into_iter().map(|p| p.spec.name).collect();
+        assert_eq!(names, ["app"]);
+        assert!(direct.unwrap_err().contains("@local/missing:0.1.0"));
+    }
 
     #[test]
     fn test_get_cache_dir() {

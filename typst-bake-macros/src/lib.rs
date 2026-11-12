@@ -45,27 +45,53 @@ struct EmbeddedPackages {
     namespace_entries: Vec<proc_macro2::TokenStream>,
 }
 
-/// Resolve template_dir, fonts_dir and validate the entry file exists.
-fn resolve_config(
-    entry: &LitStr,
-    entry_value: &str,
-) -> Result<(PathBuf, PathBuf), proc_macro2::TokenStream> {
+/// Resolve template_dir and fonts_dir.
+fn resolve_config(entry: &LitStr) -> Result<(PathBuf, PathBuf), proc_macro2::TokenStream> {
     let template_dir = config::get_template_dir()
         .map_err(|e| syn::Error::new_spanned(entry, e).to_compile_error())?;
-
-    let entry_path = template_dir.join(entry_value);
-    if !entry_path.exists() {
-        return Err(syn::Error::new_spanned(
-            entry,
-            format!("Entry file not found: {}", entry_path.display()),
-        )
-        .to_compile_error());
-    }
 
     let fonts_dir = config::get_fonts_dir()
         .map_err(|e| syn::Error::new_spanned(entry, e).to_compile_error())?;
 
     Ok((template_dir, fonts_dir))
+}
+
+/// Normalize an entry path like Typst does (`./a/../main.typ` is `main.typ`), reading
+/// `\\` as `/`. Rejects absolute paths and paths that escape the template directory.
+fn normalize_entry(entry: &str) -> Result<String, String> {
+    let entry = entry.replace('\\', "/");
+    if entry.starts_with('/') {
+        return Err(format!(
+            "Entry must be relative to template-dir, not absolute: {entry}"
+        ));
+    }
+    let vpath = typst_syntax::VirtualPath::new(&entry)
+        .map_err(|_| format!("Entry escapes template-dir: {entry}"))?;
+    Ok(vpath.get_without_slash().to_owned())
+}
+
+/// Check that the entry names a file that was embedded, with exactly this spelling, and
+/// return its normalized path.
+fn check_entry(
+    entry: &LitStr,
+    template_dir: &Path,
+    templates: &DirEmbedResult,
+) -> Result<String, proc_macro2::TokenStream> {
+    let error = |message: String| syn::Error::new_spanned(entry, message).to_compile_error();
+    let normalized = normalize_entry(&entry.value()).map_err(error)?;
+    if templates.files.contains(&normalized) {
+        return Ok(normalized);
+    }
+    let path = template_dir.join(&normalized);
+    let why = if path.exists() {
+        " (it is a directory, a hidden file, or differs in letter case)"
+    } else {
+        ""
+    };
+    Err(error(format!(
+        "Entry file not found in template-dir: {}{why}",
+        path.display()
+    )))
 }
 
 /// Scan template directory for package imports and resolve them.
@@ -260,14 +286,8 @@ fn generate_output(
 #[proc_macro]
 pub fn document(input: TokenStream) -> TokenStream {
     let entry = parse_macro_input!(input as LitStr);
-    let entry_value = entry.value();
 
-    let (template_dir, fonts_dir) = match resolve_config(&entry, &entry_value) {
-        Ok(v) => v,
-        Err(e) => return e.into(),
-    };
-
-    let resolved_packages = match resolve_and_download_packages(&entry, &template_dir) {
+    let (template_dir, fonts_dir) = match resolve_config(&entry) {
         Ok(v) => v,
         Err(e) => return e.into(),
     };
@@ -278,7 +298,18 @@ pub fn document(input: TokenStream) -> TokenStream {
         .ok();
     let mut cache = CompressionCache::new(compression_cache_dir, compression_level);
 
+    // Embed the templates first: a bad entry then fails before any package download.
     let templates_result = dir_embed::embed_dir(&template_dir, &mut cache);
+    let entry_value = match check_entry(&entry, &template_dir, &templates_result) {
+        Ok(v) => v,
+        Err(e) => return e.into(),
+    };
+
+    let resolved_packages = match resolve_and_download_packages(&entry, &template_dir) {
+        Ok(v) => v,
+        Err(e) => return e.into(),
+    };
+
     let fonts_result = font_embed::embed_fonts(&fonts_dir, &mut cache);
 
     let embedded_packages = embed_packages(&resolved_packages, &mut cache);
@@ -308,4 +339,20 @@ pub fn derive_into_dict(item: TokenStream) -> TokenStream {
     derive_intoval::derive_into_dict(item)
         .unwrap_or_else(|err| err.to_compile_error())
         .into()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::normalize_entry;
+
+    #[test]
+    fn entries_are_normalized_like_typst_paths() {
+        assert_eq!(normalize_entry("main.typ").unwrap(), "main.typ");
+        assert_eq!(normalize_entry("./a/../main.typ").unwrap(), "main.typ");
+        assert_eq!(normalize_entry("a//b/./c.typ").unwrap(), "a/b/c.typ");
+        assert_eq!(normalize_entry("a\\b.typ").unwrap(), "a/b.typ");
+        assert!(normalize_entry("/main.typ").is_err());
+        assert!(normalize_entry("../main.typ").is_err());
+        assert!(normalize_entry("a/../../main.typ").is_err());
+    }
 }

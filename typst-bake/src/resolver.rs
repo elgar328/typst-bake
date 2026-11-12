@@ -2,12 +2,13 @@
 //!
 //! Uses lazy decompression - files are decompressed only when accessed.
 
+use crate::error::Error;
 use crate::util::decompress;
 use include_dir::Dir;
 use std::collections::HashMap;
 use typst::diag::{FileError, FileResult};
 use typst::foundations::Bytes;
-use typst::syntax::{FileId, Source, VirtualRoot};
+use typst::syntax::{FileId, Source, VirtualPath, VirtualRoot};
 
 /// Resolver for embedded templates and packages.
 ///
@@ -87,9 +88,27 @@ pub(crate) fn file_id_to_path(id: FileId) -> String {
     }
 }
 
-/// Normalize a string file path: strip leading `./` and convert `\` to `/`.
-pub(crate) fn normalize_file_path(path: &str) -> String {
-    path.trim_start_matches("./").replace('\\', "/")
+/// The key a runtime file is stored under: `path` normalized like a Typst path
+/// (`./img//a.png` and `img/x/../a.png` are both `img/a.png`), with `\\` read as `/`.
+///
+/// Rejects an empty or absolute path, and one that escapes the template directory.
+pub(crate) fn runtime_key(path: &str) -> Result<String, Error> {
+    let path = path.replace('\\', "/");
+    if path.starts_with('/') {
+        return Err(Error::InvalidFilePath(format!(
+            "absolute path not allowed: {path}"
+        )));
+    }
+    let vpath = VirtualPath::new(&path).map_err(|_| {
+        Error::InvalidFilePath(format!("path escapes the template directory: {path}"))
+    })?;
+    let key = vpath.get_without_slash();
+    if key.is_empty() {
+        return Err(Error::InvalidFilePath(format!(
+            "path names no file: {path:?}"
+        )));
+    }
+    Ok(key.to_owned())
 }
 
 /// Join a prefix and name with `/`, or return name alone if prefix is empty.
@@ -124,7 +143,7 @@ fn not_found(id: FileId) -> FileError {
 }
 
 /// Convert bytes to Source, handling UTF-8 BOM.
-fn bytes_to_source(id: FileId, bytes: &[u8]) -> FileResult<Source> {
+pub(crate) fn bytes_to_source(id: FileId, bytes: &[u8]) -> FileResult<Source> {
     // Handle UTF-8 BOM
     let text = if bytes.starts_with(&[0xEF, 0xBB, 0xBF]) {
         std::str::from_utf8(&bytes[3..])

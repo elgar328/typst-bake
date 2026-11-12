@@ -133,6 +133,11 @@ pub enum Error {
     #[error("PDF generation failed:\n{}", format_diagnostics(.0))]
     PdfGeneration(Vec<Diagnostic>),
 
+    /// The DPI passed to `to_png` is not a positive finite number, or makes a page too
+    /// large to render.
+    #[error("invalid DPI: {0}")]
+    InvalidDpi(String),
+
     /// PNG encoding failed.
     #[error("PNG encoding failed: {0}")]
     PngEncoding(String),

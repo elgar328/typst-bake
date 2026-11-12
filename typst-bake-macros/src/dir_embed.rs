@@ -4,6 +4,7 @@ use crate::compression_cache::CompressionCache;
 use crate::config::is_hidden;
 use proc_macro2::TokenStream;
 use quote::quote;
+use std::collections::BTreeSet;
 use std::fs;
 use std::path::Path;
 
@@ -18,6 +19,8 @@ pub struct DirEmbedResult {
     pub compressed_size: usize,
     /// Number of files embedded.
     pub file_count: usize,
+    /// Paths of the embedded files, relative and with `/` separators, as named on disk.
+    pub files: BTreeSet<String>,
 }
 
 impl DirEmbedResult {
@@ -36,6 +39,7 @@ struct ScanContext<'a> {
     original_size: usize,
     compressed_size: usize,
     file_count: usize,
+    files: BTreeSet<String>,
     cache: &'a mut CompressionCache,
 }
 
@@ -46,6 +50,7 @@ impl<'a> ScanContext<'a> {
             original_size: 0,
             compressed_size: 0,
             file_count: 0,
+            files: BTreeSet::new(),
             cache,
         }
     }
@@ -91,6 +96,8 @@ impl<'a> ScanContext<'a> {
                 self.original_size += original_len;
                 self.compressed_size += compressed_len;
                 self.file_count += 1;
+                self.files
+                    .insert(rel_path.to_string_lossy().replace('\\', "/"));
 
                 let blob_ident = quote::format_ident!("BLOB_{}", blob_info.hash);
 
@@ -119,7 +126,7 @@ impl<'a> ScanContext<'a> {
                     )
                 });
             }
-            // Skip symlinks and other special files
+            // `is_file`/`is_dir` follow symlinks; broken links and special files are skipped.
         }
 
         entries
@@ -131,6 +138,7 @@ impl<'a> ScanContext<'a> {
             original_size: self.original_size,
             compressed_size: self.compressed_size,
             file_count: self.file_count,
+            files: self.files,
         }
     }
 }

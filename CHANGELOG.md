@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `Document::with_now` fixes the time that `datetime.today()` uses.
 - `PdfTimestamp::now` (the current time with the local UTC offset, as the Typst CLI writes it), `PdfTimestamp::from_unix`, and `PdfTimestamp::with_offset_minutes`.
 - `js-clock` feature (default): on `wasm32-unknown-unknown`, read the current time from JavaScript.
+- `IntoValue` and `IntoDict` can be derived for generic structs.
 
 ### Changed
 
@@ -27,9 +28,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - On WebAssembly targets embedded resources are decompressed with the pure-Rust `ruzstd`, so building for wasm no longer needs a C toolchain that targets wasm. Native targets keep the C `zstd` library.
 - Resources are compressed with their size known, which is faster and uses far less memory for small files (126 package files at level 22: 524 ms and 742 MB peak before, 107 ms and 10 MB now), and the recorded size lets decompression allocate the output up front. Existing compression caches are refreshed on the next build.
 - Update dependencies: `zstd` 0.14, `zip` 9, `dirs` 7
+- Hidden files in `template-dir` are no longer scanned for package imports; they were not embedded anyway.
+- A package found only by scanning another package's sources is skipped with a warning when it cannot be resolved, instead of failing the build: such imports can sit in code the package never runs, like its tests.
 
 ### Fixed
 
+- Package imports inside code blocks, functions, and conditionals, and package `include`s, are found and bundled. Only top-level imports were, so packages imported elsewhere (lilaq imports `komet` inside functions) failed at runtime.
+- A panic while rendering no longer leaves the `Document` unusable. Documents also render in parallel from several threads.
+- `to_png` returns `Error::InvalidDpi` for a DPI that is not a positive finite number or makes a page too large to render. It panicked or produced a 1×1 image.
+- `add_file` and `has_file` normalize paths like Typst does, so `./img//a.png` names `img/a.png`. Paths with `.` or doubled slashes were stored but never found, and `img/x/../a.png` was rejected.
+- A runtime file at the entry's path replaces the entry, as documented for other files.
+- An entry file that starts with a byte order mark no longer gains an empty first page.
+- `document!` rejects at build time an entry that is a directory, a hidden file, differs in letter case, or escapes `template-dir`. These built and then always failed at runtime. Diagnostics name the entry by its normalized path (`./main.typ` is `main.typ`).
+- `IntoValue`/`IntoDict` use `type` as the key of a field named `r#type`. The key was `r#type`.
 - Offsets passed to `datetime.today()` that are not whole hours are applied exactly. They were truncated to hours.
 - `std.sys.inputs` holds the inputs, like `sys.inputs`. It was an empty dictionary.
 - A PDF timestamp with a year outside 0000–9999, or an offset between −1 and −59 minutes, is now an error. Before, a negative year silently dropped the date and such an offset was written as positive.

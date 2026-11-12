@@ -4,12 +4,12 @@ use crate::error::{Diagnostic, Error, Hint, Result, Severity, SourceLocation};
 use crate::fonts::{FontSet, FontStore};
 #[cfg(feature = "pdf")]
 use crate::pdf_config::PdfConfig;
-use crate::resolver::{EmbeddedResolver, file_id_to_path, normalize_file_path};
+use crate::resolver::{EmbeddedResolver, bytes_to_source, file_id_to_path, runtime_key};
 use crate::stats::EmbedStats;
 use crate::util::decompress;
 use include_dir::{Dir, File};
 use std::collections::{BTreeSet, HashMap};
-use std::sync::{Mutex, MutexGuard};
+use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 use typst::diag::{FileResult, SourceDiagnostic};
 use typst::foundations::{Bytes, Datetime, Dict, Duration};
 use typst::syntax::{DiagSpan, FileId, RootedPath, Source, VirtualPath, VirtualRoot};
@@ -17,6 +17,8 @@ use typst::text::{Font, FontBook};
 use typst::utils::LazyHash;
 use typst::{Library, LibraryExt, World, WorldExt};
 use typst_kit::datetime::Time;
+#[cfg(feature = "png")]
+use typst_layout::Page;
 use typst_layout::PagedDocument;
 
 /// A compiled document together with the warnings typst produced for it and the world
@@ -43,7 +45,9 @@ pub struct Document {
     inputs: Mutex<Option<Dict>>,
     runtime_files: Mutex<HashMap<String, Bytes>>,
     stats: EmbedStats,
-    compiled_cache: Mutex<Option<Compiled>>,
+    /// Shared so that rendering never holds the lock: a panic while rendering then
+    /// cannot poison it, and threads rendering the same document run in parallel.
+    compiled_cache: Mutex<Option<Arc<Compiled>>>,
     /// The fixed current time (Unix seconds) set by [`Document::with_now`].
     now: Option<i64>,
     /// PDF export options. Set by [`Document::with_pdf_config`]. A plain field (no
@@ -52,6 +56,12 @@ pub struct Document {
     #[cfg(feature = "pdf")]
     pdf_config: PdfConfig,
 }
+
+// Documents are shared across threads (e.g. in a `static`); keep them `Send + Sync`.
+const _: () = {
+    fn assert_send_sync<T: Send + Sync>() {}
+    let _ = assert_send_sync::<Document>;
+};
 
 impl Document {
     /// Internal constructor used by the macro.
@@ -79,16 +89,22 @@ impl Document {
         }
     }
 
+    // A poisoned lock is recovered: every write below replaces the value whole, so the
+    // data is consistent even after a panic elsewhere.
     fn lock_inputs(&self) -> MutexGuard<'_, Option<Dict>> {
-        self.inputs.lock().expect("lock poisoned")
+        self.inputs.lock().unwrap_or_else(PoisonError::into_inner)
     }
 
     fn lock_runtime_files(&self) -> MutexGuard<'_, HashMap<String, Bytes>> {
-        self.runtime_files.lock().expect("lock poisoned")
+        self.runtime_files
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
     }
 
-    fn lock_cache(&self) -> MutexGuard<'_, Option<Compiled>> {
-        self.compiled_cache.lock().expect("lock poisoned")
+    fn lock_cache(&self) -> MutexGuard<'_, Option<Arc<Compiled>>> {
+        self.compiled_cache
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
     }
 
     /// Add input data to the document.
@@ -141,11 +157,12 @@ impl Document {
     ///
     /// The file becomes available to Typst templates via `#image("path")`,
     /// `#read("path")`, etc. Runtime files take priority over embedded files
-    /// with the same path.
+    /// with the same path, including the entry file. The path is normalized like a
+    /// Typst path, so `./img//a.png` and `img/a.png` name the same file.
     ///
     /// # Errors
     /// Returns [`Error::InvalidFilePath`] if the path is empty, absolute, or
-    /// contains `..` segments.
+    /// escapes the template directory with `..`.
     ///
     /// # Example
     /// ```rust,ignore
@@ -154,25 +171,9 @@ impl Document {
     ///     .to_pdf()?;
     /// ```
     pub fn add_file(self, path: impl Into<String>, data: impl Into<Vec<u8>>) -> Result<Self> {
-        let raw = path.into();
-        let normalized = normalize_file_path(&raw);
-
-        if normalized.is_empty() {
-            return Err(Error::InvalidFilePath("path is empty".into()));
-        }
-        if normalized.starts_with('/') {
-            return Err(Error::InvalidFilePath(format!(
-                "absolute path not allowed: {normalized}"
-            )));
-        }
-        if normalized.split('/').any(|s| s == "..") {
-            return Err(Error::InvalidFilePath(format!(
-                "path with '..' not allowed: {normalized}"
-            )));
-        }
-
+        let key = runtime_key(&path.into())?;
         self.lock_runtime_files()
-            .insert(normalized, Bytes::new(data.into()));
+            .insert(key, Bytes::new(data.into()));
         *self.lock_cache() = None;
         Ok(self)
     }
@@ -239,21 +240,13 @@ impl Document {
 
     /// Check if a file exists at the given path.
     ///
-    /// Checks both embedded (compile-time) and runtime files.
+    /// Checks both embedded (compile-time) and runtime files. The path is normalized
+    /// like in [`Document::add_file`]; a path `add_file` would reject is never found.
     pub fn has_file(&self, path: impl AsRef<str>) -> bool {
-        let normalized = normalize_file_path(path.as_ref());
-
-        // Check runtime files first.
-        if self.lock_runtime_files().contains_key(&normalized) {
-            return true;
-        }
-
-        // Check embedded templates.
-        if find_entry(self.templates, &normalized).is_some() {
-            return true;
-        }
-
-        false
+        let Ok(key) = runtime_key(path.as_ref()) else {
+            return false;
+        };
+        self.lock_runtime_files().contains_key(&key) || find_entry(self.templates, &key).is_some()
     }
 
     /// Select specific pages for output, returning a [`Pages`] view.
@@ -323,12 +316,7 @@ impl Document {
     /// }
     /// ```
     pub fn warnings(&self) -> Result<Vec<Diagnostic>> {
-        self.compile_cached()?;
-        let cache = self.lock_cache();
-        let compiled = cache
-            .as_ref()
-            .expect("compiled_cache must be Some after successful compile_cached()");
-        Ok(compiled.warnings.clone())
+        Ok(self.compile_cached()?.warnings.clone())
     }
 
     /// Get compression statistics for embedded content.
@@ -337,27 +325,40 @@ impl Document {
     }
 
     /// Compile the document, reusing the cached result if available.
-    fn compile_cached(&self) -> Result<()> {
-        if self.lock_cache().is_some() {
-            return Ok(());
+    ///
+    /// The lock is not held while compiling, so two threads that render a fresh document
+    /// at once may both compile it; either result is equally valid.
+    fn compile_cached(&self) -> Result<Arc<Compiled>> {
+        if let Some(compiled) = self.lock_cache().as_ref() {
+            return Ok(Arc::clone(compiled));
         }
-
-        // Read main template content (compressed)
-        let main_file =
-            find_entry(self.templates, self.entry).ok_or(Error::EntryNotFound(self.entry))?;
-
-        let main_bytes = decompress(main_file.contents()).map_err(Error::Decompression)?;
-        let main_content = String::from_utf8(main_bytes).map_err(|_| Error::InvalidUtf8)?;
 
         // A path typst cannot represent cannot name the entry either.
         let main_id = VirtualPath::new(self.entry)
             .map(|vpath| RootedPath::new(VirtualRoot::Project, vpath).intern())
             .map_err(|_| Error::EntryNotFound(self.entry))?;
 
+        let main_key = main_id.vpath().get_without_slash();
+
         let mut files = EmbeddedResolver::new(self.templates, self.packages);
-        for (path, data) in self.lock_runtime_files().iter() {
-            files.insert_runtime_file(path.clone(), data.clone());
-        }
+        let runtime_main = {
+            let runtime_files = self.lock_runtime_files();
+            for (path, data) in runtime_files.iter() {
+                files.insert_runtime_file(path.clone(), data.clone());
+            }
+            runtime_files.get(main_key).cloned()
+        };
+
+        // A runtime file replaces the embedded entry like any other file.
+        let main_bytes = match runtime_main {
+            Some(bytes) => bytes,
+            None => {
+                let file =
+                    find_entry(self.templates, main_key).ok_or(Error::EntryNotFound(self.entry))?;
+                Bytes::new(decompress(file.contents()).map_err(Error::Decompression)?)
+            }
+        };
+        let main = bytes_to_source(main_id, &main_bytes).map_err(|_| Error::InvalidUtf8)?;
 
         // Fonts come from the process-wide store: its book is prebuilt and each font is
         // decompressed only when typst first uses it.
@@ -366,13 +367,7 @@ impl Document {
         // Clone inputs (preserve for retry on failure)
         let inputs = self.lock_inputs().clone();
 
-        let baked = BakedWorld::new(
-            Source::new(main_id, main_content),
-            files,
-            fonts,
-            inputs,
-            clock(self.now),
-        );
+        let baked = BakedWorld::new(main, files, fonts, inputs, clock(self.now));
 
         let warned = typst::compile::<PagedDocument>(&baked);
         // Drop memoized results right away. The comemo cache is global, so keeping entries
@@ -402,26 +397,23 @@ impl Document {
             .map(|d| diagnostic_from(world, self.entry, main, d))
             .collect();
 
-        *self.lock_cache() = Some(Compiled {
+        let compiled = Arc::new(Compiled {
             doc,
             warnings,
             world: baked,
         });
-
-        Ok(())
+        *self.lock_cache() = Some(Arc::clone(&compiled));
+        Ok(compiled)
     }
 
-    /// Compile if needed, then call `f` with a reference to the compiled document.
+    /// Compile if needed, then call `f` with the compiled document, without holding the
+    /// cache lock.
     fn with_compiled<F, T>(&self, f: F) -> Result<T>
     where
         F: FnOnce(&Compiled) -> Result<T>,
     {
-        self.compile_cached()?;
-        let cache = self.lock_cache();
-        let compiled = cache
-            .as_ref()
-            .expect("compiled_cache must be Some after successful compile_cached()");
-        f(compiled)
+        let compiled = self.compile_cached()?;
+        f(&compiled)
     }
 
     /// Compile the document and generate PDF.
@@ -554,6 +546,11 @@ impl Document {
 
     #[cfg(feature = "png")]
     fn render_png(&self, selected: Option<&BTreeSet<usize>>, dpi: f32) -> Result<Vec<Vec<u8>>> {
+        if !(dpi.is_finite() && dpi > 0.0) {
+            return Err(Error::InvalidDpi(format!(
+                "{dpi} is not a positive finite number"
+            )));
+        }
         self.with_compiled(|Compiled { doc: compiled, .. }| {
             // `RenderOptions::default()` uses 2.0 pixels per point, so always set it
             // explicitly from the requested DPI.
@@ -562,12 +559,16 @@ impl Document {
                 ..Default::default()
             };
             let indices = validate_page_selection(selected, compiled.pages().len())?;
-            let pages: Box<dyn Iterator<Item = &_>> = match &indices {
-                Some(indices) => Box::new(indices.iter().map(|&i| &compiled.pages()[i])),
-                None => Box::new(compiled.pages().iter()),
+            let pages: Vec<(usize, &Page)> = match &indices {
+                Some(indices) => indices.iter().map(|&i| (i, &compiled.pages()[i])).collect(),
+                None => compiled.pages().iter().enumerate().collect(),
             };
+            for &(index, page) in &pages {
+                check_pixmap_size(index, page, &options, dpi)?;
+            }
             pages
-                .map(|page| {
+                .into_iter()
+                .map(|(_, page)| {
                     typst_render::render(page, &options)
                         .encode_png()
                         .map_err(|e| Error::PngEncoding(e.to_string()))
@@ -581,6 +582,10 @@ impl Document {
 ///
 /// Created by [`Document::select_pages`]. Holds a reference to the
 /// document and an owned set of page indices.
+#[cfg_attr(
+    not(any(feature = "pdf", feature = "svg", feature = "png")),
+    allow(dead_code)
+)]
 pub struct Pages<'a> {
     doc: &'a Document,
     indices: BTreeSet<usize>,
@@ -621,8 +626,37 @@ impl Pages<'_> {
     }
 }
 
+/// Reject a page whose pixmap at this resolution cannot be allocated: tiny-skia (via
+/// typst-render) panics when a row takes more than `i32::MAX` bytes, and `Vec` when the
+/// image takes more than `isize::MAX`. A smaller image can still exhaust memory.
+#[cfg(feature = "png")]
+fn check_pixmap_size(
+    index: usize,
+    page: &Page,
+    options: &typst_render::RenderOptions,
+    dpi: f32,
+) -> Result<()> {
+    // The same arithmetic as `typst_render::render` (bleed is not rendered by default).
+    let pixel_per_pt = options.pixel_per_pt.get() as f32;
+    let size = page.frame.size();
+    let width = (pixel_per_pt * size.x.to_pt() as f32).round().max(1.0) as u32;
+    let height = (pixel_per_pt * size.y.to_pt() as f32).round().max(1.0) as u32;
+
+    let row_bytes = u64::from(width) * 4;
+    if row_bytes > i32::MAX as u64 || row_bytes * u64::from(height) > isize::MAX as u64 {
+        return Err(Error::InvalidDpi(format!(
+            "page {index} would be {width}×{height} pixels at {dpi} DPI, too large to render"
+        )));
+    }
+    Ok(())
+}
+
 /// Validate page selection and return indices to render.
 /// Returns `None` if no selection (= all pages).
+#[cfg_attr(
+    not(any(feature = "pdf", feature = "svg", feature = "png")),
+    allow(dead_code)
+)]
 fn validate_page_selection(
     selected: Option<&BTreeSet<usize>>,
     total_pages: usize,
@@ -795,12 +829,11 @@ fn diagnostic_from(
     }
 }
 
-/// Find a file in a `Dir` tree by a potentially nested path (e.g. "dir/main.typ").
+/// Find a file in a `Dir` tree by a normalized, possibly nested path (e.g. "dir/main.typ").
 fn find_entry<'a>(dir: &'a Dir<'a>, path: &str) -> Option<&'a File<'a>> {
-    let normalized = path.trim_start_matches("./").replace('\\', "/");
-    let (dir_path, file_name) = match normalized.rsplit_once('/') {
+    let (dir_path, file_name) = match path.rsplit_once('/') {
         Some((d, f)) => (Some(d), f),
-        None => (None, normalized.as_str()),
+        None => (None, path),
     };
 
     let target_dir = match dir_path {
@@ -981,6 +1014,74 @@ mod tests {
         let message = Error::PdfGeneration(diagnostics).to_string();
         assert!(message.contains("main.typ:2:"), "{message}");
         assert!(!message.contains("SourceDiagnostic"), "{message}");
+    }
+
+    #[test]
+    fn runtime_file_paths_are_normalized_like_typst_paths() {
+        let doc = test_document("#assert.eq(read(\"img/a.txt\"), \"x\")")
+            .add_file("./img/./a.txt", "x")
+            .expect("valid path");
+        doc.page_count().expect("found under its normalized path");
+        assert!(doc.has_file("img//a.txt"));
+        assert!(doc.has_file("main.typ"));
+        assert!(!doc.has_file("../x"));
+
+        let doc = doc.add_file("img/x/../b.txt", "y").expect("stays inside");
+        assert!(doc.has_file("img/b.txt"));
+
+        for bad in ["", ".", "./", "/a.txt", "../a.txt", "img/../../a.txt"] {
+            let result = test_document("").add_file(bad, "x");
+            assert!(
+                matches!(result, Err(Error::InvalidFilePath(_))),
+                "{bad:?} was accepted"
+            );
+        }
+    }
+
+    #[test]
+    fn a_runtime_file_replaces_the_entry() {
+        let doc = test_document("#assert(false, message: \"embedded entry\")")
+            .add_file("main.typ", "#pagebreak()")
+            .expect("valid path");
+        assert_eq!(doc.page_count().expect("the replacement compiles"), 2);
+    }
+
+    #[test]
+    fn a_byte_order_mark_does_not_start_the_entry() {
+        // Text before `set page` would start a page of its own.
+        let src = "\u{FEFF}#set page(width: 10pt, height: 10pt)\n";
+        assert_eq!(test_document(src).page_count().unwrap(), 1);
+
+        let doc = test_document("").add_file("main.typ", src).unwrap();
+        assert_eq!(doc.page_count().unwrap(), 1);
+    }
+
+    #[test]
+    fn a_panic_does_not_break_the_document() {
+        use std::panic::{AssertUnwindSafe, catch_unwind};
+
+        let doc = test_document("");
+        let _ = catch_unwind(AssertUnwindSafe(|| {
+            doc.with_compiled(|_| -> Result<()> { panic!("while rendering") })
+        }));
+        let _ = catch_unwind(AssertUnwindSafe(|| {
+            let _guard = doc.lock_cache();
+            panic!("while holding the cache lock");
+        }));
+        assert_eq!(doc.page_count().expect("still usable"), 1);
+    }
+
+    #[cfg(feature = "png")]
+    #[test]
+    fn unusable_dpi_is_an_error() {
+        let doc = test_document("");
+        for dpi in [f32::NAN, 0.0, -1.0, f32::INFINITY, 1e9] {
+            assert!(
+                matches!(doc.to_png(dpi), Err(Error::InvalidDpi(_))),
+                "{dpi} was accepted"
+            );
+        }
+        assert_eq!(doc.to_png(72.0).expect("renders").len(), 1);
     }
 
     /// Compile a self-contained broken source and resolve its diagnostics. No
