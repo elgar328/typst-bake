@@ -81,8 +81,13 @@ impl EmbedStats {
 
     /// The fraction of size saved by compression: 0.0 means no savings, 0.75 means a
     /// quarter of the original size. Negative when compression made tiny files larger.
+    #[deprecated(
+        since = "0.3.1",
+        note = "the name suggests original/compressed; compute the value you need from \
+                `total_original()` and `total_compressed()`"
+    )]
     pub fn compression_ratio(&self) -> f64 {
-        compression_ratio(self.total_original(), self.total_compressed())
+        space_saving(self.total_original(), self.total_compressed())
     }
 
     /// Total size after deduplication (actual binary footprint).
@@ -92,8 +97,12 @@ impl EmbedStats {
 
     /// The fraction of size saved by compression and deduplication together, measured
     /// like [`EmbedStats::compression_ratio`].
+    #[deprecated(
+        since = "0.3.1",
+        note = "compute the value you need from `total_original()` and `total_deduplicated()`"
+    )]
     pub fn overall_ratio(&self) -> f64 {
-        compression_ratio(self.total_original(), self.total_deduplicated())
+        space_saving(self.total_original(), self.total_deduplicated())
     }
 
     /// Total number of files across all categories.
@@ -126,7 +135,7 @@ impl std::fmt::Display for EmbedStats {
                 "Templates:  {:>9} -> {:>9} ({:>5.1}% reduced, {} files)",
                 format_size(self.templates.original_size),
                 format_size(self.templates.compressed_size),
-                self.templates.compression_ratio() * 100.0,
+                space_saving(self.templates.original_size, self.templates.compressed_size) * 100.0,
                 self.templates.file_count
             )?;
         }
@@ -138,7 +147,7 @@ impl std::fmt::Display for EmbedStats {
                 "Fonts:      {:>9} -> {:>9} ({:>5.1}% reduced, {} files)",
                 format_size(self.fonts.original_size),
                 format_size(self.fonts.compressed_size),
-                self.fonts.compression_ratio() * 100.0,
+                space_saving(self.fonts.original_size, self.fonts.compressed_size) * 100.0,
                 self.fonts.file_count
             )?;
         }
@@ -167,7 +176,7 @@ impl std::fmt::Display for EmbedStats {
                     pkg.name,
                     format_size(pkg.original_size),
                     format_size(pkg.compressed_size),
-                    pkg.compression_ratio() * 100.0,
+                    space_saving(pkg.original_size, pkg.compressed_size) * 100.0,
                     name_w = name_width,
                     orig_w = orig_width,
                     comp_w = comp_width,
@@ -183,7 +192,7 @@ impl std::fmt::Display for EmbedStats {
             format_size(self.total_original()),
             format_size(self.total_compressed()),
             self.compression_level,
-            self.compression_ratio() * 100.0,
+            space_saving(self.total_original(), self.total_compressed()) * 100.0,
             self.total_file_count()
         )?;
 
@@ -204,12 +213,17 @@ impl std::fmt::Display for EmbedStats {
             "Total: {} -> {} ({:.1}% reduced)",
             format_size(self.total_original()),
             format_size(self.total_deduplicated()),
-            self.overall_ratio() * 100.0
+            space_saving(self.total_original(), self.total_deduplicated()) * 100.0
         )
     }
 }
 
 /// Trait for types that have original/compressed sizes and can compute a compression ratio.
+#[deprecated(
+    since = "0.3.1",
+    note = "the name suggests original/compressed; use the `original_size` and \
+            `compressed_size` fields and compute the value you need"
+)]
 pub trait HasCompressionRatio {
     /// Uncompressed size in bytes.
     fn original_size(&self) -> usize;
@@ -219,13 +233,14 @@ pub trait HasCompressionRatio {
     /// The fraction of size saved by compression, measured like
     /// [`EmbedStats::compression_ratio`].
     fn compression_ratio(&self) -> f64 {
-        compression_ratio(self.original_size(), self.compressed_size())
+        space_saving(self.original_size(), self.compressed_size())
     }
 }
 
 macro_rules! impl_has_compression_ratio {
     ($($ty:ty),*) => {
-        $(impl HasCompressionRatio for $ty {
+        $(#[allow(deprecated)]
+        impl HasCompressionRatio for $ty {
             fn original_size(&self) -> usize { self.original_size }
             fn compressed_size(&self) -> usize { self.compressed_size }
         })*
@@ -234,9 +249,8 @@ macro_rules! impl_has_compression_ratio {
 
 impl_has_compression_ratio!(CategoryStats, PackageInfo, PackageStats);
 
-/// Calculate compression ratio from original and compressed sizes.
-/// Returns 0.0 when original is 0, otherwise 1.0 - (compressed / original).
-fn compression_ratio(original: usize, compressed: usize) -> f64 {
+/// The fraction of size saved: 0.0 when original is 0, otherwise 1.0 - (compressed / original).
+fn space_saving(original: usize, compressed: usize) -> f64 {
     if original == 0 {
         return 0.0;
     }
@@ -282,26 +296,16 @@ mod tests {
     }
 
     #[test]
-    fn test_compression_ratio_zero_original() {
-        let stats = CategoryStats {
-            original_size: 0,
-            compressed_size: 0,
-            file_count: 0,
-        };
-        assert_eq!(stats.compression_ratio(), 0.0);
+    fn test_space_saving_zero_original() {
+        assert_eq!(space_saving(0, 0), 0.0);
     }
 
     #[test]
-    fn test_compression_ratio_75_percent() {
+    fn test_space_saving_75_percent() {
         // Asymmetric values to distinguish from incorrect calculation (original/compressed)
         // Correct: 1 - (250/1000) = 0.75
         // Wrong:   1 - (1000/250) = -3.0
-        let stats = CategoryStats {
-            original_size: 1000,
-            compressed_size: 250,
-            file_count: 1,
-        };
-        assert!((stats.compression_ratio() - 0.75).abs() < 0.001);
+        assert!((space_saving(1000, 250) - 0.75).abs() < 0.001);
     }
 
     #[test]
@@ -333,7 +337,6 @@ mod tests {
         // Total: 4000 -> 1000 (75% compression)
         assert_eq!(stats.total_original(), 4000);
         assert_eq!(stats.total_compressed(), 1000);
-        assert!((stats.compression_ratio() - 0.75).abs() < 0.001);
         // Deduplicated: 1000 - 100 = 900
         assert_eq!(stats.total_deduplicated(), 900);
     }

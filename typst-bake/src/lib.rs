@@ -77,9 +77,9 @@ pub use error::{Diagnostic, Error, Hint, Result, Severity, SourceLocation};
 #[cfg(feature = "pdf")]
 #[cfg_attr(docsrs, doc(cfg(feature = "pdf")))]
 pub use pdf_config::{PdfConfig, PdfStandard, PdfTimestamp};
-pub use stats::{
-    CategoryStats, DedupStats, EmbedStats, HasCompressionRatio, PackageInfo, PackageStats,
-};
+#[allow(deprecated)]
+pub use stats::HasCompressionRatio;
+pub use stats::{CategoryStats, DedupStats, EmbedStats, PackageInfo, PackageStats};
 /// Creates a [`Document`] with embedded templates, fonts, and packages.
 ///
 /// # Usage

@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Deprecated
+
+- `EmbedStats::compression_ratio`, `EmbedStats::overall_ratio`, and the `HasCompressionRatio` trait, to be removed in 0.4. They return the fraction of size saved, which the name "ratio" does not convey; compute the value you need from the `original_size` and `compressed_size` fields or `total_original()`, `total_compressed()`, and `total_deduplicated()`.
+
 ## [0.3.0] - 2026-11-12
 
 ### Added
