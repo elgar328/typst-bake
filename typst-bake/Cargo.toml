@@ -7,8 +7,8 @@ description = "Bake Typst templates, fonts, and packages into your Rust binary â
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/elgar328/typst-bake"
 readme = "../README.md"
-keywords = ["typst", "pdf", "template", "embedded"]
-categories = ["template-engine", "text-processing"]
+keywords = ["typst", "pdf", "pdf-generation", "document-generation", "report-generation"]
+categories = ["template-engine", "text-processing", "wasm"]
 
 [package.metadata.docs.rs]
 all-features = true
