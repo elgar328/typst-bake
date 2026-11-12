@@ -36,6 +36,8 @@ typst-layout = "0.15"
 # Font metadata is serialized by the macros with this crate and read back by `typst` at
 # runtime, so it must stay on the same minor line as `typst` (a unit test checks Cargo.lock).
 typst-library = "0.15"
+# Only the clock behind `datetime.today()`.
+typst-kit = { version = "0.15", default-features = false, features = ["datetime"] }
 
 # Proc macro
 proc-macro2 = "1"
@@ -46,7 +48,6 @@ syn = "3"
 # Only the clock: chrono's default `wasmbind` would make wasm32-unknown-unknown builds import
 # JavaScript. typst-bake's `js-clock` feature turns it on deliberately.
 chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
-typst-kit = { version = "0.15", default-features = false, features = ["datetime"] }
 
 # Compression
 zstd = "0.14"
