@@ -129,18 +129,16 @@ pub struct PdfTimestamp {
     target_os = "unknown",
     not(all(target_arch = "wasm32", feature = "js-clock"))
 )))]
-#[cfg_attr(
-    docsrs,
-    doc(cfg(not(all(
-        target_family = "wasm",
-        target_os = "unknown",
-        not(all(target_arch = "wasm32", feature = "js-clock"))
-    ))))
-)]
+// The condition reads poorly as a docs.rs badge; `now` explains it instead.
+#[cfg_attr(docsrs, doc(auto_cfg = false))]
 impl PdfTimestamp {
     /// The current time with the local UTC offset, as the Typst CLI writes it.
     ///
     /// If the clock predates the Unix epoch, the time saturates to `1970-01-01T00:00:00Z`.
+    ///
+    /// On `wasm32-unknown-unknown` this needs the `js-clock` feature (on by default), which
+    /// reads the time from JavaScript. Other WebAssembly targets without an OS have no clock
+    /// and no `now`; use [`PdfTimestamp::from_unix`] there.
     pub fn now() -> Self {
         let unix_secs = Self::now_unix_secs();
         let offset_minutes = chrono::DateTime::from_timestamp(unix_secs, 0)
