@@ -40,7 +40,7 @@
 //! Add to your `Cargo.toml`:
 //! ```toml
 //! [dependencies]
-//! typst-bake = "0.2"
+//! typst-bake = "0.3"
 //!
 //! [package.metadata.typst-bake]
 //! template-dir = "./templates"

@@ -26,7 +26,7 @@ Add to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-typst-bake = "0.2"
+typst-bake = "0.3"
 
 [package.metadata.typst-bake]
 template-dir = "./templates"  # Path to your .typ files and assets
@@ -61,7 +61,7 @@ To also detect files that are only added or removed, add a build script:
 build = "build.rs"
 
 [build-dependencies]
-typst-bake = "0.2"
+typst-bake = "0.3"
 ```
 
 ```rust
