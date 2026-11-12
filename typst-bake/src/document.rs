@@ -19,12 +19,16 @@ use typst::{Library, LibraryExt, World, WorldExt};
 use typst_kit::datetime::Time;
 use typst_layout::PagedDocument;
 
-/// A compiled document together with the warnings typst produced for it.
+/// A compiled document together with the warnings typst produced for it and the world
+/// it was compiled against.
 ///
-/// Kept as one unit so that invalidating the cache always drops both.
+/// Kept as one unit so that invalidating the cache always drops all three. The world
+/// resolves the source locations of errors that PDF export reports later.
 struct Compiled {
     doc: PagedDocument,
     warnings: Vec<Diagnostic>,
+    #[cfg_attr(not(feature = "pdf"), allow(dead_code))]
+    world: BakedWorld<'static>,
 }
 
 /// A fully self-contained document ready for rendering.
@@ -37,7 +41,7 @@ pub struct Document {
     fonts: &'static FontSet,
     entry: &'static str,
     inputs: Mutex<Option<Dict>>,
-    runtime_files: Mutex<HashMap<String, Vec<u8>>>,
+    runtime_files: Mutex<HashMap<String, Bytes>>,
     stats: EmbedStats,
     compiled_cache: Mutex<Option<Compiled>>,
     /// The fixed current time (Unix seconds) set by [`Document::with_now`].
@@ -79,7 +83,7 @@ impl Document {
         self.inputs.lock().expect("lock poisoned")
     }
 
-    fn lock_runtime_files(&self) -> MutexGuard<'_, HashMap<String, Vec<u8>>> {
+    fn lock_runtime_files(&self) -> MutexGuard<'_, HashMap<String, Bytes>> {
         self.runtime_files.lock().expect("lock poisoned")
     }
 
@@ -167,7 +171,8 @@ impl Document {
             )));
         }
 
-        self.lock_runtime_files().insert(normalized, data.into());
+        self.lock_runtime_files()
+            .insert(normalized, Bytes::new(data.into()));
         *self.lock_cache() = None;
         Ok(self)
     }
@@ -296,7 +301,7 @@ impl Document {
     /// let last_page = doc.select_pages([count - 1]).to_pdf()?;
     /// ```
     pub fn page_count(&self) -> Result<usize> {
-        self.with_compiled(|compiled| Ok(compiled.pages().len()))
+        self.with_compiled(|compiled| Ok(compiled.doc.pages().len()))
     }
 
     /// Get the warnings Typst produced while compiling the document.
@@ -341,7 +346,7 @@ impl Document {
         let main_file =
             find_entry(self.templates, self.entry).ok_or(Error::EntryNotFound(self.entry))?;
 
-        let main_bytes = decompress(main_file.contents())?;
+        let main_bytes = decompress(main_file.contents()).map_err(Error::Decompression)?;
         let main_content = String::from_utf8(main_bytes).map_err(|_| Error::InvalidUtf8)?;
 
         // A path typst cannot represent cannot name the entry either.
@@ -397,7 +402,11 @@ impl Document {
             .map(|d| diagnostic_from(world, self.entry, main, d))
             .collect();
 
-        *self.lock_cache() = Some(Compiled { doc, warnings });
+        *self.lock_cache() = Some(Compiled {
+            doc,
+            warnings,
+            world: baked,
+        });
 
         Ok(())
     }
@@ -405,14 +414,14 @@ impl Document {
     /// Compile if needed, then call `f` with a reference to the compiled document.
     fn with_compiled<F, T>(&self, f: F) -> Result<T>
     where
-        F: FnOnce(&PagedDocument) -> Result<T>,
+        F: FnOnce(&Compiled) -> Result<T>,
     {
         self.compile_cached()?;
         let cache = self.lock_cache();
         let compiled = cache
             .as_ref()
             .expect("compiled_cache must be Some after successful compile_cached()");
-        f(&compiled.doc)
+        f(compiled)
     }
 
     /// Compile the document and generate PDF.
@@ -460,6 +469,8 @@ impl Document {
     #[cfg(feature = "pdf")]
     fn render_pdf(&self, selected: Option<&BTreeSet<usize>>) -> Result<Vec<u8>> {
         self.with_compiled(|compiled| {
+            let (compiled, world) = (&compiled.doc, &compiled.world);
+
             // Base options come from the stored config (incl. `tagged`, standard, ident,
             // timestamp, creator).
             let mut options = self.pdf_config.to_typst()?;
@@ -510,13 +521,20 @@ impl Document {
             // Invariant backstop: tagged PDF + page ranges must never escape together.
             debug_assert!(!(options.tagged && options.page_ranges.is_some()));
 
-            typst_pdf::pdf(compiled, &options).map_err(|e| Error::PdfGeneration(format!("{e:?}")))
+            typst_pdf::pdf(compiled, &options).map_err(|diagnostics| {
+                Error::PdfGeneration(
+                    diagnostics
+                        .iter()
+                        .map(|d| diagnostic_from(world, self.entry, world.main(), d))
+                        .collect(),
+                )
+            })
         })
     }
 
     #[cfg(feature = "svg")]
     fn render_svg(&self, selected: Option<&BTreeSet<usize>>) -> Result<Vec<String>> {
-        self.with_compiled(|compiled| {
+        self.with_compiled(|Compiled { doc: compiled, .. }| {
             // Defaults match 0.14 behaviour: no bleed, no pretty-printing.
             let options = typst_svg::SvgOptions::default();
             let indices = validate_page_selection(selected, compiled.pages().len())?;
@@ -536,7 +554,7 @@ impl Document {
 
     #[cfg(feature = "png")]
     fn render_png(&self, selected: Option<&BTreeSet<usize>>, dpi: f32) -> Result<Vec<Vec<u8>>> {
-        self.with_compiled(|compiled| {
+        self.with_compiled(|Compiled { doc: compiled, .. }| {
             // `RenderOptions::default()` uses 2.0 pixels per point, so always set it
             // explicitly from the requested DPI.
             let options = typst_render::RenderOptions {
@@ -940,6 +958,29 @@ mod tests {
             matches!(doc.warnings(), Err(Error::Compilation(_))),
             "a cached result was reused"
         );
+    }
+
+    #[cfg(feature = "pdf")]
+    #[test]
+    fn pdf_export_errors_carry_source_locations() {
+        use crate::pdf_config::{PdfStandard, PdfTimestamp};
+
+        // PDF/A-2b forbids attachments; typst-pdf reports it at the `pdf.attach` call.
+        let doc =
+            test_document("\n#pdf.attach(\"x.txt\", bytes(\"x\"))\n").with_pdf_config(PdfConfig {
+                standard: PdfStandard::A2b,
+                timestamp: Some(PdfTimestamp::from_unix(0)),
+                ..Default::default()
+            });
+        let Err(Error::PdfGeneration(diagnostics)) = doc.to_pdf() else {
+            panic!("expected a PDF generation error");
+        };
+        let location = diagnostics[0].location.as_ref().expect("located");
+        assert_eq!((location.file.as_str(), location.line), ("main.typ", 2));
+
+        let message = Error::PdfGeneration(diagnostics).to_string();
+        assert!(message.contains("main.typ:2:"), "{message}");
+        assert!(!message.contains("SourceDiagnostic"), "{message}");
     }
 
     /// Compile a self-contained broken source and resolve its diagnostics. No

@@ -17,6 +17,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Breaking:** `PdfTimestamp` is reduced to `now`, `from_unix`, and `with_offset_minutes`, none of which can fail; a timestamp a PDF date cannot hold is reported by `to_pdf`. Replace `now_utc()` with `now()` (the same instant, written with the local offset), `now_local(m)` with `now().with_offset_minutes(m)`, and `utc(..)`/`local(..)` with `from_unix(..)` (seconds in UTC) plus `with_offset_minutes(..)`: `local(2026, 1, 1, 9, 0, 0, 540)` is `from_unix(1_767_225_600).with_offset_minutes(540)`. A fixed date can also be set in the template with `#set document(date: ..)`.
 - **Breaking:** On `wasm32-unknown-unknown` the current time now comes from the `js-clock` feature, which is on by default. Builds with `default-features = false` must add it to keep a clock; without it typst-bake imports no JavaScript, `datetime.today()` fails unless `Document::with_now` is set, and `PdfTimestamp::now` is unavailable.
+- **Breaking:** `Error`, `Severity`, and `SourceLocation` are `#[non_exhaustive]`, so later releases can extend them.
+- **Breaking:** `Error::PdfGeneration` holds `Vec<Diagnostic>` with source locations, like `Error::Compilation`. Its message was a Rust debug dump.
+- **Breaking:** `Error::Decompression` no longer converts from `std::io::Error`.
 - typst-bake no longer depends on `typst-as-lib` and implements Typst's `World` itself.
 - `datetime.today()` without an offset returns the local date, like the Typst CLI. It was the UTC date.
 - Font metadata is computed at build time, and a font is decompressed only when a document first uses it. Previously every embedded font was decompressed and parsed each time a `Document` compiled, which cost tens of milliseconds with large (e.g. CJK) fonts. Decoded fonts are kept for the life of the process and shared by every `Document` from the same `document!` call.

@@ -9,6 +9,7 @@ use thiserror::Error;
 /// Line and column are 1-based; the column counts characters from the start of
 /// the line, matching the Typst CLI's reporting.
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[non_exhaustive]
 pub struct SourceLocation {
     /// Path of the source file, e.g. `reports/event_report/report.typ`.
     pub file: String,
@@ -26,6 +27,7 @@ impl fmt::Display for SourceLocation {
 
 /// Whether a diagnostic is a fatal error or a non-fatal warning.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum Severity {
     /// A fatal error; compilation did not produce a document.
     Error,
@@ -101,7 +103,8 @@ impl fmt::Display for Diagnostic {
     }
 }
 
-/// Format a list of diagnostics, one per line, for the `Compilation` error.
+/// Format a list of diagnostics, one per line, for the `Compilation` and `PdfGeneration`
+/// errors.
 fn format_diagnostics(diagnostics: &[Diagnostic]) -> String {
     diagnostics
         .iter()
@@ -112,6 +115,7 @@ fn format_diagnostics(diagnostics: &[Diagnostic]) -> String {
 
 /// Errors that can occur during document compilation and rendering.
 #[derive(Error, Debug)]
+#[non_exhaustive]
 pub enum Error {
     /// Entry file was not found in the embedded templates.
     #[error("entry file not found: {0}")]
@@ -125,9 +129,9 @@ pub enum Error {
     #[error("compilation failed:\n{}", format_diagnostics(.0))]
     Compilation(Vec<Diagnostic>),
 
-    /// PDF generation failed.
-    #[error("PDF generation failed: {0}")]
-    PdfGeneration(String),
+    /// PDF generation failed, e.g. the document breaks a rule of the chosen PDF standard.
+    #[error("PDF generation failed:\n{}", format_diagnostics(.0))]
+    PdfGeneration(Vec<Diagnostic>),
 
     /// PNG encoding failed.
     #[error("PNG encoding failed: {0}")]
@@ -147,7 +151,7 @@ pub enum Error {
 
     /// Decompression of embedded content failed.
     #[error("decompression failed")]
-    Decompression(#[from] std::io::Error),
+    Decompression(#[source] std::io::Error),
 }
 
 /// A specialized Result type for typst-bake operations.

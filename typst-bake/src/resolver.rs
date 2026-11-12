@@ -15,7 +15,7 @@ use typst::syntax::{FileId, Source, VirtualRoot};
 /// Typst's internal caching prevents redundant decompression.
 pub struct EmbeddedResolver {
     files: HashMap<String, &'static [u8]>,
-    runtime_files: HashMap<String, Vec<u8>>,
+    runtime_files: HashMap<String, Bytes>,
 }
 
 impl EmbeddedResolver {
@@ -38,16 +38,16 @@ impl EmbeddedResolver {
     }
 
     /// Insert a runtime file (uncompressed).
-    pub(crate) fn insert_runtime_file(&mut self, path: String, data: Vec<u8>) {
+    pub(crate) fn insert_runtime_file(&mut self, path: String, data: Bytes) {
         self.runtime_files.insert(path, data);
     }
 
-    /// Look up and decompress a file by its FileId.
+    /// The file with the given id as raw bytes, decompressing an embedded file.
     /// Runtime files take priority over embedded files.
-    fn decompress_file(&self, id: FileId) -> FileResult<Vec<u8>> {
+    pub(crate) fn file(&self, id: FileId) -> FileResult<Bytes> {
         let path = self.get_path(id);
 
-        // Runtime files are stored uncompressed — return directly.
+        // Runtime files are stored uncompressed; cloning `Bytes` is cheap.
         if let Some(data) = self.runtime_files.get(&path) {
             return Ok(data.clone());
         }
@@ -57,19 +57,14 @@ impl EmbeddedResolver {
             .get(&path)
             .copied()
             .ok_or_else(|| not_found(id))?;
-        decompress(compressed).map_err(|e| {
+        decompress(compressed).map(Bytes::new).map_err(|e| {
             FileError::Other(Some(format!("Decompression failed for {path}: {e}").into()))
         })
     }
 
-    /// The file with the given id as raw bytes.
-    pub(crate) fn file(&self, id: FileId) -> FileResult<Bytes> {
-        Ok(Bytes::new(self.decompress_file(id)?))
-    }
-
     /// The file with the given id as a Typst source.
     pub(crate) fn source(&self, id: FileId) -> FileResult<Source> {
-        bytes_to_source(id, &self.decompress_file(id)?)
+        bytes_to_source(id, &self.file(id)?)
     }
 }
 
