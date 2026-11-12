@@ -29,9 +29,9 @@ impl fmt::Display for SourceLocation {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[non_exhaustive]
 pub enum Severity {
-    /// A fatal error; compilation did not produce a document.
+    /// A fatal error; compilation or PDF export produced no output.
     Error,
-    /// A non-fatal warning; compilation still succeeded.
+    /// A non-fatal warning; the document still compiled.
     Warning,
 }
 
@@ -67,7 +67,7 @@ impl fmt::Display for Hint {
     }
 }
 
-/// A single Typst compilation diagnostic with resolved source location.
+/// A single Typst diagnostic from compilation or PDF export, with resolved source location.
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[non_exhaustive]
 pub struct Diagnostic {

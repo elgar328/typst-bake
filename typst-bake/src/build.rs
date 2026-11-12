@@ -84,7 +84,7 @@ fn resolve_path_string(manifest_dir: &Path, path: &str) -> String {
 ///
 /// # Panics
 ///
-/// Panics if `CARGO_MANIFEST_DIR` is not set or if `Cargo.toml` cannot be read.
+/// Panics if `CARGO_MANIFEST_DIR` is not set or if `Cargo.toml` cannot be read or parsed.
 pub fn rebuild_if_changed() {
     let manifest_dir = env::var("CARGO_MANIFEST_DIR").expect("CARGO_MANIFEST_DIR not set");
     let manifest_dir = Path::new(&manifest_dir);

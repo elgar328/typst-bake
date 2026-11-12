@@ -185,8 +185,8 @@ impl Document {
     ///
     /// Without it, the system clock is read during compilation and `datetime.today()` returns
     /// the local date. On `wasm32-unknown-unknown` the clock comes from JavaScript (the
-    /// default `js-clock` feature); without that feature, `datetime.today()` is a compile
-    /// error unless this is set.
+    /// default `js-clock` feature); without that feature, `datetime.today()` fails when the
+    /// template is compiled unless this is set.
     ///
     /// This does not set the PDF creation date (see `PdfConfig::timestamp`). An instant
     /// outside the date range Typst supports also makes `datetime.today()` an error.
@@ -451,7 +451,8 @@ impl Document {
     /// A vector of PNG bytes, one per page.
     ///
     /// # Errors
-    /// Returns an error if compilation or PNG encoding fails.
+    /// Returns an error if compilation or PNG encoding fails, or [`Error::InvalidDpi`] if
+    /// `dpi` is not a positive finite number or makes a page too large to render.
     #[cfg(feature = "png")]
     #[cfg_attr(docsrs, doc(cfg(feature = "png")))]
     pub fn to_png(&self, dpi: f32) -> Result<Vec<Vec<u8>>> {
@@ -618,7 +619,9 @@ impl Pages<'_> {
     /// * `dpi` - Resolution in dots per inch (e.g., 72 for 1:1, 144 for Retina, 300 for print)
     ///
     /// # Errors
-    /// Returns an error if compilation, PNG encoding, or page selection fails.
+    /// Returns an error if compilation, PNG encoding, or page selection fails, or
+    /// [`Error::InvalidDpi`] if `dpi` is not a positive finite number or makes a page too
+    /// large to render.
     #[cfg(feature = "png")]
     #[cfg_attr(docsrs, doc(cfg(feature = "png")))]
     pub fn to_png(&self, dpi: f32) -> Result<Vec<Vec<u8>>> {

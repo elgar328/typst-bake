@@ -16,6 +16,14 @@
 //!
 //! PDF is enabled by default. To use only SVG: `default-features = false, features = ["svg"]`.
 //!
+//! ## WebAssembly
+//!
+//! typst-bake builds for WebAssembly without a C toolchain. On `wasm32-unknown-unknown` the
+//! current time is read from JavaScript by the default `js-clock` feature; keep it if you
+//! disable default features. For hosts without JavaScript, leave it out (e.g.
+//! `default-features = false, features = ["pdf"]`) and set the time with
+//! [`Document::with_now`].
+//!
 //! ## Features
 //!
 //! - **Simple API** - Set `template-dir` and `fonts-dir` in `Cargo.toml`, then generate documents with just `document!("main.typ").to_pdf()`
@@ -144,10 +152,13 @@ pub use typst_bake_macros::document;
 /// }
 /// ```
 ///
+/// Each field becomes a dictionary key named after the field (`r#type` becomes `type`).
+/// Generic structs are supported when every type parameter implements `IntoValue`.
+///
 /// In `.typ` files, nested structs are accessed as dictionaries:
 /// ```typ
 /// #for product in inputs.products [
-///   - #product.name: $#product.price
+///   - #product.name: \$#product.price
 /// ]
 /// ```
 pub use typst_bake_macros::IntoValue;

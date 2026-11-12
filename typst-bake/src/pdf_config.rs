@@ -112,7 +112,7 @@ impl PdfStandard {
 ///
 /// The value is applied only when the template's document date is `auto`; a
 /// `#set document(date: ..)` in the template takes precedence, which is also the simplest way
-/// to fix a date. A timestamp that a PDF date cannot hold (a year outside 0000–9999 after
+/// to fix a date. A timestamp that a PDF date cannot represent (a year outside 0000–9999 after
 /// the offset, or an unsupported offset) is reported as an error when the PDF is generated.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct PdfTimestamp {

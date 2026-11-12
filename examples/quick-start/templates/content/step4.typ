@@ -14,7 +14,7 @@ Access inputs via `sys.inputs` and use embedded files:
     = #inputs.title (#inputs.discount% off)
 
     #for product in inputs.products [
-      - #product.name: $#product.price
+      - #product.name: \$#product.price
     ]
     ```
   ],
